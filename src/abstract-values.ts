@@ -54,7 +54,7 @@ export type AbstractArray = { item: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
 
-const bot: Bottom = { __bottomBrand: true }
+export const bot: Bottom = { __bottomBrand: true }
 const top: Top = { __topBrand: true }
 function single<T>(item: T): Single<T> {
     return {
@@ -96,7 +96,7 @@ export function nodesValue(nodes: SimpleSet<ts.Node>): AbstractValue {
         nodes,
     }
 }
-function stringValue(str: string): AbstractValue {
+export function stringValue(str: string): AbstractValue {
     return {
         ...botValue,
         strings: single(str),
@@ -108,7 +108,7 @@ export function numberValue(num: number): AbstractValue {
         numbers: single(num),
     }
 }
-function booleanValue(b: boolean): AbstractValue {
+export function booleanValue(b: boolean): AbstractValue {
     return {
         ...botValue,
         booleans: single(b),
@@ -216,15 +216,33 @@ export function valueBind<T>(val: AbstractValue, key: LatticeKey, f: (item: T) =
     if (isTop(items)) {
         return {
             ...botValue,
-            numbers: top,
+            [key]: top,
         }
     } else if (isBottom(items)) {
         return {
             ...botValue,
-            numbers: bot,
+            [key]: bot,
         }
     } else {
         return f(items.item);
+    }
+}
+
+export function valueBind2<T>(val1: AbstractValue, val2: AbstractValue, key: LatticeKey, f: (item1: T, item2: T) => AbstractValue): AbstractValue {
+    const items1 = val1[key] as FlatLattice<T>;
+    const items2 = val2[key] as FlatLattice<T>;
+    if (isTop(items1) || isTop(items2)) {
+        return {
+            ...botValue,
+            [key]: top,
+        }
+    } else if (isBottom(items1) || isBottom(items2)) {
+        return {
+            ...botValue,
+            [key]: bot,
+        }
+    } else {
+        return f(items1.item, items2.item);
     }
 }
 

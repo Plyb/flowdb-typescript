@@ -4,8 +4,8 @@ import { empty, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
-import { AbstractArray, AbstractObject, AbstractValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
+import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { PrimopId, primopMath, primops } from './primops';
 
@@ -58,9 +58,12 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             if (possiblePrimops.size() === 0) {
                 return valuesOfFunctionBodies; // short circuit to prevent expensive computations
             }
+            const thisResult = ts.isPropertyAccessExpression(node.expression)
+                ? fix_run(abstractEval, node.expression.expression)
+                : botResult;
             const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
             const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
-                applyPrimop(primopId, ...argumentValues)
+                applyPrimop(primopId, thisResult, argumentValues)
             );
 
             return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
@@ -87,8 +90,14 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 throw new Error(`Expected simple identifier property access: ${node.name}`);
             }
 
-            const expressionValue = fix_run(abstractEval, node.expression);
-            return getObjectProperty(expressionValue, node.name);
+            const expressionResult = fix_run(abstractEval, node.expression);
+            const propertyAccessResult = getObjectProperty(expressionResult, node.name);
+            if (propertyAccessResult !== botResult) {
+                return propertyAccessResult;
+            }
+
+            const primops = getPrimitivePrimops(expressionResult);
+            return setJoinMap(primops, primopResult);
         } else if (ts.isAwaitExpression(node)) {
             const expressionValue = fix_run(abstractEval, node.expression);
             return resolvePromise(expressionValue);
@@ -291,6 +300,14 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     return false;
 }
 
-function applyPrimop(primopId: PrimopId, ...args: AbstractResult[]): AbstractResult {
-    return primops[primopId](...args);
+function applyPrimop(primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
+    return primops[primopId].apply(thisRes, args);
+}
+
+function getPrimitivePrimops(res: AbstractResult): SimpleSet<PrimopId> {
+    if (res.value.strings !== bot) {
+        return singleton<PrimopId>('String#includes');
+    }
+
+    return empty();
 }
