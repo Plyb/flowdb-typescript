@@ -16,7 +16,9 @@ const stringSubstringPrimop =
         String.prototype.substring
     );
 const stringTrimPrimop =
-    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim)
+    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim);
+const stringToLowerCasePrimop =
+    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.toLowerCase);
 const stringSplit =
     createUnaryPrimopWithThis('strings',
         (arr, callExpression) =>
@@ -31,7 +33,8 @@ export const primops = {
     'String#includes': stringIncludesPrimop as Primop,
     'String#substring': stringSubstringPrimop as Primop,
     'String#split': stringSplit as Primop,
-    'String#trim': stringTrimPrimop as Primop
+    'String#trim': stringTrimPrimop as Primop,
+    'String#toLowerCase': stringToLowerCasePrimop as Primop,
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
