@@ -8,7 +8,6 @@ import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './a
 import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
-import { packageZod } from './zodPackage';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -304,8 +303,6 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
             return primopFecth;
         } else if (node.text === 'JSON') {
             return primopJSON;
-        } else if (node.text === 'z') {
-            return packageZod;
         }
     }
 
