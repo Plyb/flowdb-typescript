@@ -96,8 +96,10 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 return propertyAccessResult;
             }
 
-            const primops = getPrimitivePrimops(expressionResult);
-            return setJoinMap(primops, primopResult);
+            const primop = getPrimitivePrimop(expressionResult, node.name.text);
+            return primop
+                ? primopResult(primop)
+                : botResult;
         } else if (ts.isAwaitExpression(node)) {
             const expressionValue = fix_run(abstractEval, node.expression);
             return resolvePromise(expressionValue);
@@ -304,10 +306,14 @@ function applyPrimop(primopId: PrimopId, thisRes: AbstractResult, args: Abstract
     return primops[primopId].apply(thisRes, args);
 }
 
-function getPrimitivePrimops(res: AbstractResult): SimpleSet<PrimopId> {
+function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId {
     if (res.value.strings !== bot) {
-        return singleton<PrimopId>('String#includes');
+        if (name === 'includes') {
+            return 'String#includes';
+        } else if (name === 'substring') {
+            return 'String#substring';
+        }
     }
 
-    return empty();
+    return false;
 }
