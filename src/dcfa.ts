@@ -63,7 +63,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 : botResult;
             const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
             const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
-                applyPrimop(primopId, thisResult, argumentValues)
+                applyPrimop(node, primopId, thisResult, argumentValues)
             );
 
             return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
@@ -302,17 +302,16 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     return false;
 }
 
-function applyPrimop(primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
-    return primops[primopId].apply(thisRes, args);
+function applyPrimop(callExpression: ts.CallExpression, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
+    return primops[primopId].apply(thisRes, [callExpression, ...args]);
 }
 
 function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId {
+    const primopIds = Object.keys(primops);
+
     if (res.value.strings !== bot) {
-        if (name === 'includes') {
-            return 'String#includes';
-        } else if (name === 'substring') {
-            return 'String#substring';
-        }
+        const stringPrimops = primopIds.filter(id => id.split('#')[0] === 'String');
+        return stringPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
     }
 
     return false;

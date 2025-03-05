@@ -24,7 +24,7 @@ export type LatticeKey =
     | 'promises'
     | 'arrays';
 
-type FlatLattice<T> = 
+export type FlatLattice<T> = 
 | Bottom
 | Single<T>
 | Top
@@ -49,13 +49,14 @@ export type AbstractPromise = {
 export type PromiseLattice = FlatLattice<PromiseRef>
 export type PromiseStore = Map<PromiseRef, AbstractPromise>
 
-export type ArrayRef = ts.ArrayLiteralExpression;
+type PrimopArrayRef = ts.CallExpression;
+export type ArrayRef = ts.ArrayLiteralExpression | PrimopArrayRef;
 export type AbstractArray = { item: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
 
 export const bot: Bottom = { __bottomBrand: true }
-const top: Top = { __topBrand: true }
+export const top: Top = { __topBrand: true }
 function single<T>(item: T): Single<T> {
     return {
         item,
@@ -209,41 +210,6 @@ export function isBottom<T>(lattice: FlatLattice<T>): lattice is Bottom {
 }
 export function isTop<T>(lattice: FlatLattice<T>): lattice is Top {
     return lattice === top;
-}
-
-export function valueBind<T>(val: AbstractValue, key: LatticeKey, f: (item: T) => AbstractValue): AbstractValue {
-    const items = val[key] as FlatLattice<T>;
-    if (isTop(items)) {
-        return {
-            ...botValue,
-            [key]: top,
-        }
-    } else if (isBottom(items)) {
-        return {
-            ...botValue,
-            [key]: bot,
-        }
-    } else {
-        return f(items.item);
-    }
-}
-
-export function valueBind2<T>(val1: AbstractValue, val2: AbstractValue, key: LatticeKey, f: (item1: T, item2: T) => AbstractValue): AbstractValue {
-    const items1 = val1[key] as FlatLattice<T>;
-    const items2 = val2[key] as FlatLattice<T>;
-    if (isTop(items1) || isTop(items2)) {
-        return {
-            ...botValue,
-            [key]: top,
-        }
-    } else if (isBottom(items1) || isBottom(items2)) {
-        return {
-            ...botValue,
-            [key]: bot,
-        }
-    } else {
-        return f(items1.item, items2.item);
-    }
 }
 
 export function prettyFlatLattice<T>(lattice: FlatLattice<T>, label: string): any[] {

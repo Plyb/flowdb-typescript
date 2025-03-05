@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, valueBind, valueBind2 } from './abstract-values';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
@@ -77,6 +77,10 @@ export function result(value: AbstractValue): AbstractResult {
     };
 }
 
+export function resultFrom<T>(construct: (item: T) => AbstractValue) {
+    return (item: T) => result(construct(item));
+}
+
 export function arrayResult(node: ArrayRef, itemResult: AbstractResult): AbstractResult {
     const value = arrayValue(node);
     const store = new Map(itemResult.arrayStore);
@@ -141,19 +145,61 @@ export function resolvePromise(promiseResult: AbstractResult): AbstractResult {
     }
 }
 
-export function resultBind<T>(res: AbstractResult, key: LatticeKey, f: (item: T) => AbstractValue): AbstractResult {
+export function resultBind<T>(res: AbstractResult, key: LatticeKey, f: (item: T) => AbstractResult): AbstractResult {
     const value = res.value;
-    return {
-        ...res,
-        value: valueBind(value, key, f),
+    const items = value[key] as FlatLattice<T>;
+
+    if (isTop(items)) {
+        return {
+            ...res,
+            value: {
+                ... topValue,
+                [key]: top
+            },
+        }
+    } else if (isBottom(items)) {
+        return {
+            ...res,
+            value: {
+                ... botValue,
+                [key]: bot
+            },
+        }
+    } else {
+        const result = f(items.item);
+        return {
+            ...joinStores(result, res),
+            value: result.value,
+        }
     }
 }
-export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: LatticeKey, f: (item1: T, item2: T) => AbstractValue): AbstractResult {
-    const value1 = res1.value;
-    const value2 = res2.value
-    return {
-        ...joinStores(res1, res2),
-        value: valueBind2(value1, value2, key, f),
+export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: LatticeKey, f: (item1: T, item2: T) => AbstractResult): AbstractResult {
+    const val1 = res1.value;
+    const val2 = res2.value;
+    const items1 = val1[key] as FlatLattice<T>;
+    const items2 = val2[key] as FlatLattice<T>;
+    if (isTop(items1) || isTop(items2)) {
+        return {
+            ...joinStores(res1, res2),
+            value: {
+                ... topValue,
+                [key]: top
+            },
+        }
+    } else if (isBottom(items1) || isBottom(items2)) {
+        return {
+            ...joinStores(res1, res2),
+            value: {
+                ... botValue,
+                [key]: bot
+            },
+        }
+    } else {
+        const result = f(items1.item, items2.item);
+        return {
+            ...joinStores(result, joinStores(res1, res2)),
+            value: result.value,
+        }
     }
 }
 

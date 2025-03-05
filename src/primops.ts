@@ -1,49 +1,59 @@
 import ts from 'typescript';
-import { AbstractResult, objectResult, resultBind, resultBind2 } from './abstract-results';
-import { AbstractValue, booleanValue, LatticeKey, numberValue, primopValue, stringValue, valueBind } from './abstract-values';
+import { AbstractResult, arrayResult, objectResult, resultBind, resultBind2, resultFrom, setJoinMap } from './abstract-results';
+import { AbstractValue, booleanValue, LatticeKey, numberValue, primopValue, stringValue } from './abstract-values';
+import { structuralComparator } from './comparators';
+import { SimpleSet } from 'typescript-super-set';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
-type Primop = (...args: AbstractResult[]) => AbstractResult
+type Primop = (callExpression: ts.CallExpression, ...args: AbstractResult[]) => AbstractResult
 
-export const mathFloorPrimop = createUnaryPrimop('numbers', numberValue, Math.floor);
-export const stringIncludesPrimop =
-    createUnaryPrimopWithThis('strings', booleanValue, function (this: string, sub: string) {
-        return this.includes(sub)
-    });
-export const stringSubstringPrimop =
-    createBinaryPrimopWithThisHetero('strings', 'numbers', stringValue,
-        function(this: string, start: number, end: number) {
-            return this.substring(start, end)
-        }
-    )
+const mathFloorPrimop = createUnaryPrimop('numbers', resultFrom(numberValue), Math.floor);
+const stringIncludesPrimop =
+    createUnaryPrimopWithThis('strings', resultFrom(booleanValue), String.prototype.includes);
+const stringSubstringPrimop =
+    createBinaryPrimopWithThisHetero('strings', 'numbers', resultFrom(stringValue),
+        String.prototype.substring
+    );
+const stringSplit =
+    createUnaryPrimopWithThis('strings',
+        (arr, callExpression) =>
+            arrayResult(
+                callExpression,
+                setJoinMap(new SimpleSet(structuralComparator, ...arr), resultFrom(stringValue))
+            ),
+        String.prototype.substring
+    );
 export const primops = {
     'Math.floor': mathFloorPrimop as Primop,
     'String#includes': stringIncludesPrimop as Primop,
-    'String#substring': stringSubstringPrimop as Primop
+    'String#substring': stringSubstringPrimop as Primop,
+    'String#split': stringSplit as Primop,
 }
 
-function createUnaryPrimop<A, R>(key: LatticeKey, construct: (val: R) => AbstractValue, f: (item: A) => R): Primop {
-    return (res: AbstractResult) => resultBind<A>(res, key, item => construct(f(item)));
+function createUnaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+    return (callExpression, res) => 
+        resultBind<A>(res, key, (item) => construct(f(item), callExpression));
 }
-function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R) => AbstractValue, f: (item: A) => R): Primop {
-    return function(this: AbstractResult, res: AbstractResult) {
+function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+    return function(this: AbstractResult, callExpression, res) {
         return resultBind<A>(res, key, item => 
-            valueBind(this.value, key, thisItem =>
-                construct(f.apply(thisItem, [item]))
+            resultBind(this, key, thisItem =>
+                construct(f.apply(thisItem, [item]), callExpression)
             )
         );
     } 
 }
-function createBinaryPrimop<A, R>(key: LatticeKey, construct: (val: R) => AbstractValue, f: (item1: A, item2: A) => R): Primop {
-    return (res1: AbstractResult, res2: AbstractResult) =>
-        resultBind2<A>(res1, res2, key, (item1, item2) => construct(f(item1, item2)));
+function createBinaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
+    return (callExpression, res1, res2) =>
+        resultBind2<A>(res1, res2, key, (item1, item2) =>
+            construct(f(item1, item2), callExpression));
 }
-function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argsKey: LatticeKey, construct: (val: R) => AbstractValue, f: (item1: A, item2: A) => R): Primop {
-    return function(this: AbstractResult, res1: AbstractResult, res2: AbstractResult) {
+function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argsKey: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
+    return function(this: AbstractResult, callExpression, res1, res2) {
         return resultBind2<A>(res1, res2, argsKey, (item1, item2) => 
-            valueBind(this.value, thisKey, thisItem =>
-                construct(f.apply(thisItem, [item1, item2]))
+            resultBind(this, thisKey, thisItem =>
+                construct(f.apply(thisItem, [item1, item2]), callExpression)
             )
         );
     };
