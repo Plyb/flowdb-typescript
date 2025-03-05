@@ -42,7 +42,8 @@ export type AbstractObject = { [key: string]: AbstractValue }
 export type ObjectLattice = FlatLattice<ObjectRef>
 export type ObjectStore = Map<ObjectRef, AbstractObject>
 
-type PromiseRef = SimpleFunctionLikeDeclaration
+type PrimopPromiseRef = ts.CallExpression;
+export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopPromiseRef;
 export type AbstractPromise = {
     resolvesTo: AbstractValue
 }

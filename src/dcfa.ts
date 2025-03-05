@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
-import { PrimopId, primopMath, primops } from './primops';
+import { primopFecth, PrimopId, primopMath, primops } from './primops';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -295,8 +295,12 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
         return botResult; // For now, just returning bot result until I need something fancier
     }
 
+    // in the long run, probably need a better way than just checking ids, since ids are used all over the place
     if (ts.isIdentifier(node) && node.text === 'Math') {
         return primopMath;
+    }
+    if (ts.isIdentifier(node) && node.text === 'fetch') {
+        return primopFecth;
     }
 
     return false;

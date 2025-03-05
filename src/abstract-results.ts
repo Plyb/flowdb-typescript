@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot } from './abstract-values';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
@@ -53,7 +53,7 @@ export function objectResult(node: ts.ObjectLiteralExpression, obj: AbstractObje
         objectStore: map,
     }
 }
-export function promiseResult(promiseSource: SimpleFunctionLikeDeclaration, resultToWrap: AbstractResult): AbstractResult {
+export function promiseResult(promiseSource: PromiseRef, resultToWrap: AbstractResult): AbstractResult {
     const value = promiseValue(promiseSource);
     const store = new Map(resultToWrap.promiseStore)
     store.set(promiseSource, { resolvesTo: resultToWrap.value });
@@ -69,6 +69,11 @@ export function primopResult(primopId: PrimopId): AbstractResult {
         value: primopValue(primopId),
     };
 }
+
+export const anyObjectResult = {
+    ...botResult,
+    value: { ...botValue, objects: top }
+};
 
 export function result(value: AbstractValue): AbstractResult {
     return {

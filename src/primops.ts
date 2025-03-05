@@ -1,6 +1,6 @@
 import ts from 'typescript';
-import { AbstractResult, arrayResult, objectResult, resultBind, resultBind2, resultFrom, setJoinMap } from './abstract-results';
-import { AbstractValue, booleanValue, LatticeKey, numberValue, primopValue, stringValue } from './abstract-values';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, resultBind, resultBind2, resultFrom, setJoinMap } from './abstract-results';
+import { AbstractValue, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 
@@ -15,11 +15,7 @@ const stringSubstringPrimop =
     createBinaryPrimopWithThisHetero('strings', 'numbers', resultFrom(stringValue),
         String.prototype.substring
     );
-const stringTrimPrimop =
-    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim);
-const stringToLowerCasePrimop =
-    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.toLowerCase);
-const stringSplit =
+const stringSplitPrimop =
     createUnaryPrimopWithThis('strings',
         (arr, callExpression) =>
             arrayResult(
@@ -28,13 +24,24 @@ const stringSplit =
             ),
         String.prototype.substring
     );
+const stringTrimPrimop =
+    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim);
+const stringToLowerCasePrimop =
+    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.toLowerCase);
+const fetchPrimop: Primop =
+    createUnaryPrimop<string, null>('strings',
+        (_, callExpression) =>
+            promiseResult(callExpression, anyObjectResult),
+        () => null
+    );
 export const primops = {
     'Math.floor': mathFloorPrimop as Primop,
     'String#includes': stringIncludesPrimop as Primop,
     'String#substring': stringSubstringPrimop as Primop,
-    'String#split': stringSplit as Primop,
+    'String#split': stringSplitPrimop as Primop,
     'String#trim': stringTrimPrimop as Primop,
     'String#toLowerCase': stringToLowerCasePrimop as Primop,
+    'fetch': fetchPrimop as Primop,
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
@@ -78,3 +85,4 @@ export const primopMath = objectResult(
         floor: primopValue('Math.floor')
     }
 )
+export const primopFecth = primopResult('fetch');
