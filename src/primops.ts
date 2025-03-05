@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, resultBind, resultBind2, resultFrom, setJoinMap } from './abstract-results';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
 import { AbstractValue, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
@@ -34,14 +34,16 @@ const fetchPrimop: Primop =
             promiseResult(callExpression, anyObjectResult),
         () => null
     );
+const jsonParsePrimop = createUnaryPrimop('strings', () => topResult, () => null);
 export const primops = {
-    'Math.floor': mathFloorPrimop as Primop,
-    'String#includes': stringIncludesPrimop as Primop,
-    'String#substring': stringSubstringPrimop as Primop,
-    'String#split': stringSplitPrimop as Primop,
-    'String#trim': stringTrimPrimop as Primop,
-    'String#toLowerCase': stringToLowerCasePrimop as Primop,
-    'fetch': fetchPrimop as Primop,
+    'Math.floor': mathFloorPrimop,
+    'String#includes': stringIncludesPrimop,
+    'String#substring': stringSubstringPrimop,
+    'String#split': stringSplitPrimop,
+    'String#trim': stringTrimPrimop,
+    'String#toLowerCase': stringToLowerCasePrimop,
+    'fetch': fetchPrimop,
+    'JSON.parse': jsonParsePrimop
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
@@ -80,9 +82,15 @@ function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argsKey:
 }
 
 export const primopMath = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy,
+    ts.factory.createObjectLiteralExpression(), // dummy
     {
-        floor: primopValue('Math.floor')
+        floor: primopValue('Math.floor'),
     }
 )
 export const primopFecth = primopResult('fetch');
+export const primopJSON = objectResult(
+    ts.factory.createObjectLiteralExpression(), // dummy
+    {
+        parse: primopValue('JSON.parse'),
+    }
+)
