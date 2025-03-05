@@ -1,0 +1,22 @@
+{
+  "name": "ts-analysis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "lodash": "^4.17.21",
+    "typescript": "^5.7.3",
+    "typescript-super-set": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.15",
+    "@types/node": "^22.13.4",
+    "ts-node": "^10.9.2"
+  }
+}
