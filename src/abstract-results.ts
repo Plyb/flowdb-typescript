@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayStore, arrayValue, botValue, isBottom, isTop, joinValue, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, PromiseStore, promiseValue, resolvePromiseValue, topValue } from './abstract-values';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, PromiseStore, promiseValue, resolvePromiseValue, topValue, valueBind } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
@@ -42,12 +42,12 @@ export function literalResult(node: AtomicLiteral): AbstractResult {
         value: literalValue(node),
     }
 }
-export function objectResult(node: ts.ObjectLiteralExpression, obj: AbstractObject, stores: AbstractResult): AbstractResult {
+export function objectResult(node: ts.ObjectLiteralExpression, obj: AbstractObject, existingStores: AbstractResult = botResult): AbstractResult {
     const value = objectValue(node);
-    const map = new Map(stores.objectStore)
+    const map = new Map(existingStores.objectStore)
     map.set(node, obj);
     return {
-        ...stores,
+        ...existingStores,
         value,
         objectStore: map,
     }
@@ -63,7 +63,14 @@ export function promiseResult(promiseSource: SimpleFunctionLikeDeclaration, resu
     }
 }
 
-export function arrayResult(node: ts.ArrayLiteralExpression, itemResult: AbstractResult): AbstractResult {
+export function result(value: AbstractValue): AbstractResult {
+    return {
+        ...botResult,
+        value,
+    };
+}
+
+export function arrayResult(node: ArrayRef, itemResult: AbstractResult): AbstractResult {
     const value = arrayValue(node);
     const store = new Map(itemResult.arrayStore);
     store.set(node, { item: itemResult.value });
@@ -74,7 +81,7 @@ export function arrayResult(node: ts.ArrayLiteralExpression, itemResult: Abstrac
     }
 }
 
-function join(a: AbstractResult, b: AbstractResult): AbstractResult {
+export function join(a: AbstractResult, b: AbstractResult): AbstractResult {
     return {
         ...joinStores(a, b),
         value: joinValue(a.value, b.value),
@@ -124,6 +131,14 @@ export function resolvePromise(promiseResult: AbstractResult): AbstractResult {
     return {
         ...promiseResult,
         value: promiseValue,
+    }
+}
+
+export function resultBind<T>(res: AbstractResult, key: LatticeKey, f: (item: T) => AbstractValue): AbstractResult {
+    const value = res.value;
+    return {
+        ...res,
+        value: valueBind(value, key, f)
     }
 }
 

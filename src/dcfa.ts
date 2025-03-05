@@ -5,8 +5,9 @@ import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getObjectProperty, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
+import { PrimopId, primopMath, primops } from './primops';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -36,8 +37,10 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             return nodeResult(node);
         } else if (ts.isCallExpression(node)) {
             const operator: ts.Node = node.expression;
-            const possibleFunctions = fix_run(abstractEval, operator).value.nodes;
-            return setJoinMap(possibleFunctions, (func) => {
+            const possibleOperators = fix_run(abstractEval, operator).value;
+
+            const possibleFunctions = possibleOperators.nodes;
+            const valuesOfFunctionBodies = setJoinMap(possibleFunctions, (func) => {
                 if (!isFunctionLikeDeclaration(func)) {
                     return botResult;
                 }
@@ -50,6 +53,17 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                     return result;
                 }
             });
+
+            const possiblePrimops = possibleOperators.primops;
+            if (possiblePrimops.size() === 0) {
+                return valuesOfFunctionBodies; // short circuit to prevent expensive computations
+            }
+            const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
+            const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
+                applyPrimop(primopId, ...argumentValues)
+            );
+
+            return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
         } else if (ts.isIdentifier(node)) {
             const boundExprs = getBoundExprs(node, fix_run);
             return setJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
@@ -270,5 +284,13 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
         return botResult; // For now, just returning bot result until I need something fancier
     }
 
+    if (ts.isIdentifier(node) && node.text === 'Math') {
+        return primopMath;
+    }
+
     return false;
+}
+
+function applyPrimop(primopId: PrimopId, ...args: AbstractResult[]): AbstractResult {
+    return primops[primopId](...args);
 }

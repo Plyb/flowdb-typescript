@@ -3,6 +3,7 @@ import { SimpleSet } from 'typescript-super-set'
 import { empty, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
+import { PrimopId } from './primops'
 
 export type AbstractValue = {
     nodes: SimpleSet<ts.Node>,
@@ -12,7 +13,16 @@ export type AbstractValue = {
     objects: ObjectLattice,
     promises: PromiseLattice,
     arrays: ArrayLattice,
+    primops: SimpleSet<PrimopId>
 }
+
+export type LatticeKey =
+    'strings'
+    | 'numbers'
+    | 'booleans'
+    | 'objects'
+    | 'promises'
+    | 'arrays';
 
 type FlatLattice<T> = 
 | Bottom
@@ -39,7 +49,7 @@ export type AbstractPromise = {
 export type PromiseLattice = FlatLattice<PromiseRef>
 export type PromiseStore = Map<PromiseRef, AbstractPromise>
 
-type ArrayRef = ts.ArrayLiteralExpression;
+export type ArrayRef = ts.ArrayLiteralExpression;
 export type AbstractArray = { item: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
@@ -54,22 +64,24 @@ function single<T>(item: T): Single<T> {
 }
 
 export const botValue: AbstractValue = {
-    nodes: empty<ts.Node>(),
+    nodes: empty(),
     strings: bot,
     numbers: bot,
     booleans: bot,
     objects: bot,
     promises: bot,
     arrays: bot,
+    primops: empty(),
 }
 export const topValue: AbstractValue = {
-    nodes: empty<ts.Node>(),
+    nodes: empty(),
     strings: top,
     numbers: top,
     booleans: top,
     objects: top,
     promises: top,
     arrays: top,
+    primops: empty()
 }
 
 export function nodeValue(node: ts.Node): AbstractValue {
@@ -90,7 +102,7 @@ function stringValue(str: string): AbstractValue {
         strings: single(str),
     }
 }
-function numberValue(num: number): AbstractValue {
+export function numberValue(num: number): AbstractValue {
     return {
         ...botValue,
         numbers: single(num),
@@ -132,6 +144,17 @@ export function arrayValue(ref: ArrayRef): AbstractValue {
         arrays: single(ref)
     }
 }
+export function primopValue(primopId: PrimopId): AbstractValue {
+    return {
+        ...botValue,
+        primops: singleton(primopId),
+    }
+}
+
+export const anyStringValue = {
+    ...botValue,
+    stringValue: top,
+};
 
 export function resolvePromiseValue(promiseValue: AbstractValue, promiseStore: PromiseStore): AbstractValue {
     const promiseLattice = promiseValue.promises;
@@ -177,6 +200,7 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         objects: joinFlatLattice(a.objects, b.objects),
         promises: joinFlatLattice(a.promises, b.promises),
         arrays: joinFlatLattice(a.arrays, b.arrays),
+        primops: union(a.primops, b.primops),
     };
 }
 
@@ -185,6 +209,23 @@ export function isBottom<T>(lattice: FlatLattice<T>): lattice is Bottom {
 }
 export function isTop<T>(lattice: FlatLattice<T>): lattice is Top {
     return lattice === top;
+}
+
+export function valueBind<T>(val: AbstractValue, key: LatticeKey, f: (item: T) => AbstractValue): AbstractValue {
+    const items = val[key] as FlatLattice<T>;
+    if (isTop(items)) {
+        return {
+            ...botValue,
+            numbers: top,
+        }
+    } else if (isBottom(items)) {
+        return {
+            ...botValue,
+            numbers: bot,
+        }
+    } else {
+        return f(items.item);
+    }
 }
 
 export function prettyFlatLattice<T>(lattice: FlatLattice<T>, label: string): any[] {
