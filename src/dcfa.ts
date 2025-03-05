@@ -1,11 +1,12 @@
-import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind } from 'typescript';
+import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getObjectProperty, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, promiseResult, resolvePromise, setJoinMap } from './abstract-results';
+import { AbstractResult, arrayResult, botResult, getObjectProperty, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { isBareSpecifier } from './util';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -79,6 +80,14 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             return resolvePromise(expressionValue);
         } else if (ts.isArrayLiteralExpression(node)) {
             return evalArray(node);
+        } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {
+            /**
+             * I think we should only get here if we're trying to eval something that
+             * depends on an imported package that uses a bare specifier (or the client
+             * has directly requested the value of an import statement). In that case,
+             * for simplicity's sake for now, we're just going to say it could be anything.
+             */
+            return topResult;
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}`);
 
@@ -189,10 +198,13 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     // bind
     function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): SimpleSet<ts.Node> {
         console.info(`getBoundExprs: ${printNode(id)}`);
-        const declaration = typeChecker.getSymbolAtLocation(id)?.valueDeclaration;
+        const symbol = typeChecker.getSymbolAtLocation(id);
+        const declaration = symbol?.valueDeclaration
+            ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
         if (declaration === undefined) {
             throw new Error('could not find declaration');
         }
+
         if (ts.isParameter(declaration)) {
             if (!isFunctionLikeDeclaration(declaration.parent)) {
                 throw new Error('not yet implemented');
@@ -221,6 +233,27 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             }
 
             return singleton<Node>(ts.factory.createPropertyAccessExpression(initializer, id));
+        } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+            const moduleSpecifier = ts.isImportClause(declaration)
+                ? declaration.parent.moduleSpecifier
+                : declaration.parent.parent.parent.moduleSpecifier;
+
+            if (!ts.isStringLiteral(moduleSpecifier)) {
+                throw new Error('Module specifier must be a string literal');
+            }
+
+            if (isBareSpecifier(moduleSpecifier.text)) {
+                /**
+                 * This is a little bit of a hack. Here we're saying "bare specified modules
+                 * (those that are imported as packages) are 'bound' by themselves", which
+                 * abstractEval will interpret as `topResult`, so that we don't need to dig
+                 * into a bunch of package internals. Maybe I'll come up with a better way
+                 * later, but this is good enough for now.
+                 */
+                return singleton<Node>(declaration);
+            }
+
+            throw new Error('Non-bare specifiers are not yet implemented');
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[declaration.kind]}`);
     }

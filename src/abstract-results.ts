@@ -17,7 +17,7 @@ export const botResult: AbstractResult = {
     promiseStore: new Map(),
     arrayStore: new Map()
 }
-const topResult: AbstractResult = {
+export const topResult: AbstractResult = {
     value: topValue,
     objectStore: new Map(),
     promiseStore: new Map(),

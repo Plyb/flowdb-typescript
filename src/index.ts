@@ -67,10 +67,10 @@ console.info = () => undefined
 // console.info = prettyInfo
 
 
-// const pos = sf.getPositionOfLineAndCharacter(3, 11);
-// const node = getNodeAtPosition(sf, pos)!;
-// const results = dcfa(node, service);
-// console.log(pretty(results, sf));
+const pos = sf.getPositionOfLineAndCharacter(5, 11);
+const node = getNodeAtPosition(sf, pos)!;
+const results = dcfa(node, service);
+console.log(pretty(results, sf));
 
-const results = analyze(service, 1, 6);
-console.log(results)
+// const results = analyze(service, 3, 6);
+// console.log(results)
