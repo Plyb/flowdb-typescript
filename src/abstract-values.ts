@@ -153,9 +153,9 @@ export function primopValue(primopId: PrimopId): AbstractValue {
     }
 }
 
-export const anyStringValue = {
+export const anyStringValue: AbstractValue = {
     ...botValue,
-    stringValue: top,
+    strings: top,
 };
 
 export function resolvePromiseValue(promiseValue: AbstractValue, promiseStore: PromiseStore): AbstractValue {
@@ -182,7 +182,9 @@ export function resolvePromiseValue(promiseValue: AbstractValue, promiseStore: P
 }
 
 function joinFlatLattice<T>(a: FlatLattice<T>, b: FlatLattice<T>): FlatLattice<T> {
-    if (a === bot) {
+    if (a === top || b === top) {
+        return top;
+    } if (a === bot) {
         return b;
     } else if (b === bot) {
         return a;

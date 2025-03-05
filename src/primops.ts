@@ -3,10 +3,11 @@ import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, 
 import { AbstractValue, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
+import { zStringSchemaConstructor as zStringSchemaConstructor, zStringParse } from './zodPackage';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
-type Primop = (callExpression: ts.CallExpression, ...args: AbstractResult[]) => AbstractResult
+export type Primop = (callExpression: ts.CallExpression, ...args: AbstractResult[]) => AbstractResult
 
 const mathFloorPrimop = createUnaryPrimop('numbers', resultFrom(numberValue), Math.floor);
 const stringIncludesPrimop =
@@ -43,7 +44,9 @@ export const primops = {
     'String#trim': stringTrimPrimop,
     'String#toLowerCase': stringToLowerCasePrimop,
     'fetch': fetchPrimop,
-    'JSON.parse': jsonParsePrimop
+    'JSON.parse': jsonParsePrimop,
+    'z.string.Parse': zStringParse,
+    'z.string': zStringSchemaConstructor
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
