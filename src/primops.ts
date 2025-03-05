@@ -15,6 +15,8 @@ const stringSubstringPrimop =
     createBinaryPrimopWithThisHetero('strings', 'numbers', resultFrom(stringValue),
         String.prototype.substring
     );
+const stringTrimPrimop =
+    createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim)
 const stringSplit =
     createUnaryPrimopWithThis('strings',
         (arr, callExpression) =>
@@ -29,8 +31,16 @@ export const primops = {
     'String#includes': stringIncludesPrimop as Primop,
     'String#substring': stringSubstringPrimop as Primop,
     'String#split': stringSplit as Primop,
+    'String#trim': stringTrimPrimop as Primop
 }
 
+function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
+    return function(this: AbstractResult, callExpression) {
+        return resultBind(this, key, thisItem =>
+            construct(f.apply(thisItem, []), callExpression)
+        );
+    } 
+}
 function createUnaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
     return (callExpression, res) => 
         resultBind<A>(res, key, (item) => construct(f(item), callExpression));
