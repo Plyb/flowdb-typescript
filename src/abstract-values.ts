@@ -11,6 +11,7 @@ export type AbstractValue = {
     numbers: NumberLattice,
     booleans: BooleanLattice,
     dates: DateLattice,
+    regexps: RegExpLattice,
     objects: ObjectLattice,
     promises: PromiseLattice,
     arrays: ArrayLattice,
@@ -38,6 +39,7 @@ type StringLattice = FlatLattice<string>
 type NumberLattice = FlatLattice<number>
 type BooleanLattice = FlatLattice<boolean>
 type DateLattice = FlatLattice<Date>
+type RegExpLattice = FlatLattice<RegExp>
 
 type ObjectRef = ts.ObjectLiteralExpression
 export type AbstractObject = { [key: string]: AbstractValue }
@@ -73,6 +75,7 @@ export const botValue: AbstractValue = {
     numbers: bot,
     booleans: bot,
     dates: bot,
+    regexps: bot,
     objects: bot,
     promises: bot,
     arrays: bot,
@@ -84,6 +87,7 @@ export const topValue: AbstractValue = {
     numbers: top,
     booleans: top,
     dates: top,
+    regexps: top,
     objects: top,
     promises: top,
     arrays: top,
@@ -120,6 +124,12 @@ export function booleanValue(b: boolean): AbstractValue {
         booleans: single(b),
     }
 }
+function regexpValue(r: RegExp): AbstractValue {
+    return {
+        ...botValue,
+        regexps: single(r),
+    }
+}
 export function literalValue(node: AtomicLiteral): AbstractValue {
     if (ts.isStringLiteral(node)) {
         return stringValue(node.text)
@@ -129,6 +139,9 @@ export function literalValue(node: AtomicLiteral): AbstractValue {
         return booleanValue(true)
     } else if (isFalseLiteral(node)) {
         return booleanValue(false)
+    } else if (ts.isRegularExpressionLiteral(node)) {
+        const [_, pattern, flags] = node.text.split('/');
+        return regexpValue(new RegExp(pattern, flags));
     }
     throw new Error(`unsupported literal type: ${ts.SyntaxKind[node.kind]}`)
 }
@@ -208,6 +221,7 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         numbers: joinFlatLattice(a.numbers, b.numbers),
         booleans: joinFlatLattice(a.booleans, b.booleans),
         dates: joinFlatLattice(a.dates, b.dates),
+        regexps: joinFlatLattice(a.regexps, b.regexps),
         objects: joinFlatLattice(a.objects, b.objects),
         promises: joinFlatLattice(a.promises, b.promises),
         arrays: joinFlatLattice(a.arrays, b.arrays),
