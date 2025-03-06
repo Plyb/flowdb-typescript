@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
-import { primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
+import { primopDate, primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -303,6 +303,8 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
             return primopFecth;
         } else if (node.text === 'JSON') {
             return primopJSON;
+        } else if (node.text === 'Date') {
+            return primopDate;
         }
     }
 

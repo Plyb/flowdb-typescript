@@ -1,6 +1,6 @@
 import ts from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { AbstractValue, anyDateValue, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 
@@ -35,6 +35,7 @@ const fetchPrimop: Primop =
         () => null
     );
 const jsonParsePrimop = createUnaryPrimop('strings', () => topResult, () => null);
+const dateNowPrimop = (() => result(anyDateValue)) as Primop;
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -43,7 +44,8 @@ export const primops = {
     'String#trim': stringTrimPrimop,
     'String#toLowerCase': stringToLowerCasePrimop,
     'fetch': fetchPrimop,
-    'JSON.parse': jsonParsePrimop
+    'JSON.parse': jsonParsePrimop,
+    'Date.now': dateNowPrimop,
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
@@ -92,5 +94,11 @@ export const primopJSON = objectResult(
     ts.factory.createObjectLiteralExpression(), // dummy
     {
         parse: primopValue('JSON.parse'),
+    }
+)
+export const primopDate = objectResult(
+    ts.factory.createObjectLiteralExpression(), // dummy
+    {
+        now: primopValue('Date.now')
     }
 )

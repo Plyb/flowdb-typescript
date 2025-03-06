@@ -214,6 +214,7 @@ export function pretty(abstractResult: AbstractResult, sf: ts.SourceFile): any[]
         ...prettyFlatLattice(abstractResult.value.strings, 'STRING'),
         ...prettyFlatLattice(abstractResult.value.numbers, 'NUMBER'),
         ...prettyFlatLattice(abstractResult.value.booleans, 'BOOLEAN'),
+        ...prettyFlatLattice(abstractResult.value.dates, 'DATE'),
         ...prettyFlatLattice(abstractResult.value.objects, 'OBJECT'),
         ...prettyFlatLattice(abstractResult.value.promises, 'PROMISE'),
         ...prettyFlatLattice(abstractResult.value.arrays, 'ARRAY'),

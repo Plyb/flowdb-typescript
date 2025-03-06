@@ -10,6 +10,7 @@ export type AbstractValue = {
     strings: StringLattice,
     numbers: NumberLattice,
     booleans: BooleanLattice,
+    dates: DateLattice,
     objects: ObjectLattice,
     promises: PromiseLattice,
     arrays: ArrayLattice,
@@ -36,6 +37,7 @@ type Top = { __topBrand: true }
 type StringLattice = FlatLattice<string>
 type NumberLattice = FlatLattice<number>
 type BooleanLattice = FlatLattice<boolean>
+type DateLattice = FlatLattice<Date>
 
 type ObjectRef = ts.ObjectLiteralExpression
 export type AbstractObject = { [key: string]: AbstractValue }
@@ -70,6 +72,7 @@ export const botValue: AbstractValue = {
     strings: bot,
     numbers: bot,
     booleans: bot,
+    dates: bot,
     objects: bot,
     promises: bot,
     arrays: bot,
@@ -80,6 +83,7 @@ export const topValue: AbstractValue = {
     strings: top,
     numbers: top,
     booleans: top,
+    dates: top,
     objects: top,
     promises: top,
     arrays: top,
@@ -153,9 +157,13 @@ export function primopValue(primopId: PrimopId): AbstractValue {
     }
 }
 
-export const anyStringValue = {
+export const anyStringValue: AbstractValue = {
     ...botValue,
-    stringValue: top,
+    strings: top,
+};
+export const anyDateValue: AbstractValue = {
+    ...botValue,
+    dates: top,
 };
 
 export function resolvePromiseValue(promiseValue: AbstractValue, promiseStore: PromiseStore): AbstractValue {
@@ -199,6 +207,7 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         strings: joinFlatLattice(a.strings, b.strings),
         numbers: joinFlatLattice(a.numbers, b.numbers),
         booleans: joinFlatLattice(a.booleans, b.booleans),
+        dates: joinFlatLattice(a.dates, b.dates),
         objects: joinFlatLattice(a.objects, b.objects),
         promises: joinFlatLattice(a.promises, b.promises),
         arrays: joinFlatLattice(a.arrays, b.arrays),
