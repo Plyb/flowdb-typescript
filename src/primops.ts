@@ -36,6 +36,14 @@ const fetchPrimop: Primop =
     );
 const jsonParsePrimop = createUnaryPrimop('strings', () => topResult, () => null);
 const dateNowPrimop = (() => result(anyDateValue)) as Primop;
+const stringMatchPrimop = createUnaryPrimopWithThisHetero('strings', 'regexps',
+    (arr, callExpression) =>
+        arrayResult(
+            callExpression,
+            setJoinMap(new SimpleSet(structuralComparator, ...arr!), resultFrom(stringValue))
+        ),
+    String.prototype.match
+)
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -46,6 +54,7 @@ export const primops = {
     'fetch': fetchPrimop,
     'JSON.parse': jsonParsePrimop,
     'Date.now': dateNowPrimop,
+    'String#match': stringMatchPrimop,
 }
 
 function createNullaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
@@ -67,6 +76,14 @@ function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, ca
             )
         );
     } 
+}function createUnaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argKey: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+    return function(this: AbstractResult, callExpression, res) {
+        return resultBind<A>(res, argKey, item => 
+            resultBind<T>(this, thisKey, thisItem =>
+                construct(f.apply(thisItem, [item]), callExpression)
+            )
+        );
+    } 
 }
 function createBinaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
     return (callExpression, res1, res2) =>
@@ -76,7 +93,7 @@ function createBinaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpre
 function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argsKey: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
     return function(this: AbstractResult, callExpression, res1, res2) {
         return resultBind2<A>(res1, res2, argsKey, (item1, item2) => 
-            resultBind(this, thisKey, thisItem =>
+            resultBind<T>(this, thisKey, thisItem =>
                 construct(f.apply(thisItem, [item1, item2]), callExpression)
             )
         );

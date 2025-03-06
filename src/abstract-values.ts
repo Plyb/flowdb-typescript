@@ -22,6 +22,8 @@ export type LatticeKey =
     'strings'
     | 'numbers'
     | 'booleans'
+    | 'dates'
+    | 'regexps'
     | 'objects'
     | 'promises'
     | 'arrays';
