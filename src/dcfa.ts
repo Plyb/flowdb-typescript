@@ -241,11 +241,19 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 return callSite.arguments[parameterIndex] as Node;
             });
         } else if (ts.isVariableDeclaration(declaration)) {
-            if (declaration.initializer === undefined) {
-                throw new Error('Variable declaration should have initializer')
-            }
+            if (ts.isForOfStatement(declaration.parent.parent)) {
+                const forOfStatement = declaration.parent.parent;
+                const expression = forOfStatement.expression;
 
-            return singleton<Node>(declaration.initializer);
+                // dummy element access
+                return singleton<Node>(ts.factory.createElementAccessExpression(expression, 0))
+            } else { // assuming it's a standard variable delcaration
+                if (declaration.initializer === undefined) {
+                    throw new Error('Variable declaration should have initializer')
+                }
+    
+                return singleton<Node>(declaration.initializer);
+            }
         } else if (ts.isFunctionDeclaration(declaration)) {
             return singleton<Node>(declaration);
         } else if (ts.isBindingElement(declaration)) {
@@ -254,6 +262,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 throw new Error('Variable declaration should have initializer')
             }
 
+            // dummy property access
             return singleton<Node>(ts.factory.createPropertyAccessExpression(initializer, id));
         } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
             const moduleSpecifier = ts.isImportClause(declaration)
