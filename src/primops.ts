@@ -67,6 +67,7 @@ function arrayFilterPrimop(this: AbstractResult, callExpression: ts.CallExpressi
 }
 const arrayIndexOf = (() => result(anyNumberValue)) as Primop;
 const arraySome = (() => result(anyBooleanValue)) as Primop;
+const arrayIncludes = (() => result(anyBooleanValue)) as Primop;
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -82,6 +83,7 @@ export const primops = {
     'Array#filter': arrayFilterPrimop as Primop,
     'Array#indexOf': arrayIndexOf as Primop,
     'Array#some': arraySome as Primop,
+    'Array#includes': arrayIncludes as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
