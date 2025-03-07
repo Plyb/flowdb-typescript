@@ -172,13 +172,17 @@ export function primopValue(primopId: PrimopId): AbstractValue {
     }
 }
 
+export const anyStringValue: AbstractValue = {
+    ...botValue,
+    strings: top,
+};
 export const anyNumberValue: AbstractValue = {
     ...botValue,
     numbers: top,
 };
-export const anyStringValue: AbstractValue = {
+export const anyBooleanValue: AbstractValue = {
     ...botValue,
-    strings: top,
+    booleans: top,
 };
 export const anyDateValue: AbstractValue = {
     ...botValue,

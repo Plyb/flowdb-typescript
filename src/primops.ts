@@ -1,6 +1,6 @@
 import ts from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
+import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, singleton } from './setUtil';
@@ -66,6 +66,7 @@ function arrayFilterPrimop(this: AbstractResult, callExpression: ts.CallExpressi
     return arrayResult(callExpression, elementResult);
 }
 const arrayIndexOf = (() => result(anyNumberValue)) as Primop;
+const arraySome = (() => result(anyBooleanValue)) as Primop;
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -80,6 +81,7 @@ export const primops = {
     'Array#map': arrayMapPrimop as Primop,
     'Array#filter': arrayFilterPrimop as Primop,
     'Array#indexOf': arrayIndexOf as Primop,
+    'Array#some': arraySome as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
