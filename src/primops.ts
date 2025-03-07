@@ -1,6 +1,6 @@
-import ts from 'typescript';
+import ts, { CallExpression } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, numberValue, primopValue, stringValue, top } from './abstract-values';
+import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, MapRef, numberValue, primopValue, stringValue, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, singleton } from './setUtil';
@@ -68,7 +68,7 @@ function arrayFilterPrimop(this: AbstractResult, callExpression: ts.CallExpressi
 const arrayIndexOf = (() => result(anyNumberValue)) as Primop;
 const arraySome = (() => result(anyBooleanValue)) as Primop;
 const arrayIncludes = (() => result(anyBooleanValue)) as Primop;
-function arrayFindPrimop(this: AbstractResult, callExpression: ts.CallExpression): AbstractResult {
+function arrayFindPrimop(this: AbstractResult): AbstractResult {
     const elementResult = resultBind<ArrayRef>(this, 'arrays', arrRef => {
         const abstractArray = this.arrayStore.get(arrRef);
         if (abstractArray === undefined) {
@@ -80,6 +80,19 @@ function arrayFindPrimop(this: AbstractResult, callExpression: ts.CallExpression
         }
     })
     return elementResult;
+}
+function mapKeysPrimop(this: AbstractResult, callExpression: CallExpression): AbstractResult {
+    return resultBind<MapRef>(this, 'maps', (ref) => {
+        const map = this.mapStore.get(ref);
+        if (map === undefined) {
+            throw new Error('expected map to be present in store');
+        }
+        const elementResult = {
+            ...this,
+            value: map.keys()
+        };
+        return arrayResult(callExpression, elementResult);
+    })
 }
 export const primops = {
     'Math.floor': mathFloorPrimop,
@@ -97,7 +110,8 @@ export const primops = {
     'Array#indexOf': arrayIndexOf,
     'Array#some': arraySome,
     'Array#includes': arrayIncludes,
-    'Array#find': arrayFindPrimop as Primop
+    'Array#find': arrayFindPrimop as Primop,
+    'Map#keys': mapKeysPrimop as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {

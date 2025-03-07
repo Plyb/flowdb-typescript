@@ -28,7 +28,8 @@ export type LatticeKey =
     | 'regexps'
     | 'objects'
     | 'promises'
-    | 'arrays';
+    | 'arrays'
+    | 'maps';
 
 export type FlatLattice<T> = 
 | Bottom
@@ -64,7 +65,7 @@ export type AbstractArray = { element: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
 
-type MapRef = ts.NewExpression;
+export type MapRef = ts.NewExpression;
 type MapLattice = FlatLattice<MapRef>
 export type MapStore = Map<MapRef, AbstractMap>
 
