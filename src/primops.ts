@@ -52,6 +52,19 @@ function arrayMapPrimop(callExpression: ts.CallExpression, fixed_eval: FixedEval
     const elementResult = setJoinMap(arg.value.nodes, func => fixed_eval((func as SimpleFunctionLikeDeclaration).body));
     return arrayResult(callExpression, elementResult);
 }
+function arrayFilterPrimop(this: AbstractResult, callExpression: ts.CallExpression): AbstractResult {
+    const elementResult = resultBind<ArrayRef>(this, 'arrays', arrRef => {
+        const abstractArray = this.arrayStore.get(arrRef);
+        if (abstractArray === undefined) {
+            throw new Error('expected arr to be present in store');
+        }
+        return {
+            ...this,
+            value: abstractArray.element
+        }
+    })
+    return arrayResult(callExpression, elementResult);
+}
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -63,7 +76,8 @@ export const primops = {
     'JSON.parse': jsonParsePrimop,
     'Date.now': dateNowPrimop,
     'String#match': stringMatchPrimop,
-    'Array#map': arrayMapPrimop as Primop
+    'Array#map': arrayMapPrimop as Primop,
+    'Array#filter': arrayFilterPrimop as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
