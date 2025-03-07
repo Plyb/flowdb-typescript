@@ -92,6 +92,20 @@ function mapKeysPrimop(this: AbstractResult, _: CallExpression, fixed_eval: Fixe
         });
     })
 }
+function mapGetPrimop(this: AbstractResult, _: CallExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace, key: AbstractResult): AbstractResult {
+    return resultBind<MapRef>(this, 'maps', (ref) => {
+        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
+        const setSitesWithKey = setFilter(setSites, site => {
+            const siteKeyNode = site.arguments[0];
+            const siteKeyValue = fixed_eval(siteKeyNode).value;
+            return subsumes(siteKeyValue, key.value) || subsumes(key.value, siteKeyValue);
+        })
+        return setJoinMap(setSitesWithKey, site => {
+            const valueArg = site.arguments[1];
+            return fixed_eval(valueArg);
+        });
+    })
+}
 const mapSetPrimop = (() => botResult) as Primop
 export const primops = {
     'Math.floor': mathFloorPrimop,
@@ -111,6 +125,7 @@ export const primops = {
     'Array#includes': arrayIncludes,
     'Array#find': arrayFindPrimop as Primop,
     'Map#keys': mapKeysPrimop as Primop,
+    'Map#get': mapGetPrimop as Primop,
     'Map#set': mapSetPrimop,
 }
 
