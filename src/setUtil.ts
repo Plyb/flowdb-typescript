@@ -3,6 +3,9 @@ import { structuralComparator } from './comparators';
 
 export function setMap<T, R>(set: SimpleSet<T>, f: (a: T) => R, rComparator: Comparator<R> = structuralComparator): SimpleSet<R> {
   return new SimpleSet(rComparator, ...set.elements.map(f));
+}
+export function setFilter<T>(set: SimpleSet<T>, predicate: (a: T) => boolean, rComparator: Comparator<T> = structuralComparator): SimpleSet<T> {
+  return new SimpleSet(rComparator, ...set.elements.filter(predicate));
 } 
 export function union<T>(a: SimpleSet<T>, b: SimpleSet<T>, comparator: Comparator<T> = structuralComparator) {
   return new SimpleSet(comparator, ...a.elements, ...b.elements);
