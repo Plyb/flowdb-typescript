@@ -9,7 +9,7 @@ type AbstractMapEntry = {
 export class AbstractMap {
     entries: AbstractMapEntry[]
 
-    constructor() {
+    constructor(entries: AbstractMapEntry[] = []) {
         this.entries = []
     }
 
@@ -28,9 +28,9 @@ export class AbstractMap {
         const indexOfExistingKey = this.entries
             .findIndex(({ key: entryKey }) => isEqual(entryKey, key));
         if (indexOfExistingKey === -1) {
-            this.entries.push({ key, value });
+            return new AbstractMap([...this.entries, { key, value }]);
         } else {
-            this.entries[0] = { key, value };
+            return new AbstractMap(this.entries.splice(indexOfExistingKey, 1, { key, value }));
         }
     }
 }
