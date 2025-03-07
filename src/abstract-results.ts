@@ -86,12 +86,12 @@ export function resultFrom<T>(construct: (item: T) => AbstractValue) {
     return (item: T) => result(construct(item));
 }
 
-export function arrayResult(node: ArrayRef, itemResult: AbstractResult): AbstractResult {
+export function arrayResult(node: ArrayRef, elementResult: AbstractResult): AbstractResult {
     const value = arrayValue(node);
-    const store = new Map(itemResult.arrayStore);
-    store.set(node, { item: itemResult.value });
+    const store = new Map(elementResult.arrayStore);
+    store.set(node, { element: elementResult.value });
     return {
-        ...itemResult,
+        ...elementResult,
         value,
         arrayStore: store,
     }
@@ -155,7 +155,7 @@ export function getArrayElement(from: AbstractResult): AbstractResult {
         }
         return {
             ...from,
-            value: arr.item,
+            value: arr.element,
         }
     }
 }
@@ -227,9 +227,9 @@ export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: 
     }
 }
 
-export function pretty(abstractResult: AbstractResult, sf: ts.SourceFile): any[] {
+export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node) => string): any[] {
     return [
-        ...abstractResult.value.nodes.elements.map(node => node.getText(sf)),
+        ...abstractResult.value.nodes.elements.map(printNode),
         ...prettyFlatLattice(abstractResult.value.strings, 'STRING'),
         ...prettyFlatLattice(abstractResult.value.numbers, 'NUMBER'),
         ...prettyFlatLattice(abstractResult.value.booleans, 'BOOLEAN'),

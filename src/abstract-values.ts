@@ -58,7 +58,7 @@ export type PromiseStore = Map<PromiseRef, AbstractPromise>
 
 type PrimopArrayRef = ts.CallExpression;
 export type ArrayRef = ts.ArrayLiteralExpression | PrimopArrayRef;
-export type AbstractArray = { item: AbstractValue }
+export type AbstractArray = { element: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
 

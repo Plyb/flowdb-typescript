@@ -54,23 +54,28 @@ const servicesHost: ts.LanguageServiceHost = {
 };
 const service = ts.createLanguageService(servicesHost, ts.createDocumentRegistry());
 const sf = service.getProgram()?.getSourceFiles()[0]!;
+const printer = ts.createPrinter();
+function printNode(node: ts.Node) {
+    const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+    return printer.printNode(ts.EmitHint.Unspecified, node, sf);
+}
 
 function prettyInfo(item) {
   if (typeof item === 'object') {
-    console.log(pretty(item, sf));
+    console.log(pretty(item, printNode));
   } else {
     console.log(item);
   }
 }
 
 console.info = () => undefined
-// console.info = prettyInfo
+console.info = prettyInfo
 
 
 const pos = sf.getPositionOfLineAndCharacter(5, 11);
 const node = getNodeAtPosition(sf, pos)!;
 const results = dcfa(node, service);
-console.log(pretty(results, sf));
+console.log(pretty(results, printNode));
 
 // const results = analyze(service, 3, 6);
 // console.log(results)

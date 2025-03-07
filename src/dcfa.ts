@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
-import { primopDate, primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
+import { FixedEval, primopDate, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primops } from './primops';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -22,7 +22,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     return valueOf({
         func: abstractEval,
         args: node,
-    }, botResult, printNode, result => pretty(result, program.getSourceFiles()[0]).toString());
+    }, botResult, printNode, result => pretty(result, printNode).toString());
 
     // "eval"
     function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
@@ -61,7 +61,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 : botResult;
             const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
             const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
-                applyPrimop(node, primopId, thisResult, argumentValues)
+                applyPrimop(node, node => fix_run(abstractEval, node), primopId, thisResult, argumentValues)
             );
 
             return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
@@ -161,14 +161,29 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 return nodeResult(parent);
             } else {
                 const argIndex = getArgumentIndex(parent, node);
-                const possibleFunctions = fix_run(
+                const possibleOperators = fix_run(
                     abstractEval, parent.expression
-                ).value.nodes as any as SimpleSet<SimpleFunctionLikeDeclaration>;
+                ).value;
+
+                const possibleFunctions = possibleOperators.nodes as any as SimpleSet<SimpleFunctionLikeDeclaration>;
                 const parameterReferences = setJoinMap(
                     possibleFunctions,
                     (func) => nodesResult(getReferences(func.parameters[argIndex].name))
                 ).value.nodes;
-                return setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueApplied, parameterRef));
+                const functionResult = setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueApplied, parameterRef));
+
+                const possiblePrimopIds = possibleOperators.primops;
+                const possiblePrimopCallsiteConstructors = setMap(possiblePrimopIds, (id =>
+                    primopInternalCallSites[id]
+                ));
+                const thisNode = ts.isPropertyAccessExpression(parent.expression)
+                    ? parent.expression.expression
+                    : undefined;
+                const primopResult = setJoinMap(possiblePrimopCallsiteConstructors, (construct =>
+                    nodesResult(construct.apply(thisNode, [[...parent.arguments], argIndex]))
+                ));
+
+                return join(functionResult, primopResult);
             }
         } else if (isFunctionLikeDeclaration(node.parent)) {
             const closedOverSites = fix_run(getWhereClosed, node).value.nodes;
@@ -317,8 +332,8 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     return false;
 }
 
-function applyPrimop(callExpression: ts.CallExpression, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
-    return primops[primopId].apply(thisRes, [callExpression, ...args]);
+function applyPrimop<Arg, Ret>(callExpression: ts.CallExpression, fixed_eval: FixedEval, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
+    return primops[primopId].apply(thisRes, [callExpression, fixed_eval, ...args]);
 }
 
 function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId {
@@ -327,6 +342,9 @@ function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId
     if (res.value.strings !== bot) {
         const stringPrimops = primopIds.filter(id => id.split('#')[0] === 'String');
         return stringPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
+    } else if (res.value.arrays !== bot) {
+        const arrayPrimops = primopIds.filter(id => id.split('#')[0] === 'Array');
+        return arrayPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
     }
 
     return false;
