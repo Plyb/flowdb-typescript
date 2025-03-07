@@ -5,7 +5,7 @@ import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, arrayResult, botResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { primopDate, primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
 
@@ -111,6 +111,9 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
              * for simplicity's sake for now, we're just going to say it could be anything.
              */
             return topResult;
+        } else if (ts.isElementAccessExpression(node)) {
+            const expressionResult = fix_run(abstractEval, node.expression);
+            return getArrayElement(expressionResult);
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}`);
 

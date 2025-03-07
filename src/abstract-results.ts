@@ -140,6 +140,25 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier)
         };
     }
 }
+export function getArrayElement(from: AbstractResult): AbstractResult {
+    const arrayLattice = from.value.arrays;
+    const arrayStore = from.arrayStore;
+    if (isTop(arrayLattice)) {
+        return topResult;
+    } else if (isBottom(arrayLattice)) {
+        return botResult;
+    } else {
+        const ref = arrayLattice.item;
+        const arr = arrayStore.get(ref);
+        if (arr === undefined) {
+            throw new Error('expected arr to be in store');
+        }
+        return {
+            ...from,
+            value: arr.item,
+        }
+    }
+}
 
 export function resolvePromise(promiseResult: AbstractResult): AbstractResult {
     const promiseValue = resolvePromiseValue(promiseResult.value, promiseResult.promiseStore);
