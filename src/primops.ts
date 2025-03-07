@@ -68,6 +68,19 @@ function arrayFilterPrimop(this: AbstractResult, callExpression: ts.CallExpressi
 const arrayIndexOf = (() => result(anyNumberValue)) as Primop;
 const arraySome = (() => result(anyBooleanValue)) as Primop;
 const arrayIncludes = (() => result(anyBooleanValue)) as Primop;
+function arrayFindPrimop(this: AbstractResult, callExpression: ts.CallExpression): AbstractResult {
+    const elementResult = resultBind<ArrayRef>(this, 'arrays', arrRef => {
+        const abstractArray = this.arrayStore.get(arrRef);
+        if (abstractArray === undefined) {
+            throw new Error('expected arr to be present in store');
+        }
+        return {
+            ...this,
+            value: abstractArray.element
+        }
+    })
+    return elementResult;
+}
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -81,9 +94,10 @@ export const primops = {
     'String#match': stringMatchPrimop,
     'Array#map': arrayMapPrimop as Primop,
     'Array#filter': arrayFilterPrimop as Primop,
-    'Array#indexOf': arrayIndexOf as Primop,
-    'Array#some': arraySome as Primop,
-    'Array#includes': arrayIncludes as Primop,
+    'Array#indexOf': arrayIndexOf,
+    'Array#some': arraySome,
+    'Array#includes': arrayIncludes,
+    'Array#find': arrayFindPrimop as Primop
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
