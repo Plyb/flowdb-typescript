@@ -1,6 +1,6 @@
 import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFlatMap, setMap, singleton, unionAll } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
@@ -161,10 +161,24 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     
     // "expr"
     function getWhereValueApplied(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-        if (ts.isCallExpression(node.parent)) {
-            const parent = node.parent;
+        const operatorSites = setFilter(
+            getWhereValueReturned(node, fix_run).value.nodes,
+            func => ts.isCallExpression(func.parent) && isOperatorOf(func, func.parent)
+        );
+        return nodesResult(
+            setMap(operatorSites, op => op.parent)
+        )
+    }
+
+    function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        return join(nodeResult(node), getWhereValueReturnedElsewhere(node, fix_run));
+    }
+
+    function getWhereValueReturnedElsewhere(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        const parent = node.parent;
+        if (ts.isCallExpression(parent)) {
             if (isOperatorOf(node, parent)) {
-                return nodeResult(parent);
+                return botResult;
             } else {
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
@@ -176,7 +190,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                     possibleFunctions,
                     (func) => nodesResult(getReferences(func.parameters[argIndex].name))
                 ).value.nodes;
-                const functionResult = setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueApplied, parameterRef));
+                const functionResult = setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
 
                 const possiblePrimopIds = possibleOperators.primops;
                 const possiblePrimopCallsiteConstructors = setMap(possiblePrimopIds, (id =>
@@ -191,21 +205,21 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
 
                 return join(functionResult, primopResult);
             }
-        } else if (isFunctionLikeDeclaration(node.parent)) {
+        } else if (isFunctionLikeDeclaration(parent)) {
             const closedOverSites = fix_run(getWhereClosed, node).value.nodes;
-            return setJoinMap(closedOverSites, site => fix_run(getWhereValueApplied, site));
-        } else if (ts.isParenthesizedExpression(node.parent)) {
-            return fix_run(getWhereValueApplied, node.parent);
-        } else if (ts.isVariableDeclaration(node.parent)) {
-            const refs = getReferences(node.parent.name)
-            return setJoinMap(refs, ref => fix_run(getWhereValueApplied, ref));
+            return setJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
+        } else if (ts.isParenthesizedExpression(parent)) {
+            return fix_run(getWhereValueReturned, parent);
+        } else if (ts.isVariableDeclaration(parent)) {
+            const refs = getReferences(parent.name)
+            return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
         } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
             if (node.name === undefined) {
                 throw new Error('function declaration should have name')
             }
 
             const refs = getReferences(node.name);
-            return setJoinMap(refs, ref => fix_run(getWhereValueApplied, ref));
+            return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.parent.kind]}`)
     }
