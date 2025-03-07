@@ -33,4 +33,12 @@ export class SimpleMap<K, V> {
 
         this.internalMap.set(trueKey, value);
     }
+
+    public has(key: K) {
+        const trueKey = [...this.internalMap.keys()]
+            .find(k => this.keyComparator(k, key) === 0)
+            ?? key;
+
+        return this.internalMap.has(trueKey);
+    }
 }

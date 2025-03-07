@@ -27,32 +27,46 @@ export function valueOf<Args, Ret>(query: Computation<Args, Ret>, defaultRet: Re
     const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
     const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
     const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
-    const invocation = Math.random() * 99;
     while (compsToDo.size() !== 0) {
         const compToDo = compsToDo.elements[0];
         compsToDo.delete(compToDo);
 
-        const { func, args } = compToDo;
+        evaluateComputation(compToDo);
+    }
+
+    return values.get(query) ?? defaultRet;
+
+    function evaluateComputation(comp: Computation<Args, Ret>) {
+        const { func, args } = comp;
+
         const dependencyUsages = new SimpleSet(computationComparator<Args, Ret>);
         const fix_run: FixRunFunc<Args, Ret> = (func, args) => {
-            const computation = {func, args};
-            dependencyUsages.add(computation);
-            return values.get(computation) ?? defaultRet;
+            const dependencyComp = {func, args};
+            dependencyUsages.add(dependencyComp);
+
+            if (!values.has(dependencyComp)) {
+                if (!values.has(comp)) { // ensure no infinite recursion
+                    values.set(comp, defaultRet);
+                }
+                evaluateComputation(dependencyComp);
+            }
+
+            return values.get(dependencyComp) ?? defaultRet;
         }
+
         const results = func(args, fix_run);
         console.info(results);
-        if (valuesUpdated(values, compToDo, results)) {
-            const thisDependents = dependents.get(compToDo)
+
+        if (valuesUpdated(values, comp, results)) {
+            const thisDependents = dependents.get(comp)
             compsToDo.add(...thisDependents);
         }
-        values.set(compToDo, results);
+        values.set(comp, results);
         for (const dependency of dependencyUsages) {
-            if (!dependents.get(dependency).has(compToDo)) {
-                dependents.add(dependency, compToDo);
+            if (!dependents.get(dependency).has(comp)) {
+                dependents.add(dependency, comp);
                 compsToDo.add(dependency);
             }
         }
     }
-
-    return values.get(query) ?? defaultRet;
 }
