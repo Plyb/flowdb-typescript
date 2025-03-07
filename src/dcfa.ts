@@ -5,7 +5,7 @@ import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, primopDate, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primops } from './primops';
 
@@ -114,6 +114,12 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         } else if (ts.isElementAccessExpression(node)) {
             const expressionResult = fix_run(abstractEval, node.expression);
             return getArrayElement(expressionResult);
+        } else if (ts.isNewExpression(node)) {
+            if (!(ts.isIdentifier(node.expression) && node.expression.text === 'Map')) {
+                throw new Error(`New expression not yet implemented for ${printNode(node.expression)}`)
+            }
+
+            return emptyMapResult(node);
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}`);
 

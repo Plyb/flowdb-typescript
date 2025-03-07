@@ -1,28 +1,32 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef } from './abstract-values';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
 import { PrimopId } from './primops';
+import { AbstractMap } from './abstract-map';
 
 export type AbstractResult = {
     value: AbstractValue,
     objectStore: ObjectStore,
     promiseStore: PromiseStore,
     arrayStore: ArrayStore,
+    mapStore: MapStore,
 }
 
 export const botResult: AbstractResult = {
     value: botValue,
     objectStore: new Map(),
     promiseStore: new Map(),
-    arrayStore: new Map()
+    arrayStore: new Map(),
+    mapStore: new Map(),
 }
 export const topResult: AbstractResult = {
     value: topValue,
     objectStore: new Map(),
     promiseStore: new Map(),
     arrayStore: new Map(),
+    mapStore: new Map(),
 }
 
 export function nodeResult(node: ts.Node): AbstractResult {
@@ -69,6 +73,13 @@ export function primopResult(primopId: PrimopId): AbstractResult {
         value: primopValue(primopId),
     };
 }
+export function emptyMapResult(constructorSite: ts.NewExpression): AbstractResult {
+    return {
+        ...botResult,
+        mapStore: new Map([[constructorSite, new AbstractMap()]]),
+        value: mapValue(constructorSite),
+    }
+}
 
 export const anyObjectResult = {
     ...botResult,
@@ -110,6 +121,7 @@ export function joinStores(a: AbstractResult, b: AbstractResult): AbstractResult
         objectStore: mergeMaps(a.objectStore, b.objectStore),
         promiseStore: mergeMaps(a.promiseStore, b.promiseStore),
         arrayStore: mergeMaps(a.arrayStore, b.arrayStore),
+        mapStore: mergeMaps(a.mapStore, b.mapStore),
     }
 }
 
@@ -238,8 +250,10 @@ export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node
         ...prettyFlatLattice(abstractResult.value.objects, 'OBJECT'),
         ...prettyFlatLattice(abstractResult.value.promises, 'PROMISE'),
         ...prettyFlatLattice(abstractResult.value.arrays, 'ARRAY'),
+        ...prettyFlatLattice(abstractResult.value.maps, 'MAP'),
         abstractResult.objectStore,
         abstractResult.promiseStore,
         abstractResult.arrayStore,
+        abstractResult.mapStore,
       ]
 }

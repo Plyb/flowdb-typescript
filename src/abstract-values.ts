@@ -4,6 +4,7 @@ import { empty, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
 import { PrimopId } from './primops'
+import { AbstractMap } from './abstract-map'
 
 export type AbstractValue = {
     nodes: SimpleSet<ts.Node>,
@@ -15,7 +16,8 @@ export type AbstractValue = {
     objects: ObjectLattice,
     promises: PromiseLattice,
     arrays: ArrayLattice,
-    primops: SimpleSet<PrimopId>
+    primops: SimpleSet<PrimopId>,
+    maps: MapLattice,
 }
 
 export type LatticeKey =
@@ -62,6 +64,10 @@ export type AbstractArray = { element: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
 
+type MapRef = ts.NewExpression;
+type MapLattice = FlatLattice<MapRef>
+export type MapStore = Map<MapRef, AbstractMap>
+
 export const bot: Bottom = { __bottomBrand: true }
 export const top: Top = { __topBrand: true }
 function single<T>(item: T): Single<T> {
@@ -82,6 +88,7 @@ export const botValue: AbstractValue = {
     promises: bot,
     arrays: bot,
     primops: empty(),
+    maps: bot,
 }
 export const topValue: AbstractValue = {
     nodes: empty(),
@@ -93,7 +100,8 @@ export const topValue: AbstractValue = {
     objects: top,
     promises: top,
     arrays: top,
-    primops: empty()
+    primops: empty(),
+    maps: bot,
 }
 
 export function nodeValue(node: ts.Node): AbstractValue {
@@ -171,6 +179,12 @@ export function primopValue(primopId: PrimopId): AbstractValue {
         primops: singleton(primopId),
     }
 }
+export function mapValue(constructorSite: ts.NewExpression): AbstractValue {
+    return {
+        ...botValue,
+        maps: single(constructorSite),
+    }
+}
 
 export const anyStringValue: AbstractValue = {
     ...botValue,
@@ -236,7 +250,39 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         promises: joinFlatLattice(a.promises, b.promises),
         arrays: joinFlatLattice(a.arrays, b.arrays),
         primops: union(a.primops, b.primops),
+        maps: joinFlatLattice(a.maps, b.maps),
     };
+}
+export function joinAllValues(...values: AbstractValue[]): AbstractValue {
+    return values.reduce(joinValue, botValue);
+}
+
+export function subsumes(a: AbstractValue, b: AbstractValue) {
+    return a.nodes.hasAll(...b.nodes)
+        && latticSubsumes(a.strings, b.strings)
+        && latticSubsumes(a.numbers, b.numbers)
+        && latticSubsumes(a.booleans, b.booleans)
+        && latticSubsumes(a.dates, b.dates)
+        && latticSubsumes(a.regexps, b.regexps)
+        && latticSubsumes(a.objects, b.objects)
+        && latticSubsumes(a.promises, b.promises)
+        && latticSubsumes(a.arrays, b.arrays)
+        && a.primops.hasAll(...b.primops)
+        && latticSubsumes(a.maps, b.maps)
+}
+
+function latticSubsumes<T>(a: FlatLattice<T>, b: FlatLattice<T>): boolean {
+    if (isTop(a)) {
+        return true;
+    } else if (isTop(b)) {
+        return false;
+    } else if (isBottom(b)) {
+        return true;
+    } else if (isBottom(a)) {
+        return false;
+    } else {
+        return isEqual(a.item, b.item);
+    }
 }
 
 export function isBottom<T>(lattice: FlatLattice<T>): lattice is Bottom {
