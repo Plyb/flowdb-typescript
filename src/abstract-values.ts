@@ -172,6 +172,10 @@ export function primopValue(primopId: PrimopId): AbstractValue {
     }
 }
 
+export const anyNumberValue: AbstractValue = {
+    ...botValue,
+    numbers: top,
+};
 export const anyStringValue: AbstractValue = {
     ...botValue,
     strings: top,
