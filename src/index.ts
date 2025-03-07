@@ -69,7 +69,7 @@ function prettyInfo(item) {
 }
 
 console.info = () => undefined
-// console.info = prettyInfos
+// console.info = prettyInfo
 
 
 const pos = sf.getPositionOfLineAndCharacter(5, 11);

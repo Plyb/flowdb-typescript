@@ -181,26 +181,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         )
     }
 
-    function getWhereMapSetCalledOnValueOf(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-        const propertyAccessSites = getWherePropertyOfValueAccessed(node, fix_run);
-        return nodesResult(
-            setFilter(propertyAccessSites.value.nodes, site => {
-                const property = fix_run(abstractEval, site);
-                return subsumes(property.value, primopValue('Map#set'));
-            })
-        )
-    }
-
-    function getWherePropertyOfValueAccessed(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-        const propertyAccessExpressionSites = setFilter(
-            getWhereValueReturned(node, fix_run).value.nodes,
-            func => ts.isPropertyAccessExpression(func.parent) && isExpressionOf(func, func.parent)
-        );
-        return nodesResult(
-            setMap(propertyAccessExpressionSites, access => access.parent)
-        )
-    }
-
     function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
         return join(nodeResult(node), getWhereValueReturnedElsewhere(node, fix_run));
     }
@@ -208,9 +188,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     function getWhereValueReturnedElsewhere(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
         const parent = node.parent;
         if (ts.isCallExpression(parent)) {
-            if (isOperatorOf(node, parent)) {
-                return botResult;
-            } else {
+            if (!isOperatorOf(node, parent)) {
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
                     abstractEval, parent.expression
@@ -252,7 +230,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             const refs = getReferences(node.name);
             return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
         }
-        throw new Error(`not yet implemented: ${ts.SyntaxKind[node.parent.kind]}`)
+        return botResult;
     }
     
     // "call"

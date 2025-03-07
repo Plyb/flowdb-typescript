@@ -1,11 +1,12 @@
 import ts, { CallExpression } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, MapRef, numberValue, primopValue, stringValue, top } from './abstract-values';
+import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, MapRef, numberValue, primopValue, stringValue, subsumes, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, singleton } from './setUtil';
+import { empty, setFilter, setMap, setSift, singleton } from './setUtil';
 import { FixRunFunc } from './fixpoint';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
+import { id } from './util';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
@@ -82,17 +83,13 @@ function arrayFindPrimop(this: AbstractResult): AbstractResult {
     })
     return elementResult;
 }
-function mapKeysPrimop(this: AbstractResult, callExpression: CallExpression): AbstractResult {
+function mapKeysPrimop(this: AbstractResult, _: CallExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace): AbstractResult {
     return resultBind<MapRef>(this, 'maps', (ref) => {
-        const map = this.mapStore.get(ref);
-        if (map === undefined) {
-            throw new Error('expected map to be present in store');
-        }
-        const elementResult = {
-            ...this,
-            value: map.keys()
-        };
-        return arrayResult(callExpression, elementResult);
+        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
+        return setJoinMap(setSites, site => {
+            const keyArg = site.arguments[0];
+            return fixed_eval(keyArg)
+        });
     })
 }
 const mapSetPrimop = (() => botResult) as Primop
@@ -195,4 +192,25 @@ function arrayMapInternalCallSites(this: ts.Expression, args: ts.Expression[], a
     const convert = args[0];
     const arrayAccess = ts.factory.createElementAccessExpression(this, 0);
     return singleton<ts.Node>(ts.factory.createCallExpression(convert, [], [arrayAccess]));
+}
+
+function getMapSetCalls(returnSites: SimpleSet<ts.Node>, fixed_eval: FixedEval): SimpleSet<ts.CallExpression> {
+    const callSitesOrFalses = setMap(returnSites, site => {
+        const access = site.parent;
+        if (!(ts.isPropertyAccessExpression(access))) {
+            return false;
+        }
+        const accessResult = fixed_eval(access);
+        if (!subsumes(accessResult.value, primopValue('Map#set'))) {
+            return false;
+        }
+
+        const call = access.parent;
+        if (!ts.isCallExpression(call)) {
+            return false;
+        }
+
+        return call;
+    });
+    return setSift(callSitesOrFalses);
 }
