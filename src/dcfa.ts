@@ -5,7 +5,7 @@ import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, arrayResult, botResult, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { primopDate, primopFecth, PrimopId, primopJSON, primopMath, primops } from './primops';
 
@@ -22,12 +22,10 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     return valueOf({
         func: abstractEval,
         args: node,
-    }, botResult);
+    }, botResult, printNode, result => pretty(result, program.getSourceFiles()[0]).toString());
 
     // "eval"
     function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
-        console.info(`abstractEval: ${printNode(node)}`);
-        
         const overriddenResult = getOverriddenResult(node);
         if (overriddenResult) {
             return overriddenResult;
@@ -154,7 +152,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     
     // "expr"
     function getWhereValueApplied(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-        console.info(`getWhereValueApplied: ${printNode(node)}`);
         if (ts.isCallExpression(node.parent)) {
             const parent = node.parent;
             if (isOperatorOf(node, parent)) {
@@ -191,7 +188,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     
     // "call"
     function getWhereClosed(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
-        console.info(`getWhereClosed: ${printNode(node)}`);
         if (!isFunctionLikeDeclaration(node.parent)) {
             return botResult;
         }
@@ -201,7 +197,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     
     // "find"
     function getReferences(id: ts.Node): SimpleSet<ts.Node> {
-        console.info(`getReferences: ${printNode(id)}`);
         if (!ts.isIdentifier(id)) {
             throw new Error("can't find references of non-identifier");
         }
@@ -222,7 +217,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     
     // bind
     function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): SimpleSet<ts.Node> {
-        console.info(`getBoundExprs: ${printNode(id)}`);
         const symbol = typeChecker.getSymbolAtLocation(id);
         const declaration = symbol?.valueDeclaration
             ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause

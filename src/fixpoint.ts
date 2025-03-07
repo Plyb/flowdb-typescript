@@ -23,7 +23,7 @@ function valuesUpdated<K, V>(map: SimpleMap<K, V>, key: K, value: V) {
     return structuralComparator(map.get(key), value) !== 0;
 }
 
-export function valueOf<Args, Ret>(query: Computation<Args, Ret>, defaultRet: Ret): Ret {
+export function valueOf<Args extends object, Ret extends object>(query: Computation<Args, Ret>, defaultRet: Ret, printArgs: (arg: Args) => string = (arg) => arg.toString(), printRet: (ret: Ret) => string = (ret) => ret.toString()): Ret {
     const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
     const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
     const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
@@ -54,8 +54,9 @@ export function valueOf<Args, Ret>(query: Computation<Args, Ret>, defaultRet: Re
             return values.get(dependencyComp) ?? defaultRet;
         }
 
+        console.info(`${func.name}(${printArgs(args)})`);
         const results = func(args, fix_run);
-        console.info(results);
+        console.info(`${func.name}(${printArgs(args)}) = ${printRet(results)}`);
 
         if (valuesUpdated(values, comp, results)) {
             const thisDependents = dependents.get(comp)
