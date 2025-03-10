@@ -20,7 +20,7 @@ export type AbstractValue = {
     maps: MapLattice,
 }
 
-export type LatticeKey =
+export type FlatLatticeKey =
     'strings'
     | 'numbers'
     | 'booleans'

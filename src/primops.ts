@@ -1,6 +1,6 @@
 import ts, { CallExpression } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, LatticeKey, MapRef, numberValue, primopValue, stringValue, subsumes, top } from './abstract-values';
+import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, FlatLatticeKey, MapRef, numberValue, primopValue, stringValue, subsumes, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setMap, setSift, singleton } from './setUtil';
@@ -131,18 +131,18 @@ export const primops = {
     'Object.freeze': objectFreezePrimop,
 }
 
-function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
+function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
     return function(this: AbstractResult, callExpression) {
         return resultBind(this, key, thisItem =>
             construct(f.apply(thisItem, []), callExpression)
         );
     } 
 }
-function createUnaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+function createUnaryPrimop<A, R>(key: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
     return (callExpression, _, _0, res) => 
         resultBind<A>(res, key, (item) => construct(f(item), callExpression));
 }
-function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+function createUnaryPrimopWithThis<A, R>(key: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
     return function(this: AbstractResult, callExpression, _, _0, res) {
         return resultBind<A>(res, key, item => 
             resultBind(this, key, thisItem =>
@@ -150,7 +150,7 @@ function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, ca
             )
         );
     } 
-}function createUnaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argKey: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
+}function createUnaryPrimopWithThisHetero<T, A, R>(thisKey: FlatLatticeKey, argKey: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item: A) => R): Primop {
     return function(this: AbstractResult, callExpression, _, _0, res) {
         return resultBind<A>(res, argKey, item => 
             resultBind<T>(this, thisKey, thisItem =>
@@ -159,12 +159,12 @@ function createUnaryPrimopWithThis<A, R>(key: LatticeKey, construct: (val: R, ca
         );
     } 
 }
-function createBinaryPrimop<A, R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
+function createBinaryPrimop<A, R>(key: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
     return (callExpression, _, _0, res1, res2) =>
         resultBind2<A>(res1, res2, key, (item1, item2) =>
             construct(f(item1, item2), callExpression));
 }
-function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: LatticeKey, argsKey: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
+function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: FlatLatticeKey, argsKey: FlatLatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: (item1: A, item2: A) => R): Primop {
     return function(this: AbstractResult, callExpression, _, _0, res1, res2) {
         return resultBind2<A>(res1, res2, argsKey, (item1, item2) => 
             resultBind<T>(this, thisKey, thisItem =>

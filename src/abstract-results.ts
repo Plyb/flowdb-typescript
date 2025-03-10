@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, LatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue } from './abstract-values';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
@@ -181,7 +181,7 @@ export function resolvePromise(promiseResult: AbstractResult): AbstractResult {
     }
 }
 
-export function resultBind<T>(res: AbstractResult, key: LatticeKey, f: (item: T) => AbstractResult): AbstractResult {
+export function resultBind<T>(res: AbstractResult, key: FlatLatticeKey, f: (item: T) => AbstractResult): AbstractResult {
     const value = res.value;
     const items = value[key] as FlatLattice<T>;
 
@@ -209,7 +209,7 @@ export function resultBind<T>(res: AbstractResult, key: LatticeKey, f: (item: T)
         }
     }
 }
-export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: LatticeKey, f: (item1: T, item2: T) => AbstractResult): AbstractResult {
+export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: FlatLatticeKey, f: (item1: T, item2: T) => AbstractResult): AbstractResult {
     const val1 = res1.value;
     const val2 = res2.value;
     const items1 = val1[key] as FlatLattice<T>;
