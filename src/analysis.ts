@@ -4,7 +4,7 @@ import { FixRunFunc, valueOf } from './fixpoint';
 import { dcfa } from './dcfa';
 import { joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFlatMap, setMap, union } from './setUtil';
+import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { structuralComparator } from './comparators';
 
 export function analyze(service: ts.LanguageService, line: number, col: number) {
@@ -29,8 +29,11 @@ export function analyze(service: ts.LanguageService, line: number, col: number) 
     }))
 }
 
+
+
 function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.LanguageService): SimpleSet<SimpleFunctionLikeDeclaration> {
-    return valueOf({ func: compute, args: node }, empty());
+    const sf = service.getProgram()?.getSourceFiles()[0]!;
+    return valueOf({ func: compute, args: node }, empty(), getFuncName, set => setMap(set, getFuncName).toString());
     
     function compute(node: SimpleFunctionLikeDeclaration, fix_run: FixRunFunc<SimpleFunctionLikeDeclaration, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
         const directlyCalledFunctions = findAllFunctionsCalledInBody(node, service);
@@ -39,6 +42,14 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.
             (func) => fix_run(compute, func)
         )
         return union(directlyCalledFunctions, functionsCalledInDirectlyCalledFunctions);
+    }
+    
+    function getFuncName(func: SimpleFunctionLikeDeclaration) {
+        const { line, character } = ts.getLineAndCharacterOfPosition(sf, func.pos)
+        if (ts.isFunctionDeclaration(func)) {
+            return func.name?.text ?? `<anonymous:${line}:${character}>`
+        }
+        return `<anonymous:${line}:${character}>`;
     }
 }
 

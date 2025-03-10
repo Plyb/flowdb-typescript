@@ -6,7 +6,7 @@ import { pretty } from './abstract-results';
 import { analyze } from './analysis';
 import { getNodeAtPosition } from './ts-utils';
 
-const rootFolder = path.resolve(__dirname, '../../example')
+const rootFolder = path.resolve(__dirname, '../../examples/playground')
 const configFile = ts.readConfigFile(path.join(rootFolder, 'tsconfig.json'), ts.sys.readFile);
 const { options, fileNames } = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootFolder);
 const program = ts.createProgram(fileNames, {...options, noLib: true, noResolve: true, types: []});
@@ -68,14 +68,22 @@ function prettyInfo(item) {
   }
 }
 
-console.info = () => undefined
+function justCompute(item: string) {
+  if (!item.startsWith('compute')) {
+    return;
+  }
+  console.log(item);
+}
+
+// console.info = () => undefined
 // console.info = prettyInfo
+console.info = justCompute
 
 
-const pos = sf.getPositionOfLineAndCharacter(5, 11);
-const node = getNodeAtPosition(sf, pos)!;
-const results = dcfa(node, service);
-console.log(pretty(results, printNode));
+// const pos = sf.getPositionOfLineAndCharacter(5, 11);
+// const node = getNodeAtPosition(sf, pos)!;
+// const results = dcfa(node, service);
+// console.log(pretty(results, printNode));
 
-// const results = analyze(service, 3, 6);
-// console.log(results)
+const results = analyze(service, 3, 6);
+console.log(results.elements)
