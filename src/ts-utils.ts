@@ -143,6 +143,10 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
         return false;
     }
 
+    if (!ts.isIdentifier(prismaTable.expression) || prismaTable.expression.text !== 'prisma') {
+        return false;
+    }
+
     return {
         table: prismaTable.name.text,
         method: querySignature.name.text,
