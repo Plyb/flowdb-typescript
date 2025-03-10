@@ -3,9 +3,9 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery } from './ts-utils';
-import { AbstractArray, AbstractObject, AbstractValue, bot, botValue, primopValue, subsumes } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, setJoinMap, topResult } from './abstract-results';
+import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery, isNullLiteral } from './ts-utils';
+import { AbstractArray, AbstractObject, AbstractValue, bot, botValue, nullValue, primopValue, subsumes } from './abstract-values';
+import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, FixedTrace, primopDate, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
 
@@ -127,6 +127,8 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             }
 
             return emptyMapResult(node);
+        } else if (isNullLiteral(node)) {
+            return result(nullValue);
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
 

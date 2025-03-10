@@ -18,6 +18,7 @@ export type AbstractValue = {
     arrays: ArrayLattice,
     primops: SimpleSet<PrimopId>,
     maps: MapLattice,
+    null: SingletonLattice,
 }
 
 export type FlatLatticeKey =
@@ -30,6 +31,8 @@ export type FlatLatticeKey =
     | 'promises'
     | 'arrays'
     | 'maps';
+
+type SingletonLattice = boolean;
 
 export type FlatLattice<T> = 
 | Bottom
@@ -90,6 +93,7 @@ export const botValue: AbstractValue = {
     arrays: bot,
     primops: empty(),
     maps: bot,
+    null: false,
 }
 export const topValue: AbstractValue = {
     nodes: empty(),
@@ -103,6 +107,7 @@ export const topValue: AbstractValue = {
     arrays: top,
     primops: empty(),
     maps: bot,
+    null: true,
 }
 
 export function nodeValue(node: ts.Node): AbstractValue {
@@ -186,6 +191,7 @@ export function mapValue(constructorSite: ts.NewExpression): AbstractValue {
         maps: single(constructorSite),
     }
 }
+export const nullValue = { ...botValue, null: true }
 
 export const anyStringValue: AbstractValue = {
     ...botValue,
@@ -252,6 +258,7 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         arrays: joinFlatLattice(a.arrays, b.arrays),
         primops: union(a.primops, b.primops),
         maps: joinFlatLattice(a.maps, b.maps),
+        null: a.null || b.null,
     };
 }
 export function joinAllValues(...values: AbstractValue[]): AbstractValue {
@@ -270,6 +277,7 @@ export function subsumes(a: AbstractValue, b: AbstractValue) {
         && latticSubsumes(a.arrays, b.arrays)
         && a.primops.hasAll(...b.primops)
         && latticSubsumes(a.maps, b.maps)
+        && b.null || !a.null
 }
 
 function latticSubsumes<T>(a: FlatLattice<T>, b: FlatLattice<T>): boolean {
