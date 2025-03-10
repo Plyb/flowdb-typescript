@@ -268,7 +268,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         const declaration = symbol?.valueDeclaration
             ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
         if (declaration === undefined) {
-            throw new Error('could not find declaration');
+            throw new Error(`could not find declaration: ${id.text}:${getPosText(id)}`);
         }
 
         if (ts.isParameter(declaration)) {
@@ -336,6 +336,11 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     function printNode(node: ts.Node) {
         const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
         return printer.printNode(ts.EmitHint.Unspecified, node, sf);
+    }
+
+    function getPosText(node: ts.Node) {
+        const { line, character } = ts.getLineAndCharacterOfPosition(program.getSourceFiles()[0], node.pos);
+        return line + ':' + character
     }
 }
 

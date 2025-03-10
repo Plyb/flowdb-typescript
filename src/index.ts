@@ -90,10 +90,12 @@ function runAnalysis(pathString: string, line: number, column: number) {
   return results;
 }
 
+analyzeInboxZeroClean()
 
 function analyzePlayground() {
   console.log((runAnalysis('../../examples/playground', 3, 6)).elements)
 }
 
-analyzePlayground()
-
+function analyzeInboxZeroClean() {
+  console.log(runAnalysis('../../examples/inbox-zero-clean', 85924, 6).elements)
+}
