@@ -135,11 +135,11 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
             const { object, stores } = node.properties.reduce((acc, curr) => {
                 if (curr.name === undefined || !ts.isIdentifier(curr.name)) {
-                    throw new Error(`expected identifier for property name: ${curr.name}`)
+                    throw new Error(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`)
                 }
 
                 if (!ts.isPropertyAssignment(curr)) {
-                    throw new Error(`expected simple property assignment: ${curr}`);
+                    throw new Error(`expected simple property assignment: ${SyntaxKind[curr.kind]}:${getPosText(node)}`);
                 }
 
                 const result = fix_run(abstractEval, curr.initializer);
@@ -295,7 +295,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 return singleton<Node>(ts.factory.createElementAccessExpression(expression, 0))
             } else { // assuming it's a standard variable delcaration
                 if (declaration.initializer === undefined) {
-                    throw new Error('Variable declaration should have initializer')
+                    throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                 }
     
                 return singleton<Node>(declaration.initializer);
@@ -305,7 +305,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         } else if (ts.isBindingElement(declaration)) {
             const initializer = declaration.parent.parent.initializer;
             if (initializer === undefined) {
-                throw new Error('Variable declaration should have initializer')
+                throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
             }
 
             // dummy property access
@@ -332,7 +332,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
 
             throw new Error('Non-bare specifiers are not yet implemented');
         }
-        throw new Error(`not yet implemented: ${ts.SyntaxKind[declaration.kind]}`);
+        throw new Error(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     }
 
     function printNode(node: ts.Node) {
