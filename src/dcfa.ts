@@ -128,7 +128,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
 
             return emptyMapResult(node);
         }
-        throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}`);
+        throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
 
         function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
             const { object, stores } = node.properties.reduce((acc, curr) => {
