@@ -107,6 +107,7 @@ function mapGetPrimop(this: AbstractResult, _: CallExpression, fixed_eval: Fixed
     })
 }
 const mapSetPrimop = (() => botResult) as Primop
+const objectFreezePrimop = ((_, __, ___, arg) => arg) as Primop
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -127,6 +128,7 @@ export const primops = {
     'Map#keys': mapKeysPrimop as Primop,
     'Map#get': mapGetPrimop as Primop,
     'Map#set': mapSetPrimop,
+    'Object.freeze': objectFreezePrimop,
 }
 
 function createNullaryPrimopWithThis<R>(key: LatticeKey, construct: (val: R, callExpression: ts.CallExpression) => AbstractResult, f: () => R): Primop {
@@ -189,6 +191,12 @@ export const primopDate = objectResult(
     ts.factory.createObjectLiteralExpression(), // dummy
     {
         now: primopValue('Date.now')
+    }
+)
+export const primopObject = objectResult(
+    ts.factory.createObjectLiteralExpression(), // dummy
+    {
+        freeze: primopValue('Object.freeze')
     }
 )
 
