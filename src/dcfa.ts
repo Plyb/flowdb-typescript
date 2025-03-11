@@ -347,11 +347,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
 }
 
 function getOverriddenResult(node: ts.Node): false | AbstractResult {
-    const prismaQueryExpression = getPrismaQuery(node);
-    if (prismaQueryExpression) {
-        return botResult; // For now, just returning bot result until I need something fancier
-    }
-
     // in the long run, probably need a better way than just checking ids, since ids are used all over the place
     if (ts.isIdentifier(node)) {
         if (node.text === 'Math') {
