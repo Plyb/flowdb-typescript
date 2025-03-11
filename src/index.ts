@@ -97,5 +97,5 @@ function analyzePlayground() {
 }
 
 function analyzeInboxZeroClean() {
-  console.log(runAnalysis('../../examples/inbox-zero-clean', 85949, 6).elements)
+  console.log(runAnalysis('../../examples/inbox-zero-clean', 86006, 6).elements)
 }
