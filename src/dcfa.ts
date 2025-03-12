@@ -138,11 +138,14 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                     throw new Error(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`)
                 }
 
-                if (!ts.isPropertyAssignment(curr)) {
-                    throw new Error(`expected simple property assignment: ${SyntaxKind[curr.kind]}:${getPosText(node)}`);
+                let result: AbstractResult;
+                if (ts.isPropertyAssignment(curr)) {
+                    result = fix_run(abstractEval, curr.initializer);
+                } else if (ts.isShorthandPropertyAssignment(curr)) {
+                    result = fix_run(abstractEval, curr.name);
+                } else {
+                    throw new Error(`Unimplemented object property assignment: ${SyntaxKind[curr.kind]}:${getPosText(curr)}}`)
                 }
-
-                const result = fix_run(abstractEval, curr.initializer);
                 acc.object[curr.name.text] = result.value;
                 acc.stores = joinStores(acc.stores, result);
                 return acc;
@@ -309,7 +312,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             }
 
             // dummy property access
-            return singleton<Node>(ts.factory.createPropertyAccessExpression(initializer, id));
+            return singleton<ts.Node>(ts.factory.createPropertyAccessExpression(initializer, id));
         } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
             const moduleSpecifier = ts.isImportClause(declaration)
                 ? declaration.parent.moduleSpecifier
@@ -327,10 +330,12 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                  * into a bunch of package internals. Maybe I'll come up with a better way
                  * later, but this is good enough for now.
                  */
-                return singleton<Node>(declaration);
+                return singleton<ts.Node>(declaration);
             }
 
             throw new Error('Non-bare specifiers are not yet implemented');
+        } else if (ts.isShorthandPropertyAssignment(declaration)) {
+            return singleton<ts.Node>(declaration.name);
         }
         throw new Error(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     }
