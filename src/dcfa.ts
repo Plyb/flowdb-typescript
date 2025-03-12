@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo } from 'typescript';
+import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
@@ -277,18 +277,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         }
 
         if (ts.isParameter(declaration)) {
-            if (!isFunctionLikeDeclaration(declaration.parent)) {
-                throw new Error('not yet implemented');
-            }
-            const parameterIndex = declaration.parent.parameters.indexOf(declaration);
-            const definingFunctionBody = declaration.parent.body
-    
-            const definingFunctionCallSites = fix_run(
-                getWhereClosed, definingFunctionBody
-            ).value.nodes as any as SimpleSet<CallExpression>;
-            return setMap(definingFunctionCallSites, (callSite) => {
-                return callSite.arguments[parameterIndex] as Node;
-            });
+            return getArgumentsForParameter(declaration)
         } else if (ts.isVariableDeclaration(declaration)) {
             if (ts.isForOfStatement(declaration.parent.parent)) {
                 const forOfStatement = declaration.parent.parent;
@@ -306,13 +295,19 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         } else if (ts.isFunctionDeclaration(declaration)) {
             return singleton<Node>(declaration);
         } else if (ts.isBindingElement(declaration)) {
-            const initializer = declaration.parent.parent.initializer;
-            if (initializer === undefined) {
-                throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+            // TODO: the nodes created from the factory are not the best way to do this, we should be able to just find the actual source expressions
+            const bindingElementSource = declaration.parent.parent;
+            if (ts.isVariableDeclaration(bindingElementSource)) {
+                const initializer = bindingElementSource.initializer;
+                if (initializer === undefined) {
+                    throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                }
+    
+                return singleton<ts.Node>(ts.factory.createPropertyAccessExpression(initializer, id));
+            } else if (ts.isParameter(bindingElementSource)) {
+                const args = getArgumentsForParameter(bindingElementSource);
+                return setMap(args, arg => ts.factory.createPropertyAccessExpression(arg as Expression, id) as ts.Node);
             }
-
-            // dummy property access
-            return singleton<ts.Node>(ts.factory.createPropertyAccessExpression(initializer, id));
         } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
             const moduleSpecifier = ts.isImportClause(declaration)
                 ? declaration.parent.moduleSpecifier
@@ -338,6 +333,21 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             return singleton<ts.Node>(declaration.name);
         }
         throw new Error(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
+
+        function getArgumentsForParameter(declaration: ParameterDeclaration): SimpleSet<Node> {
+            if (!isFunctionLikeDeclaration(declaration.parent)) {
+                throw new Error('not yet implemented');
+            }
+            const parameterIndex = declaration.parent.parameters.indexOf(declaration);
+            const definingFunctionBody = declaration.parent.body
+    
+            const definingFunctionCallSites = fix_run(
+                getWhereClosed, definingFunctionBody
+            ).value.nodes as any as SimpleSet<CallExpression>;
+            return setMap(definingFunctionCallSites, (callSite) => {
+                return callSite.arguments[parameterIndex] as Node;
+            });
+        }
     }
 
     function printNode(node: ts.Node) {
