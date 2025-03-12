@@ -7,6 +7,7 @@ import { empty, setFilter, setMap, setSift, singleton } from './setUtil';
 import { FixRunFunc } from './fixpoint';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
 import { id } from './util';
+import { cloneNode } from 'ts-clone-node';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
@@ -111,6 +112,7 @@ const mapSetPrimop = (() => botResult) as Primop
 const objectFreezePrimop = ((_, __, ___, arg) => arg) as Primop
 const arrayFromPrimop = ((_, __, ___, arg) => arg) as Primop
 const questionQuestionPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
+const barBarPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -134,6 +136,7 @@ export const primops = {
     'Object.freeze': objectFreezePrimop,
     'Array.from': arrayFromPrimop,
     [SyntaxKind.QuestionQuestionToken as BinaryOperator]: questionQuestionPrimop,
+    [SyntaxKind.BarBarToken as BinaryOperator]: barBarPrimop,
 }
 
 function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, expression: PrimopExpression) => AbstractResult, f: () => R): Primop {
@@ -211,21 +214,23 @@ export const primopArray = objectResult(
     }
 )
 
-type PrimopInternalCallSites = {
+type PrimopInternalReferenceSites = {
     [id: string]: (args: ts.Expression[], argIndex: number) => SimpleSet<ts.Node>
 }
-export const primopInternalCallSites: PrimopInternalCallSites = {
-    'Array#map': arrayMapInternalCallSites
+export const primopInternalCallSites: PrimopInternalReferenceSites = {
+    'Array#map': arrayMapInternalReferenceSites
 }
 
-function arrayMapInternalCallSites(this: ts.Expression, args: ts.Expression[], argIndex: number): SimpleSet<ts.Node> {
+function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression[], argIndex: number): SimpleSet<ts.Node> {
     if (argIndex !== 0) {
         return empty();
     }
     
     const convert = args[0];
     const arrayAccess = ts.factory.createElementAccessExpression(this, 0);
-    return singleton<ts.Node>(ts.factory.createCallExpression(convert, [], [arrayAccess]));
+    const call = ts.factory.createCallExpression(convert, [], [arrayAccess]);
+    const clonedCall = cloneNode(call, { setParents: true });
+    return singleton(clonedCall.arguments[0] as ts.Node);
 }
 
 function getMapSetCalls(returnSites: SimpleSet<ts.Node>, fixed_eval: FixedEval): SimpleSet<ts.CallExpression> {

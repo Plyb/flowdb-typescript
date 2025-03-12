@@ -77,8 +77,8 @@ function runAnalysis(pathString: string, line: number, column: number) {
   }
 
   // console.info = () => undefined
-  // console.info = prettyInfo
-  console.info = justCompute
+  console.info = prettyInfo
+  // console.info = justCompute
 
 
   // const pos = sf.getPositionOfLineAndCharacter(5, 11);
