@@ -4,8 +4,8 @@ import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './set
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery, isNullLiteral } from './ts-utils';
-import { AbstractArray, AbstractObject, AbstractValue, bot, botValue, nullValue, primopValue, subsumes } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, setJoinMap, topResult } from './abstract-results';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, bot, botValue, nullValue, primopValue, subsumes } from './abstract-values';
+import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
 
@@ -142,7 +142,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 [lhsRes, rhsRes],
             )
         }
-        throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
+        throw new Error(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
 
         function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
             const { object, stores } = node.properties.reduce((acc, curr) => {
@@ -167,9 +167,19 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         }
 
         function evalArray(node: ts.ArrayLiteralExpression): AbstractResult {
-            const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => 
-                fix_run(abstractEval, elem)
-            );
+            const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => {
+                if (ts.isSpreadElement(elem)) {
+                    const expressionResult = fix_run(abstractEval, elem.expression);
+                    return resultBind(expressionResult, 'arrays', 
+                        (arrRef: ArrayRef) => ({
+                            ...expressionResult,
+                            value: expressionResult.arrayStore.get(arrRef)!.element,
+                        })
+                    );
+                } else {
+                    return fix_run(abstractEval, elem)
+                }
+            });
 
             return arrayResult(node, itemValue);
         }
