@@ -4,8 +4,8 @@ import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './set
 import { FixRunFunc, valueOf } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery, isNullLiteral } from './ts-utils';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, bot, botValue, nullValue, primopValue, subsumes } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, setJoinMap, topResult } from './abstract-results';
+import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, bot, botValue, nullValue, primopValue, stringValue, subsumes } from './abstract-values';
+import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
 
@@ -140,6 +140,20 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 primopId,
                 botResult,
                 [lhsRes, rhsRes],
+            )
+        } else if (ts.isTemplateExpression(node)) {
+            const components = [
+                fix_run(abstractEval, node.head),
+                ...node.templateSpans.flatMap(span => [
+                    fix_run(abstractEval, span.expression),
+                    fix_run(abstractEval, span.literal),
+                ]),
+            ];
+            return components.reduce(
+                (acc, curr) => resultBind2(acc, curr, 'strings',
+                    (str1: string, str2) => result(stringValue(str1 + str2))
+                ),
+                result(stringValue(''))
             )
         }
         throw new Error(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
