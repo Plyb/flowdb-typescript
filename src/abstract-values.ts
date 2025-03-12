@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set'
 import { empty, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
-import { PrimopId } from './primops'
+import { PrimopExpression, PrimopId } from './primops'
 import { AbstractMap } from './abstract-map'
 
 export type AbstractValue = {
@@ -54,16 +54,14 @@ export type AbstractObject = { [key: string]: AbstractValue }
 export type ObjectLattice = FlatLattice<ObjectRef>
 export type ObjectStore = Map<ObjectRef, AbstractObject>
 
-type PrimopPromiseRef = ts.CallExpression;
-export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopPromiseRef;
+export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopExpression;
 export type AbstractPromise = {
     resolvesTo: AbstractValue
 }
 export type PromiseLattice = FlatLattice<PromiseRef>
 export type PromiseStore = Map<PromiseRef, AbstractPromise>
 
-type PrimopArrayRef = ts.CallExpression;
-export type ArrayRef = ts.ArrayLiteralExpression | PrimopArrayRef;
+export type ArrayRef = ts.ArrayLiteralExpression | PrimopExpression;
 export type AbstractArray = { element: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>

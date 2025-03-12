@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { AbstractArray, AbstractObject, AbstractValue, bot, botValue, nullValue, primopValue, subsumes } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
-import { FixedEval, FixedTrace, primopArray, primopDate, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
+import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
 
 export function dcfa(node: ts.Node, service: ts.LanguageService) {
     const program = service.getProgram()!;
@@ -129,6 +129,18 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             return emptyMapResult(node);
         } else if (isNullLiteral(node)) {
             return result(nullValue);
+        } else if (ts.isBinaryExpression(node)) {
+            const lhsRes = fix_run(abstractEval, node.left);
+            const rhsRes = fix_run(abstractEval, node.right);
+            const primopId = node.operatorToken.kind;
+            return applyPrimop(
+                node,
+                node => fix_run(abstractEval, node),
+                node => fix_run(getWhereValueReturned, node), 
+                primopId,
+                botResult,
+                [lhsRes, rhsRes],
+            )
         }
         throw new Error(`not yet implemented: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
 
@@ -382,8 +394,8 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     return false;
 }
 
-function applyPrimop<Arg, Ret>(callExpression: ts.CallExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
-    return primops[primopId].apply(thisRes, [callExpression, fixed_eval, fixed_trace, ...args]);
+function applyPrimop<Arg, Ret>(expression: PrimopExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
+    return primops[primopId].apply(thisRes, [expression, fixed_eval, fixed_trace, ...args]);
 }
 
 function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId {
