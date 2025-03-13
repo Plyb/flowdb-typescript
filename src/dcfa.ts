@@ -347,7 +347,6 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         } else if (ts.isFunctionDeclaration(declaration)) {
             return singleton<Node>(declaration);
         } else if (ts.isBindingElement(declaration)) {
-            // TODO: the nodes created from the factory are not the best way to do this, we should be able to just find the actual source expressions
             const bindingElementSource = declaration.parent.parent;
             if (ts.isVariableDeclaration(bindingElementSource)) {
                 const initializer = bindingElementSource.initializer;
