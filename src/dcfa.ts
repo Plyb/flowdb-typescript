@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration, ObjectLiteralExpression, Identifier, PropertyAssignment, ShorthandPropertyAssignment } from 'typescript';
+import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration, ObjectLiteralExpression, Identifier, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
@@ -232,6 +232,13 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         
         return nodesResult(objectConstructors);
     }
+    
+    function getWhereArrayConstructed(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        const valueReturnedAt = getWhereValueReturned(node, fix_run).value.nodes;
+        const objectConstructors = setFilter(valueReturnedAt, ts.isArrayLiteralExpression);
+        
+        return nodesResult(objectConstructors);
+    }
 
     function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
         return join(nodeResult(node), getWhereValueReturnedElsewhere(node, fix_run));
@@ -335,8 +342,14 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 const forOfStatement = declaration.parent.parent;
                 const expression = forOfStatement.expression;
 
+                const arrayLiterals = fix_run(getWhereArrayConstructed, expression)
+                    .value.nodes as any as SimpleSet<ArrayLiteralExpression>;
+
                 // dummy element access
-                return singleton<Node>(ts.factory.createElementAccessExpression(expression, 0))
+                return setFlatMap(arrayLiterals, arrLit => {
+                    const elements = arrLit.elements;
+                    return joinAll(...elements.map(elem => fix_run(abstractEval, elem))).value.nodes;
+                });
             } else { // assuming it's a standard variable delcaration
                 if (declaration.initializer === undefined) {
                     throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
