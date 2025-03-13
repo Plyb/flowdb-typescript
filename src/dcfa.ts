@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration } from 'typescript';
+import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration, ObjectLiteralExpression, Identifier, PropertyAssignment, ShorthandPropertyAssignment } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
 import { FixRunFunc, valueOf } from './fixpoint';
@@ -225,6 +225,13 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
             setMap(operatorSites, op => op.parent)
         )
     }
+    
+    function getWhereObjectConstructed(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        const valueReturnedAt = getWhereValueReturned(node, fix_run).value.nodes;
+        const objectConstructors = setFilter(valueReturnedAt, ts.isObjectLiteralExpression);
+        
+        return nodesResult(objectConstructors);
+    }
 
     function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
         return join(nodeResult(node), getWhereValueReturnedElsewhere(node, fix_run));
@@ -242,7 +249,12 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 const possibleFunctions = possibleOperators.nodes as any as SimpleSet<SimpleFunctionLikeDeclaration>;
                 const parameterReferences = setJoinMap(
                     possibleFunctions,
-                    (func) => nodesResult(getReferences(func.parameters[argIndex].name))
+                    (func) => {
+                        const parameterName = func.parameters[argIndex].name;
+                        return ts.isIdentifier(parameterName)
+                            ? nodesResult(getReferences(parameterName))
+                            : botResult;
+                    }
                 ).value.nodes;
                 const functionResult = setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
 
@@ -265,6 +277,10 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
         } else if (ts.isParenthesizedExpression(parent)) {
             return fix_run(getWhereValueReturned, parent);
         } else if (ts.isVariableDeclaration(parent)) {
+            if (!ts.isIdentifier(parent.name)) {
+                return botResult;
+            }
+
             const refs = getReferences(parent.name)
             return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
         } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
@@ -288,11 +304,7 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     }
     
     // "find"
-    function getReferences(id: ts.Node): SimpleSet<ts.Node> {
-        if (!ts.isIdentifier(id)) {
-            throw new Error("can't find references of non-identifier");
-        }
-
+    function getReferences(id: ts.Identifier): SimpleSet<ts.Node> {
         const refs = service
             .findReferences(id.getSourceFile().fileName, id.getStart())
             ?.flatMap(ref => ref.references)
@@ -342,11 +354,18 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 if (initializer === undefined) {
                     throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                 }
-    
-                return singleton<ts.Node>(ts.factory.createPropertyAccessExpression(initializer, id));
+
+                const objectConstructors = fix_run(getWhereObjectConstructed, initializer)
+                    .value.nodes as any as SimpleSet<ObjectLiteralExpression>;
+                return getObjectsPropertyInitializers(objectConstructors, id);
             } else if (ts.isParameter(bindingElementSource)) {
                 const args = getArgumentsForParameter(bindingElementSource);
-                return setMap(args, arg => ts.factory.createPropertyAccessExpression(arg as Expression, id) as ts.Node);
+
+                const objectConstructors = setFlatMap(args, arg =>
+                    fix_run(getWhereObjectConstructed, arg)
+                        .value.nodes as any as SimpleSet<ObjectLiteralExpression>
+                );
+                return getObjectsPropertyInitializers(objectConstructors, id);
             }
         } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
             const moduleSpecifier = ts.isImportClause(declaration)
@@ -388,6 +407,39 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 return callSite.arguments[parameterIndex] as Node;
             });
         }
+    }
+
+    function getObjectsPropertyInitializers(objConstructors: SimpleSet<ObjectLiteralExpression>, id: Identifier) {
+        return setFlatMap(objConstructors, objConstructor => {
+            const initializer = getObjectPropertyInitializer(objConstructor, id);
+            
+            return initializer !== undefined
+                ? singleton<Node>(initializer)
+                : empty<Node>();
+        });
+    }
+
+    function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, id: Identifier): ts.Node | undefined {
+        const reversedProps = [...objConstructor.properties].reverse();
+
+        function getPropertyAssignmentInitializer() {
+            const propAssignment = reversedProps.find(prop =>
+                ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === id.text
+            ) as PropertyAssignment;
+
+            return propAssignment?.initializer;
+        }
+
+        function getShorthandPropertyAssignmentInitializer() {
+            const shorthandPropAssignment = reversedProps.find(prop =>
+                ts.isShorthandPropertyAssignment(prop) && prop.name.text === id.text
+            ) as ShorthandPropertyAssignment;
+
+            return shorthandPropAssignment.name;
+        }
+
+        return getPropertyAssignmentInitializer()
+            ?? getShorthandPropertyAssignmentInitializer();
     }
 
     function printNode(node: ts.Node) {
