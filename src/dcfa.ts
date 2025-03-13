@@ -155,6 +155,10 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
                 ),
                 result(stringValue(''))
             )
+        } else if (ts.isConditionalExpression(node)) {
+            const trueResult = fix_run(abstractEval, node.whenTrue);
+            const falseResult = fix_run(abstractEval, node.whenFalse);
+            return join(trueResult, falseResult)
         }
         throw new Error(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
 
