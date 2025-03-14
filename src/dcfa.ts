@@ -1,7 +1,7 @@
 import ts, { CallExpression, Expression, Node, ParenthesizedExpression, ObjectLiteralElementLike, SyntaxKind, PreProcessedFileInfo, ParameterDeclaration, ObjectLiteralExpression, Identifier, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, unionAll } from './setUtil';
-import { FixRunFunc, valueOf } from './fixpoint';
+import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, getPrismaQuery, isNullLiteral } from './ts-utils';
 import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, bot, botValue, nullValue, primopValue, stringValue, subsumes } from './abstract-values';
@@ -19,17 +19,14 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     }
     console.log(`dcfa for: ${printNode(node)}`)
 
-    return valueOf(
-        {
-            func: abstractEval,
-            args: node,
-        },
-        botResult,
-        {
-            printArgs: printNode,
-            printRet: result => pretty(result, printNode).toString() 
-        }
-    ).result;
+    const valueOf = makeFixpointComputer(botResult, {
+        printArgs: printNode,
+        printRet: result => pretty(result, printNode).toString() 
+    });
+    return valueOf({
+        func: abstractEval,
+        args: node,
+    });
 
     // "eval"
     function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {

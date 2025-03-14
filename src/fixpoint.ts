@@ -34,61 +34,58 @@ type ValueOfOptions<Args extends object, Ret extends object> = {
 const defaultOptions: ValueOfOptions<any, any> = {
     printArgs: (arg) => arg.toString(),
     printRet: (ret) => ret.toString(),
-    initialValues: undefined,
-    initialDependents: undefined
 };
-export function valueOf<Args extends object, Ret extends object>(
-    query: Computation<Args, Ret>, 
-    defaultRet: Ret, 
-    { printArgs, printRet, initialValues, initialDependents }: ValueOfOptions<Args, Ret> = defaultOptions
-): { result: Ret, values: ValueMap<Args, Ret>, dependents: DependentMap<Args, Ret> } {
-    const values = initialValues ?? new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
-    const dependents = initialDependents ?? new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
-    const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
-    while (compsToDo.size() !== 0) {
-        const compToDo = compsToDo.elements[0];
-        compsToDo.delete(compToDo);
-
-        evaluateComputation(compToDo);
-    }
-
-    return {
-        result: values.get(query) ?? defaultRet,
-        values,
-        dependents,
-    }
-
-    function evaluateComputation(comp: Computation<Args, Ret>) {
-        const { func, args } = comp;
-
-        const dependencyUsages = new SimpleSet(computationComparator<Args, Ret>);
-        const fix_run: FixRunFunc<Args, Ret> = (func, args) => {
-            const dependencyComp = {func, args};
-            dependencyUsages.add(dependencyComp);
-
-            if (!values.has(dependencyComp)) {
-                if (!values.has(comp)) { // ensure no infinite recursion
-                    values.set(comp, defaultRet);
+export function makeFixpointComputer<Args extends object, Ret extends object>(
+    defaultRet: Ret,
+    { printArgs, printRet }: ValueOfOptions<Args, Ret> = defaultOptions,
+): (query: Computation<Args, Ret>) => Ret {
+    const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
+    const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
+    return function valueOf(
+        query: Computation<Args, Ret>,
+    ) {
+        const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
+        while (compsToDo.size() !== 0) {
+            const compToDo = compsToDo.elements[0];
+            compsToDo.delete(compToDo);
+    
+            evaluateComputation(compToDo);
+        }
+    
+        return values.get(query) ?? defaultRet;
+    
+        function evaluateComputation(comp: Computation<Args, Ret>) {
+            const { func, args } = comp;
+    
+            const dependencyUsages = new SimpleSet(computationComparator<Args, Ret>);
+            const fix_run: FixRunFunc<Args, Ret> = (func, args) => {
+                const dependencyComp = {func, args};
+                dependencyUsages.add(dependencyComp);
+    
+                if (!values.has(dependencyComp)) {
+                    if (!values.has(comp)) { // ensure no infinite recursion
+                        values.set(comp, defaultRet);
+                    }
+                    evaluateComputation(dependencyComp);
                 }
-                evaluateComputation(dependencyComp);
+    
+                return values.get(dependencyComp) ?? defaultRet;
             }
-
-            return values.get(dependencyComp) ?? defaultRet;
-        }
-
-        console.info(`${func.name}(${printArgs(args)})`);
-        const results = func(args, fix_run);
-        console.info(`${func.name}(${printArgs(args)}) = ${printRet(results)}`);
-
-        if (valuesUpdated(values, comp, results)) {
-            const thisDependents = dependents.get(comp)
-            compsToDo.add(...thisDependents);
-        }
-        values.set(comp, results);
-        for (const dependency of dependencyUsages) {
-            if (!dependents.get(dependency).has(comp)) {
-                dependents.add(dependency, comp);
-                compsToDo.add(dependency);
+    
+            console.info(`${func.name}(${printArgs(args)})`);
+            const results = func(args, fix_run);
+            console.info(`${func.name}(${printArgs(args)}) = ${printRet(results)}`);
+    
+            if (valuesUpdated(values, comp, results)) {
+                const thisDependents = dependents.get(comp)
+                compsToDo.add(...thisDependents);
+            }
+            values.set(comp, results);
+            for (const dependency of dependencyUsages) {
+                if (!dependents.get(dependency).has(comp)) {
+                    dependents.add(dependency, comp);
+                    compsToDo.add(dependency);
+                }
             }
         }
     }

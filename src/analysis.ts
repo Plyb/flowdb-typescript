@@ -1,6 +1,6 @@
 import ts, { Identifier } from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { FixRunFunc, valueOf } from './fixpoint';
+import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { dcfa } from './dcfa';
 import { joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
@@ -33,7 +33,7 @@ export function analyze(service: ts.LanguageService, line: number, col: number) 
 
 function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.LanguageService): SimpleSet<SimpleFunctionLikeDeclaration> {
     const sf = service.getProgram()?.getSourceFiles()[0]!;
-    return valueOf({ func: compute, args: node }, empty(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() }).result;
+    return makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: getFuncName, printRet: (set: SimpleSet<SimpleFunctionLikeDeclaration>) => setMap(set, getFuncName).toString() })({ func: compute, args: node }, );
     
     function compute(node: SimpleFunctionLikeDeclaration, fix_run: FixRunFunc<SimpleFunctionLikeDeclaration, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
         const directlyCalledFunctions = findAllFunctionsCalledInBody(node, service);
