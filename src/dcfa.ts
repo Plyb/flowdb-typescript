@@ -88,7 +88,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const returnStatements = [...getReturnStmts(node)];
                 const returnStatementValues = returnStatements.map(returnStatement => {
                     if (returnStatement.expression === undefined) {
-                        throw new Error('return statement should have expression');   
+                        return unimplementedRes('return statement should have expression');   
                     }
                     return fix_run(abstractEval, returnStatement.expression);
                 });
@@ -99,7 +99,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return evalObject(node);
             } else if (ts.isPropertyAccessExpression(node)) {
                 if (!ts.isIdentifier(node.name)) {
-                    throw new Error(`Expected simple identifier property access: ${node.name}`);
+                    return unimplementedRes(`Expected simple identifier property access: ${node.name}`);
                 }
     
                 const expressionResult = fix_run(abstractEval, node.expression);
@@ -130,7 +130,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return getArrayElement(expressionResult);
             } else if (ts.isNewExpression(node)) {
                 if (!(ts.isIdentifier(node.expression) && node.expression.text === 'Map')) {
-                    throw new Error(`New expression not yet implemented for ${printNode(node.expression)}`)
+                    return unimplementedRes(`New expression not yet implemented for ${printNode(node.expression)}`)
                 }
     
                 return emptyMapResult(node);
@@ -167,12 +167,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const falseResult = fix_run(abstractEval, node.whenFalse);
                 return join(trueResult, falseResult)
             }
-            throw new Error(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
+            return unimplementedRes(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
     
             function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
                 const { object, stores } = node.properties.reduce((acc, curr) => {
                     if (curr.name === undefined || !ts.isIdentifier(curr.name)) {
-                        throw new Error(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`)
+                        return unimplemented(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`, acc)
                     }
     
                     let result: AbstractResult;
@@ -181,7 +181,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     } else if (ts.isShorthandPropertyAssignment(curr)) {
                         result = fix_run(abstractEval, curr.name);
                     } else {
-                        throw new Error(`Unimplemented object property assignment: ${SyntaxKind[curr.kind]}:${getPosText(curr)}}`)
+                        return unimplemented(`Unimplemented object property assignment: ${SyntaxKind[curr.kind]}:${getPosText(curr)}}`, acc)
                     }
                     acc.object[curr.name.text] = result.value;
                     acc.stores = joinStores(acc.stores, result);
@@ -287,7 +287,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
-                    throw new Error('function declaration should have name')
+                    return unimplementedRes('function declaration should have name')
                 }
     
                 const refs = getReferences(node.name);
@@ -312,7 +312,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 ?.flatMap(ref => ref.references)
                 ?.filter(ref => !ref.isDefinition);
             if (refs === undefined) {
-                throw new Error('undefined references');
+                return unimplemented('undefined references', empty());
             }
             const refNodes = refs.map(ref => getNodeAtPosition(
                 program.getSourceFile(ref.fileName)!,
@@ -325,12 +325,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): SimpleSet<ts.Node> {
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
-                throw new Error('Unable to find symbol')
+                return unimplemented('Unable to find symbol', empty())
             }
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
-                throw new Error(`could not find declaration: ${id.text}:${getPosText(id)}`);
+                return unimplemented(`could not find declaration: ${id.text}:${getPosText(id)}`, empty());
             }
     
             if (ts.isParameter(declaration)) {
@@ -350,7 +350,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     });
                 } else { // assuming it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
-                        throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
         
                     return singleton<Node>(declaration.initializer);
@@ -362,7 +362,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 if (ts.isVariableDeclaration(bindingElementSource)) {
                     const initializer = bindingElementSource.initializer;
                     if (initializer === undefined) {
-                        throw new Error(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
     
                     const objectConstructors = fix_run(getWhereObjectConstructed, initializer)
@@ -400,18 +400,18 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
                 const trueDeclaration = aliasedSymbol.valueDeclaration ?? aliasedSymbol.declarations?.[0];
                 if (trueDeclaration === undefined) {
-                    throw new Error('unable to follow import statement through');
+                    return unimplemented('unable to follow import statement through', empty());
                 }
 
                 return singleton<Node>(trueDeclaration);
             } else if (ts.isShorthandPropertyAssignment(declaration)) {
                 return singleton<ts.Node>(declaration.name);
             }
-            throw new Error(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
+            return unimplemented(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty());
     
             function getArgumentsForParameter(declaration: ParameterDeclaration): SimpleSet<Node> {
                 if (!isFunctionLikeDeclaration(declaration.parent)) {
-                    throw new Error('not yet implemented');
+                    return unimplemented('not yet implemented', empty());
                 }
                 const parameterIndex = declaration.parent.parameters.indexOf(declaration);
                 const definingFunctionBody = declaration.parent.body
@@ -518,4 +518,13 @@ function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId
     }
 
     return false;
+}
+
+function unimplemented<T>(message: string, returnVal: T): T {
+    console.warn(message);
+    return returnVal;
+}
+
+function unimplementedRes(message: string): AbstractResult {
+    return unimplemented(message, botResult);
 }
