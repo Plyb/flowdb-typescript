@@ -7,10 +7,13 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { structuralComparator } from './comparators';
 
-export function analyze(service: ts.LanguageService, line: number, col: number) {
+export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
     
-    const sf = program.getSourceFiles()[0];
+    const sf = program.getSourceFiles().find(sf => sf.fileName === filePath);
+    if (sf === undefined) {
+        throw new Error(`Unknown file name: ${filePath}`)
+    }
     const pos = sf.getPositionOfLineAndCharacter(line, col);
     const node = getNodeAtPosition(sf, pos);
     if (node === undefined) {

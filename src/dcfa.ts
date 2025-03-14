@@ -324,7 +324,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         // bind
         function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): SimpleSet<ts.Node> {
             const symbol = typeChecker.getSymbolAtLocation(id);
-            const declaration = symbol?.valueDeclaration
+            if (symbol === undefined) {
+                throw new Error('Unable to find symbol')
+            }
+            const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
                 throw new Error(`could not find declaration: ${id.text}:${getPosText(id)}`);
@@ -393,8 +396,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                      */
                     return singleton<ts.Node>(declaration);
                 }
-    
-                throw new Error('Non-bare specifiers are not yet implemented');
+
+                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
+                const trueDeclaration = aliasedSymbol.valueDeclaration ?? aliasedSymbol.declarations?.[0];
+                if (trueDeclaration === undefined) {
+                    throw new Error('unable to follow import statement through');
+                }
+
+                return singleton<Node>(trueDeclaration);
             } else if (ts.isShorthandPropertyAssignment(declaration)) {
                 return singleton<ts.Node>(declaration.name);
             }
