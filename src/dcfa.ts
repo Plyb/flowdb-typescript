@@ -47,7 +47,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const possibleFunctions = possibleOperators.nodes;
                 const valuesOfFunctionBodies = setJoinMap(possibleFunctions, (func) => {
                     if (!isFunctionLikeDeclaration(func)) {
-                        return botResult;
+                        throw new Error(`Expected a function, got ${SyntaxKind[func.kind]}`)
                     }
     
                     const body: ts.Node = func.body;
@@ -109,9 +109,11 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 }
     
                 const primop = getPrimitivePrimop(expressionResult, node.name.text);
-                return primop
-                    ? primopResult(primop)
-                    : botResult;
+                if (primop === undefined) {
+                    return unimplementedRes(`Property access must result in a non-bot value: ${getPosText(node)}`);
+                }
+
+                return primopResult(primop)
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return resolvePromise(expressionValue);
@@ -242,7 +244,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         function getWhereValueReturnedElsewhere(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
             const parent = node.parent;
             if (ts.isCallExpression(parent)) {
-                if (!isOperatorOf(node, parent)) {
+                if (isOperatorOf(node, parent)) {
+                    return botResult; // If we're the operator, our value doesn't get propogated anywhere
+                } else {
                     const argIndex = getArgumentIndex(parent, node);
                     const possibleOperators = fix_run(
                         abstractEval, parent.expression
@@ -253,9 +257,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         possibleFunctions,
                         (func) => {
                             const parameterName = func.parameters[argIndex].name;
-                            return ts.isIdentifier(parameterName)
+                            return ts.isIdentifier(parameterName) 
                                 ? nodesResult(getReferences(parameterName))
-                                : botResult;
+                                : botResult; // If it's not an identifier, it's being destructured, so the value doesn't continue on
                         }
                     ).value.nodes;
                     const functionResult = setJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
@@ -280,7 +284,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return fix_run(getWhereValueReturned, parent);
             } else if (ts.isVariableDeclaration(parent)) {
                 if (!ts.isIdentifier(parent.name)) {
-                    return botResult;
+                    return botResult; // if it's not an identifier, we're destructuring it, which will return different values
                 }
     
                 const refs = getReferences(parent.name)
@@ -292,14 +296,16 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 const refs = getReferences(node.name);
                 return setJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
+            } else if (ts.isForOfStatement(parent) && parent.expression === node) {
+                return botResult; // we're effectively "destructuring" the expression here, so the original value is gone
             }
-            return botResult;
+            return unimplementedRes(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
         }
         
         // "call"
         function getWhereClosed(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
             if (!isFunctionLikeDeclaration(node.parent)) {
-                return botResult;
+                return unimplementedRes(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
             }
     
             return fix_run(getWhereValueApplied, node.parent)
@@ -503,7 +509,7 @@ function applyPrimop<Arg, Ret>(expression: PrimopExpression, fixed_eval: FixedEv
     return primops[primopId].apply(thisRes, [expression, fixed_eval, fixed_trace, ...args]);
 }
 
-function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId {
+function getPrimitivePrimop(res: AbstractResult, name: string): PrimopId | undefined {
     const primopIds = Object.keys(primops);
 
     if (res.value.strings !== bot) {
@@ -517,7 +523,7 @@ function getPrimitivePrimop(res: AbstractResult, name: string): false | PrimopId
         return mapPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
     }
 
-    return false;
+    return undefined;
 }
 
 function unimplemented<T>(message: string, returnVal: T): T {

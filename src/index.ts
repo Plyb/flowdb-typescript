@@ -72,12 +72,12 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   return results;
 }
 
-analyzePlayground()
+analyzeInboxZeroClean()
 
 function analyzePlayground() {
   console.log((runAnalysis('../../examples/playground', './test.ts', 3, 6)).elements)
 }
 
 function analyzeInboxZeroClean() {
-  console.log(runAnalysis('../../examples/inbox-zero-clean', 'TODO', 86006, 6).elements)
+  console.log(runAnalysis('../../examples/inbox-zero-clean', './test.ts', 86006, 6).elements)
 }
