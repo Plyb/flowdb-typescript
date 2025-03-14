@@ -84,7 +84,6 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
             for (const dependency of dependencyUsages) {
                 if (!dependents.get(dependency).has(comp)) {
                     dependents.add(dependency, comp);
-                    compsToDo.add(dependency);
                 }
             }
         }
