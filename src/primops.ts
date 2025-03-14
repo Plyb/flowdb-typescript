@@ -226,11 +226,11 @@ function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression
         return empty();
     }
     
-    const convert = args[0];
-    const arrayAccess = ts.factory.createElementAccessExpression(this, 0);
-    const call = ts.factory.createCallExpression(convert, [], [arrayAccess]);
+    const convert = args[0]; // convert
+    const arrayAccess = ts.factory.createElementAccessExpression(this, 0); // this[0]
+    const call = ts.factory.createCallExpression(convert, [], [arrayAccess]); // convert(this[0])
     const clonedCall = cloneNode(call, { setParents: true });
-    return singleton(clonedCall.arguments[0] as ts.Node);
+    return singleton<ts.Node>(clonedCall.expression);
 }
 
 function getMapSetCalls(returnSites: SimpleSet<ts.Node>, fixed_eval: FixedEval): SimpleSet<ts.CallExpression> {
