@@ -23,9 +23,27 @@ function valuesUpdated<K, V>(map: SimpleMap<K, V>, key: K, value: V) {
     return structuralComparator(map.get(key), value) !== 0;
 }
 
-export function valueOf<Args extends object, Ret extends object>(query: Computation<Args, Ret>, defaultRet: Ret, printArgs: (arg: Args) => string = (arg) => arg.toString(), printRet: (ret: Ret) => string = (ret) => ret.toString()): Ret {
-    const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
-    const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
+type ValueMap<Args, Ret> = SimpleMap<Computation<Args, Ret>, Ret>
+type DependentMap<Args, Ret> = Lookup<Computation<Args, Ret>, Computation<Args, Ret>>
+type ValueOfOptions<Args extends object, Ret extends object> = {
+    printArgs: (arg: Args) => string,
+    printRet: (ret: Ret) => string,
+    initialValues?: ValueMap<Args, Ret>,
+    initialDependents?: DependentMap<Args, Ret>
+}
+const defaultOptions: ValueOfOptions<any, any> = {
+    printArgs: (arg) => arg.toString(),
+    printRet: (ret) => ret.toString(),
+    initialValues: undefined,
+    initialDependents: undefined
+};
+export function valueOf<Args extends object, Ret extends object>(
+    query: Computation<Args, Ret>, 
+    defaultRet: Ret, 
+    { printArgs, printRet, initialValues, initialDependents }: ValueOfOptions<Args, Ret> = defaultOptions
+): { result: Ret, values: ValueMap<Args, Ret>, dependents: DependentMap<Args, Ret> } {
+    const values = initialValues ?? new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
+    const dependents = initialDependents ?? new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
     const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
     while (compsToDo.size() !== 0) {
         const compToDo = compsToDo.elements[0];
@@ -34,7 +52,11 @@ export function valueOf<Args extends object, Ret extends object>(query: Computat
         evaluateComputation(compToDo);
     }
 
-    return values.get(query) ?? defaultRet;
+    return {
+        result: values.get(query) ?? defaultRet,
+        values,
+        dependents,
+    }
 
     function evaluateComputation(comp: Computation<Args, Ret>) {
         const { func, args } = comp;

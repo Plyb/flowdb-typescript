@@ -19,10 +19,17 @@ export function dcfa(node: ts.Node, service: ts.LanguageService) {
     }
     console.log(`dcfa for: ${printNode(node)}`)
 
-    return valueOf({
-        func: abstractEval,
-        args: node,
-    }, botResult, printNode, result => pretty(result, printNode).toString());
+    return valueOf(
+        {
+            func: abstractEval,
+            args: node,
+        },
+        botResult,
+        {
+            printArgs: printNode,
+            printRet: result => pretty(result, printNode).toString() 
+        }
+    ).result;
 
     // "eval"
     function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {

@@ -33,7 +33,7 @@ export function analyze(service: ts.LanguageService, line: number, col: number) 
 
 function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.LanguageService): SimpleSet<SimpleFunctionLikeDeclaration> {
     const sf = service.getProgram()?.getSourceFiles()[0]!;
-    return valueOf({ func: compute, args: node }, empty(), getFuncName, set => setMap(set, getFuncName).toString());
+    return valueOf({ func: compute, args: node }, empty(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() }).result;
     
     function compute(node: SimpleFunctionLikeDeclaration, fix_run: FixRunFunc<SimpleFunctionLikeDeclaration, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
         const directlyCalledFunctions = findAllFunctionsCalledInBody(node, service);
