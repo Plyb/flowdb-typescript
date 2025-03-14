@@ -1,8 +1,8 @@
 import ts, { Identifier } from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
-import { dcfa } from './dcfa';
-import { joinAll } from './abstract-results';
+import { makeDcfaComputer } from './dcfa';
+import { AbstractResult, joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { structuralComparator } from './comparators';
@@ -20,23 +20,25 @@ export function analyze(service: ts.LanguageService, line: number, col: number) 
         throw new Error('expected function declaration');
     }
 
-    const reachableFunctions = getReachableFunctions(node, service);
+    const dcfa = makeDcfaComputer(service);
+
+    const reachableFunctions = getReachableFunctions(node, dcfa);
     const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions(func.body));
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
         method: qExp.method,
-        argument: dcfa(qExp.argument, service)
+        argument: dcfa(qExp.argument)
     }))
 }
 
 
 
-function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.LanguageService): SimpleSet<SimpleFunctionLikeDeclaration> {
-    const sf = service.getProgram()?.getSourceFiles()[0]!;
-    return makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: getFuncName, printRet: (set: SimpleSet<SimpleFunctionLikeDeclaration>) => setMap(set, getFuncName).toString() })({ func: compute, args: node }, );
+function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): SimpleSet<SimpleFunctionLikeDeclaration> {
+    const valueOf = makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() });
+    return valueOf({ func: compute, args: node }, );
     
     function compute(node: SimpleFunctionLikeDeclaration, fix_run: FixRunFunc<SimpleFunctionLikeDeclaration, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
-        const directlyCalledFunctions = findAllFunctionsCalledInBody(node, service);
+        const directlyCalledFunctions = findAllFunctionsCalledInBody(node, dcfa);
         const functionsCalledInDirectlyCalledFunctions = setFlatMap(
             directlyCalledFunctions,
             (func) => fix_run(compute, func)
@@ -45,7 +47,7 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.
     }
     
     function getFuncName(func: SimpleFunctionLikeDeclaration) {
-        const { line, character } = ts.getLineAndCharacterOfPosition(sf, func.pos)
+        const { line, character } = ts.getLineAndCharacterOfPosition(func.getSourceFile(), func.pos)
         if (ts.isFunctionDeclaration(func)) {
             return func.name?.text ?? `<anonymous:${line}:${character}>`
         }
@@ -53,10 +55,10 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, service: ts.
     }
 }
 
-function findAllFunctionsCalledInBody(node: SimpleFunctionLikeDeclaration, service: ts.LanguageService): SimpleSet<SimpleFunctionLikeDeclaration> {
+function findAllFunctionsCalledInBody(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): SimpleSet<SimpleFunctionLikeDeclaration> {
     const callExpressions = [...findAllCalls(node.body)];
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
-        dcfa(callExpression.expression, service)
+        dcfa(callExpression.expression)
     );
     return joinAll(...valuesOfCallExpressionOperators).value.nodes as any as SimpleSet<SimpleFunctionLikeDeclaration>;
 }

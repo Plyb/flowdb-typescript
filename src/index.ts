@@ -1,10 +1,8 @@
 import ts from 'typescript';
 import * as path from 'path';
 import fs from 'fs';
-import { dcfa } from './dcfa';
 import { pretty } from './abstract-results';
 import { analyze } from './analysis';
-import { getNodeAtPosition } from './ts-utils';
 
 function runAnalysis(pathString: string, line: number, column: number) {
   const rootFolder = path.resolve(__dirname, pathString)
