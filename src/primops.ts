@@ -1,12 +1,10 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
+import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setMap, setSift, singleton } from './setUtil';
-import { FixRunFunc } from './fixpoint';
+import { empty, setFilter, setSift, singleton } from './setUtil';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
-import { id } from './util';
 import { cloneNode } from 'ts-clone-node';
 
 export type PrimopId = keyof Primops;
