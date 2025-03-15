@@ -45,7 +45,7 @@ export type FlatLattice<T> =
 
 type Bottom = { __bottomBrand: true }
 type Single<T> = { item: T, __singleBrand: true }
-type Top = { __topBrand: true }
+export type Top = { __topBrand: true }
 
 type StringLattice = FlatLattice<string>
 type NumberLattice = FlatLattice<number>
@@ -98,7 +98,7 @@ export const botValue: AbstractValue = {
     null: false,
 }
 export const topValue: AbstractValue = {
-    nodes: empty(),
+    nodes: singleton<NodeLatticeElem>(top),
     strings: top,
     numbers: top,
     booleans: top,

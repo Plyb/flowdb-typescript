@@ -4,8 +4,9 @@ import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { makeDcfaComputer } from './dcfa';
 import { AbstractResult, joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { structuralComparator } from './comparators';
+import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
@@ -25,8 +26,9 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
 
     const dcfa = makeDcfaComputer(service);
 
-    const reachableFunctions = getReachableFunctions(node, dcfa);
-    const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions(func.body));
+    const reachableFunctionsWithTops = getReachableFunctions(node, dcfa);
+    const reachableFunctions = setFilter(reachableFunctionsWithTops, elem => !isTop(elem)) as SimpleSet<ts.Node>;
+    const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions((func as SimpleFunctionLikeDeclaration).body));
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
         method: qExp.method,
@@ -36,11 +38,11 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
 
 
 
-function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): SimpleSet<SimpleFunctionLikeDeclaration> {
-    const valueOf = makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() });
+function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): NodeLattice {
+    const valueOf = makeFixpointComputer(empty<NodeLatticeElem>(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() });
     return valueOf({ func: compute, args: node }, );
     
-    function compute(node: SimpleFunctionLikeDeclaration, fix_run: FixRunFunc<SimpleFunctionLikeDeclaration, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
+    function compute(node: NodeLatticeElem, fix_run: FixRunFunc<NodeLatticeElem, NodeLattice>): NodeLattice {
         const directlyCalledFunctions = findAllFunctionsCalledInBody(node, dcfa);
         const functionsCalledInDirectlyCalledFunctions = setFlatMap(
             directlyCalledFunctions,
@@ -49,7 +51,11 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node:
         return union(directlyCalledFunctions, functionsCalledInDirectlyCalledFunctions);
     }
     
-    function getFuncName(func: SimpleFunctionLikeDeclaration) {
+    function getFuncName(func: NodeLatticeElem) {
+        if (isTop(func)) {
+            return 'ANY FUNCTION';
+        }
+
         const { line, character } = ts.getLineAndCharacterOfPosition(func.getSourceFile(), func.pos)
         if (ts.isFunctionDeclaration(func)) {
             return func.name?.text ?? `<anonymous:${line}:${character}>`
@@ -58,12 +64,16 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node:
     }
 }
 
-function findAllFunctionsCalledInBody(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): SimpleSet<SimpleFunctionLikeDeclaration> {
-    const callExpressions = [...findAllCalls(node.body)];
+function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Node) => AbstractResult): NodeLattice {
+    if (isTop(node)) {
+        return empty();
+    }
+
+    const callExpressions = [...findAllCalls((node as SimpleFunctionLikeDeclaration).body)];
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
         dcfa(callExpression.expression)
     );
-    return joinAll(...valuesOfCallExpressionOperators).value.nodes as any as SimpleSet<SimpleFunctionLikeDeclaration>;
+    return joinAll(...valuesOfCallExpressionOperators).value.nodes;
 }
 
 function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
