@@ -1,13 +1,14 @@
 import ts from 'typescript'
-import { SimpleSet } from 'typescript-super-set'
-import { empty, singleton, union } from './setUtil'
+import { Comparator, SimpleSet } from 'typescript-super-set'
+import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
 import { PrimopExpression, PrimopId } from './primops'
 import { AbstractMap } from './abstract-map'
+import { structuralComparator } from './comparators'
 
 export type AbstractValue = {
-    nodes: SimpleSet<ts.Node>,
+    nodes: NodeLattice,
     strings: StringLattice,
     numbers: NumberLattice,
     booleans: BooleanLattice,
@@ -33,6 +34,9 @@ export type FlatLatticeKey =
     | 'maps';
 
 type SingletonLattice = boolean;
+
+export type NodeLatticeElem = ts.Node | Top;
+export type NodeLattice = SimpleSet<NodeLatticeElem>;
 
 export type FlatLattice<T> = 
 | Bottom
@@ -111,10 +115,10 @@ export const topValue: AbstractValue = {
 export function nodeValue(node: ts.Node): AbstractValue {
     return {
         ...botValue,
-        nodes: singleton<ts.Node>(node),
+        nodes: singleton<NodeLatticeElem>(node),
     }
 }
-export function nodesValue(nodes: SimpleSet<ts.Node>): AbstractValue {
+export function nodesValue(nodes: NodeLattice): AbstractValue {
     return {
         ...botValue,
         nodes,
@@ -295,7 +299,7 @@ function latticSubsumes<T>(a: FlatLattice<T>, b: FlatLattice<T>): boolean {
 export function isBottom<T>(lattice: FlatLattice<T>): lattice is Bottom {
     return lattice === bot;
 }
-export function isTop<T>(lattice: FlatLattice<T>): lattice is Top {
+export function isTop(lattice: any): lattice is Top {
     return lattice === top;
 }
 
@@ -313,4 +317,14 @@ export function prettyFlatLattice<T>(lattice: FlatLattice<T>, label: string): an
     } else {
         return [lattice.item];
     }
+}
+
+export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice {
+    return setFilter(nodeLattice, elem => isTop(elem) || predicate(elem));
+}
+export function nodeLatticeMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => R): SimpleSet<R | Top> {
+    return setMap(nodeLattice, elem => isTop(elem) ? elem : convert(elem));
+}
+export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => SimpleSet<R | Top>, rComparator: Comparator<R | Top> = structuralComparator): SimpleSet<R | Top> {
+    return setFlatMap(nodeLattice, elem => isTop(elem) ? new SimpleSet<R | Top>(rComparator, elem) : convert(elem));
 }

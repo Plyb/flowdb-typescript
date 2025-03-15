@@ -1,6 +1,6 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, join, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { AbstractValue, anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, FlatLatticeKey, MapRef, nullValue, numberValue, primopValue, stringValue, subsumes, top } from './abstract-values';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, botValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setMap, setSift, singleton } from './setUtil';
@@ -88,8 +88,8 @@ function arrayFindPrimop(this: AbstractResult): AbstractResult {
 function mapKeysPrimop(this: AbstractResult, _: PrimopExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace): AbstractResult {
     return resultBind<MapRef>(this, 'maps', (ref) => {
         const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
-        return setJoinMap(setSites, site => {
-            const keyArg = site.arguments[0];
+        return nodeLatticeJoinMap(setSites, site => {
+            const keyArg = (site as CallExpression).arguments[0];
             return fixed_eval(keyArg)
         });
     })
@@ -98,12 +98,12 @@ function mapGetPrimop(this: AbstractResult, _: PrimopExpression, fixed_eval: Fix
     return resultBind<MapRef>(this, 'maps', (ref) => {
         const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
         const setSitesWithKey = setFilter(setSites, site => {
-            const siteKeyNode = site.arguments[0];
+            const siteKeyNode = (site as CallExpression).arguments[0];
             const siteKeyValue = fixed_eval(siteKeyNode).value;
             return subsumes(siteKeyValue, key.value) || subsumes(key.value, siteKeyValue);
         })
         return setJoinMap(setSitesWithKey, site => {
-            const valueArg = site.arguments[1];
+            const valueArg = (site as CallExpression).arguments[1];
             return fixed_eval(valueArg);
         });
     })
@@ -215,13 +215,13 @@ export const primopArray = objectResult(
 )
 
 type PrimopInternalReferenceSites = {
-    [id: string]: (args: ts.Expression[], argIndex: number) => SimpleSet<ts.Node>
+    [id: string]: (args: ts.Expression[], argIndex: number) => NodeLattice
 }
 export const primopInternalCallSites: PrimopInternalReferenceSites = {
     'Array#map': arrayMapInternalReferenceSites
 }
 
-function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression[], argIndex: number): SimpleSet<ts.Node> {
+function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression[], argIndex: number): NodeLattice {
     if (argIndex !== 0) {
         return empty();
     }
@@ -230,11 +230,11 @@ function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression
     const arrayAccess = ts.factory.createElementAccessExpression(this, 0); // this[0]
     const call = ts.factory.createCallExpression(convert, [], [arrayAccess]); // convert(this[0])
     const clonedCall = cloneNode(call, { setParents: true });
-    return singleton<ts.Node>(clonedCall.expression);
+    return singleton<NodeLatticeElem>(clonedCall.expression);
 }
 
-function getMapSetCalls(returnSites: SimpleSet<ts.Node>, fixed_eval: FixedEval): SimpleSet<ts.CallExpression> {
-    const callSitesOrFalses = setMap(returnSites, site => {
+function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLattice {
+    const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
         const access = site.parent;
         if (!(ts.isPropertyAccessExpression(access))) {
             return false;
@@ -249,7 +249,7 @@ function getMapSetCalls(returnSites: SimpleSet<ts.Node>, fixed_eval: FixedEval):
             return false;
         }
 
-        return call;
+        return call as ts.Node;
     });
     return setSift(callSitesOrFalses);
 }

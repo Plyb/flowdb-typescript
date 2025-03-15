@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractArray, AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, ObjectLattice, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue } from './abstract-values';
+import { AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps } from './util';
@@ -35,7 +35,7 @@ export function nodeResult(node: ts.Node): AbstractResult {
         value: nodeValue(node),
     }
 }
-export function nodesResult(nodes: SimpleSet<ts.Node>): AbstractResult {
+export function nodesResult(nodes: NodeLattice): AbstractResult {
     return {
         ...botResult,
         value: nodesValue(nodes),
@@ -241,7 +241,7 @@ export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: 
 
 export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node) => string): any[] {
     return [
-        ...abstractResult.value.nodes.elements.map(printNode),
+        ...abstractResult.value.nodes.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem)),
         ...prettyFlatLattice(abstractResult.value.strings, 'STRING'),
         ...prettyFlatLattice(abstractResult.value.numbers, 'NUMBER'),
         ...prettyFlatLattice(abstractResult.value.booleans, 'BOOLEAN'),
@@ -257,4 +257,11 @@ export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node
         abstractResult.arrayStore,
         abstractResult.mapStore,
       ]
+}
+
+export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node) => AbstractResult): AbstractResult {
+    if (lattice.elements.some(isTop)) {
+        return topResult;
+    }
+    return setJoinMap(lattice as SimpleSet<ts.Node>, convert);
 }
