@@ -4,7 +4,7 @@ import { empty, setMap, singleton } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
-import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, stringValue } from './abstract-values';
+import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, top } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
@@ -88,7 +88,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const returnStatements = [...getReturnStmts(node)];
                 const returnStatementValues = returnStatements.map(returnStatement => {
                     if (returnStatement.expression === undefined) {
-                        return unimplementedRes('return statement should have expression');   
+                        return botResult;
                     }
                     return fix_run(abstractEval, returnStatement.expression);
                 });
@@ -194,21 +194,25 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             }
     
             function evalArray(node: ts.ArrayLiteralExpression): AbstractResult {
-                const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => {
-                    if (ts.isSpreadElement(elem)) {
-                        const expressionResult = fix_run(abstractEval, elem.expression);
-                        return resultBind(expressionResult, 'arrays', 
-                            (arrRef: ArrayRef) => ({
-                                ...expressionResult,
-                                value: expressionResult.arrayStore.get(arrRef)!.element,
-                            })
-                        );
-                    } else {
-                        return fix_run(abstractEval, elem)
-                    }
-                });
+                const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => 
+                    evalArrayElement(elem, fix_run)
+                );
     
                 return arrayResult(node, itemValue);
+            }
+        }
+
+        function evalArrayElement(elem: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+            if (ts.isSpreadElement(elem)) {
+                const expressionResult = fix_run(abstractEval, elem.expression);
+                return resultBind(expressionResult, 'arrays', 
+                    (arrRef: ArrayRef) => ({
+                        ...expressionResult,
+                        value: expressionResult.arrayStore.get(arrRef)!.element,
+                    })
+                );
+            } else {
+                return fix_run(abstractEval, elem)
             }
         }
         
@@ -221,20 +225,6 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             return nodesResult(
                 nodeLatticeMap(operatorSites, op => op.parent)
             )
-        }
-        
-        function getWhereObjectConstructed(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-            const valueReturnedAt = getWhereValueReturned(node, fix_run).value.nodes;
-            const objectConstructors = nodeLatticeFilter(valueReturnedAt, ts.isObjectLiteralExpression);
-            
-            return nodesResult(objectConstructors);
-        }
-        
-        function getWhereArrayConstructed(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-            const valueReturnedAt = getWhereValueReturned(node, fix_run).value.nodes;
-            const objectConstructors = nodeLatticeFilter(valueReturnedAt, ts.isArrayLiteralExpression);
-            
-            return nodesResult(objectConstructors);
         }
     
         function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
@@ -331,7 +321,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): NodeLattice {
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
-                return unimplemented('Unable to find symbol', empty())
+                return unimplemented(`Unable to find symbol ${id.text}`, empty())
             }
     
             return getBoundExprsOfSymbol(symbol, fix_run);
@@ -351,14 +341,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    const arrayLiterals = fix_run(getWhereArrayConstructed, expression)
-                        .value.nodes;
-    
-                    // dummy element access
-                    return nodeLatticeFlatMap(arrayLiterals, arrLit => {
-                        const elements = (arrLit as ArrayLiteralExpression).elements;
-                        return joinAll(...elements.map(elem => fix_run(abstractEval, elem))).value.nodes;
-                    });
+                    return getElementNodesOfArrayValuedNode(expression);
                 } else { // assuming it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -376,16 +359,18 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
     
-                    const objectConstructors = fix_run(getWhereObjectConstructed, initializer)
+                    const initializerResult = fix_run(abstractEval, initializer);
+                    const objectLiterals = resultBind<ObjectRef>(initializerResult, 'objects', objRef => nodeResult(objRef))
                         .value.nodes;
-                    return getObjectsPropertyInitializers(objectConstructors, symbol.name);
+
+                    return getObjectsPropertyInitializers(objectLiterals, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
-    
-                    const objectConstructors = nodeLatticeFlatMap(args, arg =>
-                        fix_run(getWhereObjectConstructed, arg)
-                            .value.nodes
-                    );
+                    
+                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
+                    const objectConstructors = resultBind<ObjectRef>(argsResults, 'objects', objRef => nodeResult(objRef))
+                        .value.nodes;
+
                     return getObjectsPropertyInitializers(objectConstructors, symbol.name);
                 }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
@@ -437,6 +422,32 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return setMap(definingFunctionCallSites, (callSite) => {
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
+            }
+
+            
+
+            function getElementNodesOfArrayValuedNode(node: ts.Node) {
+                const res = fix_run(abstractEval, node);
+                const arrayLiterals = resultBind<ArrayRef>(res, 'arrays', arrayRef =>
+                    ts.isArrayLiteralExpression(arrayRef)
+                        ? nodeResult(arrayRef)
+                        : unimplementedRes(`Expected array literal expression: ${SyntaxKind[arrayRef.kind]} @ ${getPosText(arrayRef)}`)
+                ).value.nodes;
+
+                return nodeLatticeFlatMap(arrayLiterals, arrLit => {
+                    if (isTop(arrLit)) {
+                        return singleton<NodeLatticeElem>(top);
+                    }
+
+                    const elements = (arrLit as ArrayLiteralExpression).elements;
+                    return nodeLatticeFlatMap(new SimpleSet<NodeLatticeElem>(structuralComparator, ...elements), elem => {
+                        if (ts.isSpreadElement(elem)) {
+                            return getElementNodesOfArrayValuedNode(elem.expression)
+                        }
+
+                        return singleton<NodeLatticeElem>(elem);
+                    });
+                });
             }
         }
     

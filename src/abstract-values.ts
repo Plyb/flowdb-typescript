@@ -53,7 +53,7 @@ type BooleanLattice = FlatLattice<boolean>
 type DateLattice = FlatLattice<Date>
 type RegExpLattice = FlatLattice<RegExp>
 
-type ObjectRef = ts.ObjectLiteralExpression
+export type ObjectRef = ts.ObjectLiteralExpression
 export type AbstractObject = { [key: string]: AbstractValue }
 export type ObjectLattice = FlatLattice<ObjectRef>
 export type ObjectStore = Map<ObjectRef, AbstractObject>
@@ -108,7 +108,7 @@ export const topValue: AbstractValue = {
     promises: top,
     arrays: top,
     primops: empty(),
-    maps: bot,
+    maps: top,
     null: true,
 }
 
