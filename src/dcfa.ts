@@ -110,7 +110,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 const primop = getPrimitivePrimop(expressionResult, node.name.text);
                 if (primop === undefined) {
-                    return unimplementedRes(`Property access must result in a non-bot value: ${getPosText(node)}`);
+                    return unimplementedRes(`Property access must result in a non-bot value: ${printNode(node)} @ ${getPosText(node)}`);
                 }
 
                 return primopResult(primop)
@@ -333,12 +333,17 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             if (symbol === undefined) {
                 return unimplemented('Unable to find symbol', empty())
             }
+    
+            return getBoundExprsOfSymbol(symbol, fix_run);
+        }
+
+        function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractResult>): SimpleSet<ts.Node> {
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
-                return unimplemented(`could not find declaration: ${id.text}:${getPosText(id)}`, empty());
+                return unimplemented(`could not find declaration: ${symbol.name}`, empty());
             }
-    
+
             if (ts.isParameter(declaration)) {
                 return getArgumentsForParameter(declaration)
             } else if (ts.isVariableDeclaration(declaration)) {
@@ -373,7 +378,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                     const objectConstructors = fix_run(getWhereObjectConstructed, initializer)
                         .value.nodes as any as SimpleSet<ObjectLiteralExpression>;
-                    return getObjectsPropertyInitializers(objectConstructors, id);
+                    return getObjectsPropertyInitializers(objectConstructors, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
     
@@ -381,7 +386,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         fix_run(getWhereObjectConstructed, arg)
                             .value.nodes as any as SimpleSet<ObjectLiteralExpression>
                     );
-                    return getObjectsPropertyInitializers(objectConstructors, id);
+                    return getObjectsPropertyInitializers(objectConstructors, symbol.name);
                 }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
                 const moduleSpecifier = ts.isImportClause(declaration)
@@ -411,7 +416,11 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
                 return singleton<Node>(trueDeclaration);
             } else if (ts.isShorthandPropertyAssignment(declaration)) {
-                return singleton<ts.Node>(declaration.name);
+                const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+                if (shorthandValueSymbol === undefined) {
+                    throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
+                }
+                return getBoundExprsOfSymbol(shorthandValueSymbol, fix_run);
             }
             return unimplemented(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty());
     
@@ -431,9 +440,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             }
         }
     
-        function getObjectsPropertyInitializers(objConstructors: SimpleSet<ObjectLiteralExpression>, id: Identifier) {
+        function getObjectsPropertyInitializers(objConstructors: SimpleSet<ObjectLiteralExpression>, idName: string) {
             return setFlatMap(objConstructors, objConstructor => {
-                const initializer = getObjectPropertyInitializer(objConstructor, id);
+                const initializer = getObjectPropertyInitializer(objConstructor, idName);
                 
                 return initializer !== undefined
                     ? singleton<Node>(initializer)
@@ -453,12 +462,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     }
 }
     
-function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, id: Identifier): ts.Node | undefined {
+function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, idName: string): ts.Node | undefined {
     const reversedProps = [...objConstructor.properties].reverse();
 
     function getPropertyAssignmentInitializer() {
         const propAssignment = reversedProps.find(prop =>
-            ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === id.text
+            ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === idName
         ) as PropertyAssignment;
 
         return propAssignment?.initializer;
@@ -466,7 +475,7 @@ function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, i
 
     function getShorthandPropertyAssignmentInitializer() {
         const shorthandPropAssignment = reversedProps.find(prop =>
-            ts.isShorthandPropertyAssignment(prop) && prop.name.text === id.text
+            ts.isShorthandPropertyAssignment(prop) && prop.name.text === idName
         ) as ShorthandPropertyAssignment;
 
         return shorthandPropAssignment.name;
