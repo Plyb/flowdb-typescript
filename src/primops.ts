@@ -208,7 +208,7 @@ export const primopObject = objectResult(
 export const primopArray = objectResult(
     ts.factory.createObjectLiteralExpression(), // dummy
     {
-        freeze: primopValue('Array.from')
+        from: primopValue('Array.from')
     }
 )
 
