@@ -4,7 +4,7 @@ import { empty, setMap, singleton } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
-import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, top } from './abstract-values';
+import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, top, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
 import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
@@ -79,6 +79,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 );
     
                 return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
+            } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
+                return result(undefinedValue);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
                 return nodeLatticeJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
@@ -342,7 +344,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const expression = forOfStatement.expression;
     
                     return getElementNodesOfArrayValuedNode(expression);
-                } else { // assuming it's a standard variable delcaration
+                } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }

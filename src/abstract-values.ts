@@ -20,6 +20,7 @@ export type AbstractValue = {
     primops: SimpleSet<PrimopId>,
     maps: MapLattice,
     null: SingletonLattice,
+    undefined: SingletonLattice,
 }
 
 export type FlatLatticeKey =
@@ -96,6 +97,7 @@ export const botValue: AbstractValue = {
     primops: empty(),
     maps: bot,
     null: false,
+    undefined: false,
 }
 export const topValue: AbstractValue = {
     nodes: singleton<NodeLatticeElem>(top),
@@ -110,6 +112,7 @@ export const topValue: AbstractValue = {
     primops: empty(),
     maps: top,
     null: true,
+    undefined: true,
 }
 
 export function nodeValue(node: ts.Node): AbstractValue {
@@ -193,7 +196,8 @@ export function mapValue(constructorSite: ts.NewExpression): AbstractValue {
         maps: single(constructorSite),
     }
 }
-export const nullValue = { ...botValue, null: true }
+export const nullValue: AbstractValue = { ...botValue, null: true }
+export const undefinedValue: AbstractValue = { ...botValue, undefined: true }
 
 export const anyStringValue: AbstractValue = {
     ...botValue,
@@ -261,6 +265,7 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         primops: union(a.primops, b.primops),
         maps: joinFlatLattice(a.maps, b.maps),
         null: a.null || b.null,
+        undefined: a.undefined || b.undefined,
     };
 }
 export function joinAllValues(...values: AbstractValue[]): AbstractValue {

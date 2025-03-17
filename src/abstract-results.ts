@@ -252,6 +252,7 @@ export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node
         ...prettyFlatLattice(abstractResult.value.arrays, 'ARRAY'),
         ...prettyFlatLattice(abstractResult.value.maps, 'MAP'),
         ...(abstractResult.value.null ? ['null'] : []),
+        ...(abstractResult.value.undefined ? ['undefined'] : []),
         abstractResult.objectStore,
         abstractResult.promiseStore,
         abstractResult.arrayStore,
