@@ -252,9 +252,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         possibleFunctions,
                         (func) => {
                             const parameterName = (func as SimpleFunctionLikeDeclaration).parameters[argIndex].name;
-                            return ts.isIdentifier(parameterName) 
-                                ? nodesResult(getReferences(parameterName))
-                                : botResult; // If it's not an identifier, it's being destructured, so the value doesn't continue on
+                            const refs = ts.isIdentifier(parameterName) 
+                                ? getReferences(parameterName)
+                                : empty<NodeLatticeElem>(); // If it's not an identifier, it's being destructured, so the value doesn't continue on
+                            return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                         }
                     ).value.nodes;
                     const functionResult = nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
