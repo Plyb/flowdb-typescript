@@ -543,6 +543,9 @@ function getPrimitivePrimop(res: AbstractResult, name: string): PrimopId | undef
     } else if (res.value.maps !== bot) {
         const mapPrimops = primopIds.filter(id => id.split('#')[0] === 'Map');
         return mapPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
+    } else if (res.value.regexps !== bot) {
+        const regexpPrimops = primopIds.filter(id => id.split('#')[0] === 'RegExp');
+        return regexpPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
     }
 
     return undefined;

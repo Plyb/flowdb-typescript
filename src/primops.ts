@@ -111,6 +111,7 @@ const objectFreezePrimop = ((_, __, ___, arg) => arg) as Primop
 const arrayFromPrimop = ((_, __, ___, arg) => arg) as Primop
 const questionQuestionPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
 const barBarPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
+const regexTestPrimop = createUnaryPrimopWithThisHetero('regexps', 'strings', resultFrom(booleanValue), RegExp.prototype.test);
 export const primops = {
     'Math.floor': mathFloorPrimop,
     'String#includes': stringIncludesPrimop,
@@ -135,6 +136,7 @@ export const primops = {
     'Array.from': arrayFromPrimop,
     [SyntaxKind.QuestionQuestionToken as BinaryOperator]: questionQuestionPrimop,
     [SyntaxKind.BarBarToken as BinaryOperator]: barBarPrimop,
+    'RegExp#test': regexTestPrimop,
 }
 
 function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, expression: PrimopExpression) => AbstractResult, f: () => R): Primop {
