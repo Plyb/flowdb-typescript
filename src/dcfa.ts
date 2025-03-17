@@ -24,7 +24,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         if (node === undefined) {
             throw new Error('no node at that position')
         }
-        console.log(`dcfa for: ${printNode(node)}`)
+        console.info(`dcfa for: ${printNode(node)}`)
     
         return valueOf({
             func: abstractEval,
