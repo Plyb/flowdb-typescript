@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, top, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { isBareSpecifier } from './util';
-import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalCallSites, primopJSON, primopMath, primopObject, primops } from './primops';
+import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalReferenceSites, primopJSON, primopMath, primopObject, primops } from './primops';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -261,15 +261,16 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const functionResult = nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
     
                     const possiblePrimopIds = possibleOperators.primops;
-                    const possiblePrimopCallsiteConstructors = setMap(possiblePrimopIds, (id =>
-                        primopInternalCallSites[id]
+                    const possiblePrimopInternalReferenceSites = setMap(possiblePrimopIds, (id =>
+                        primopInternalReferenceSites[id]
                     ));
                     const thisNode = ts.isPropertyAccessExpression(parent.expression)
                         ? parent.expression.expression
                         : undefined;
-                    const primopResult = setJoinMap(possiblePrimopCallsiteConstructors, (construct =>
-                        nodesResult(construct.apply(thisNode, [[...parent.arguments], argIndex]))
-                    ));
+                    const primopResult = setJoinMap(possiblePrimopInternalReferenceSites, (construct => {
+                        const refs = construct.apply(thisNode, [[...parent.arguments], argIndex]);
+                        return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
+                    }));
     
                     return join(functionResult, primopResult);
                 }

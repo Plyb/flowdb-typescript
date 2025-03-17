@@ -217,7 +217,7 @@ export const primopArray = objectResult(
 type PrimopInternalReferenceSites = {
     [id: string]: (args: ts.Expression[], argIndex: number) => NodeLattice
 }
-export const primopInternalCallSites: PrimopInternalReferenceSites = {
+export const primopInternalReferenceSites: PrimopInternalReferenceSites = {
     'Array#map': arrayMapInternalReferenceSites
 }
 
