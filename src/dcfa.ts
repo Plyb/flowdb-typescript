@@ -242,37 +242,11 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 if (isOperatorOf(node, parent)) {
                     return botResult; // If we're the operator, our value doesn't get propogated anywhere
                 } else {
-                    const argIndex = getArgumentIndex(parent, node);
-                    const possibleOperators = fix_run(
-                        abstractEval, parent.expression
-                    ).value;
-    
-                    const possibleFunctions = possibleOperators.nodes;
-                    const parameterReferences = nodeLatticeJoinMap(
-                        possibleFunctions,
-                        (func) => {
-                            const parameterName = (func as SimpleFunctionLikeDeclaration).parameters[argIndex].name;
-                            const refs = ts.isIdentifier(parameterName) 
-                                ? getReferences(parameterName)
-                                : empty<NodeLatticeElem>(); // If it's not an identifier, it's being destructured, so the value doesn't continue on
-                            return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-                        }
-                    ).value.nodes;
-                    const functionResult = nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
-    
-                    const possiblePrimopIds = possibleOperators.primops;
-                    const possiblePrimopInternalReferenceSites = setMap(possiblePrimopIds, (id =>
-                        primopInternalReferenceSites[id]
-                    ));
-                    const thisNode = ts.isPropertyAccessExpression(parent.expression)
-                        ? parent.expression.expression
-                        : undefined;
-                    const primopResult = setJoinMap(possiblePrimopInternalReferenceSites, (construct => {
-                        const refs = construct.apply(thisNode, [[...parent.arguments], argIndex]);
-                        return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-                    }));
-    
-                    return join(functionResult, primopResult);
+                    return getWhereReturnedInsideFunction(parent, node, (parameterName) =>
+                        ts.isIdentifier(parameterName) 
+                            ? getReferences(parameterName)
+                            : empty<NodeLatticeElem>() // If it's not an identifier, it's being destructured, so the value doesn't continue on
+                    );
                 }
             } else if (isFunctionLikeDeclaration(parent)) {
                 const closedOverSites = fix_run(getWhereClosed, node).value.nodes;
@@ -303,6 +277,38 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return botResult;
             }
             return unimplementedRes(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
+
+            function getWhereReturnedInsideFunction(parent: ts.CallExpression, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName) => NodeLattice) {
+                const argIndex = getArgumentIndex(parent, node);
+                const possibleOperators = fix_run(
+                    abstractEval, parent.expression
+                ).value;
+
+                const possibleFunctions = possibleOperators.nodes;
+                const parameterReferences = nodeLatticeJoinMap(
+                    possibleFunctions,
+                    (func) => {
+                        const parameterName = (func as SimpleFunctionLikeDeclaration).parameters[argIndex].name;
+                        const refs = getReferencesFromParameter(parameterName);
+                        return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
+                    }
+                ).value.nodes;
+                const functionResult = nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
+
+                const possiblePrimopIds = possibleOperators.primops;
+                const possiblePrimopInternalReferenceSites = setMap(possiblePrimopIds, (id =>
+                    primopInternalReferenceSites[id]
+                ));
+                const thisNode = ts.isPropertyAccessExpression(parent.expression)
+                    ? parent.expression.expression
+                    : undefined;
+                const primopResult = setJoinMap(possiblePrimopInternalReferenceSites, (construct => {
+                    const refs = construct.apply(thisNode, [[...parent.arguments], argIndex]); // TODO: this doesn't make sense if the internal call does destructuring on the parameter
+                    return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
+                }));
+
+                return join(functionResult, primopResult);
+            }
         }
         
         // "call"
