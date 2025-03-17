@@ -293,6 +293,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isForOfStatement(parent) && parent.expression === node) {
                 return botResult; // we're effectively "destructuring" the expression here, so the original value is gone
+            } else if (ts.isPropertyAccessExpression(parent)) {
+                if (node != parent.expression) {
+                    return unimplementedRes(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNode(node)} @ ${getPosText(node)} `)
+                }
+
+                return botResult;
             }
             return unimplementedRes(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
         }
