@@ -78,7 +78,7 @@ function arrayFindPrimop(this: AbstractResult): AbstractResult {
         }
         return {
             ...this,
-            value: abstractArray.element
+            value: abstractArray.element // TODO: unify this with how it is handled in dcfa.ts
         }
     })
     return elementResult;
