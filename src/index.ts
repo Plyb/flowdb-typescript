@@ -79,5 +79,5 @@ function analyzePlayground() {
 }
 
 function analyzeInboxZeroClean() {
-  console.log(runAnalysis('../../examples/inbox-zero-clean', './test.ts', 86006, 6).elements)
+  console.log(runAnalysis('../../examples/inbox-zero-clean', './test.ts', 86007, 6).elements)
 }

@@ -61,6 +61,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 const possiblePrimops = possibleOperators.primops;
                 if (possiblePrimops.size() === 0) {
+                    if (possibleFunctions.size() === 0) {
+                        console.warn(`No operators found for ${printNode(node)} @ ${getPosText(node)}`)
+                    }
                     return valuesOfFunctionBodies; // short circuit to prevent expensive computations
                 }
                 const thisResult = ts.isPropertyAccessExpression(node.expression)
