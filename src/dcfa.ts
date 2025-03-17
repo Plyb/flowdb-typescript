@@ -275,6 +275,32 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 }
 
                 return botResult;
+            } else if (ts.isShorthandPropertyAssignment(parent)) {
+                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent).value.nodes;
+                return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
+                    const returnLocParent = returnLoc.parent;
+                    if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
+                        return getWhereReturnedInsideFunction(returnLocParent, returnLoc, (parameterName) => {
+                            if (!ts.isObjectBindingPattern(parameterName)) {
+                                return empty();
+                            }
+                            const destructedName = parameterName.elements.find(elem => 
+                                ts.isIdentifier(elem.name)
+                                    ? elem.name.text === parent.name.text
+                                    : unimplemented(`Nested binding patterns unimplemented: ${printNode(elem)} @ ${getPosText(elem)}`, empty())
+                            )?.name;
+                            if (destructedName === undefined) {
+                                return unimplemented(`Unable to find destructed identifier in ${printNode(parameterName)} @ ${getPosText(parameterName)}`, empty())
+                            }
+                            if (!ts.isIdentifier(destructedName)) {
+                                return unimplemented(`Expected a simple binding name ${printNode(destructedName)} @ ${getPosText(destructedName)}`, empty())
+                            }
+
+                            return getReferences(destructedName);
+                        })
+                    }
+                    return unimplementedRes(`Unknown result for obtaining ${parent.name.text} from object at ${printNode(returnLocParent)} @ ${getPosText(returnLocParent)}`);
+                })
             }
             return unimplementedRes(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
