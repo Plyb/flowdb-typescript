@@ -284,7 +284,7 @@ export function subsumes(a: AbstractValue, b: AbstractValue) {
         && latticSubsumes(a.arrays, b.arrays)
         && a.primops.hasAll(...b.primops)
         && latticSubsumes(a.maps, b.maps)
-        && b.null || !a.null
+        && (b.null || !a.null)
 }
 
 function latticSubsumes<T>(a: FlatLattice<T>, b: FlatLattice<T>): boolean {
