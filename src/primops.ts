@@ -1,6 +1,6 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
+import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setSift } from './setUtil';
@@ -251,7 +251,7 @@ function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex
     }
     
     if (primopArgIndex != 0 || argParameterIndex != 0) {
-        return empty();
+        return empty<NodeLatticeElem>();
     }
     return getElementNodesOfArrayValuedNode(this, fixed_eval);
 }
