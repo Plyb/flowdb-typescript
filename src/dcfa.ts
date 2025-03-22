@@ -1,13 +1,13 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, Identifier, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setMap, singleton } from './setUtil';
+import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
-import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, top, undefinedValue } from './abstract-values';
+import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
-import { isBareSpecifier } from './util';
-import { FixedEval, FixedTrace, primopArray, primopDate, PrimopExpression, primopFecth, PrimopId, primopInternalReferenceSites, primopJSON, primopMath, primopObject, primops } from './primops';
+import { getElementNodesOfArrayValuedNode, isBareSpecifier } from './util';
+import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopExpression, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -319,21 +319,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                     }
                 ).value.nodes;
-                const functionResult = nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
-
-                const possiblePrimopIds = possibleOperators.primops;
-                const possiblePrimopInternalReferenceSites = setMap(possiblePrimopIds, (id =>
-                    primopInternalReferenceSites[id]
-                ));
-                const thisNode = ts.isPropertyAccessExpression(parent.expression)
-                    ? parent.expression.expression
-                    : undefined;
-                const primopResult = setJoinMap(possiblePrimopInternalReferenceSites, (construct => {
-                    const refs = construct.apply(thisNode, [[...parent.arguments], argIndex]); // TODO: this doesn't make sense if the internal call does destructuring on the parameter
-                    return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-                }));
-
-                return join(functionResult, primopResult);
+                return nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
             }
         }
         
@@ -380,13 +366,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             }
 
             if (ts.isParameter(declaration)) {
-                return getArgumentsForParameter(declaration)
+                return getArgumentsForParameter(declaration);
             } else if (ts.isVariableDeclaration(declaration)) {
                 if (ts.isForOfStatement(declaration.parent.parent)) {
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression);
+                    return getElementNodesOfArrayValuedNode(expression, node => fix_run(abstractEval, node));
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -455,44 +441,43 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             return unimplemented(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty());
     
             function getArgumentsForParameter(declaration: ParameterDeclaration): NodeLattice {
-                if (!isFunctionLikeDeclaration(declaration.parent)) {
+                const declaringFunction = declaration.parent;
+                if (!isFunctionLikeDeclaration(declaringFunction)) {
                     return unimplemented('not yet implemented', empty());
                 }
-                const parameterIndex = declaration.parent.parameters.indexOf(declaration);
-                const definingFunctionBody = declaration.parent.body
+                const parameterIndex = declaringFunction.parameters.indexOf(declaration);
+                const definingFunctionBody = declaringFunction.body
         
                 const definingFunctionCallSites = fix_run(
                     getWhereClosed, definingFunctionBody
                 ).value.nodes;
-                return setMap(definingFunctionCallSites, (callSite) => {
+                const boundFromArgs =  setMap(definingFunctionCallSites, (callSite) => {
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
-            }
 
-            
-
-            function getElementNodesOfArrayValuedNode(node: ts.Node) {
-                const res = fix_run(abstractEval, node);
-                const arrayLiterals = resultBind<ArrayRef>(res, 'arrays', arrayRef =>
-                    ts.isArrayLiteralExpression(arrayRef)
-                        ? nodeResult(arrayRef)
-                        : unimplementedRes(`Expected array literal expression: ${SyntaxKind[arrayRef.kind]} @ ${getPosText(arrayRef)}`)
-                ).value.nodes;
-
-                return nodeLatticeFlatMap(arrayLiterals, arrLit => {
-                    if (isTop(arrLit)) {
-                        return singleton<NodeLatticeElem>(top);
-                    }
-
-                    const elements = (arrLit as ArrayLiteralExpression).elements;
-                    return nodeLatticeFlatMap(new SimpleSet<NodeLatticeElem>(structuralComparator, ...elements), elem => {
-                        if (ts.isSpreadElement(elem)) {
-                            return getElementNodesOfArrayValuedNode(elem.expression)
+                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction).value.nodes;
+                const boundFromPrimop = nodeLatticeFlatMap(
+                    sitesWhereDeclaringFunctionReturned,
+                    (node) => {
+                        const callSite = node.parent;
+                        if (!ts.isCallExpression(callSite)) {
+                            return empty<NodeLatticeElem>();
                         }
+                        const primops = fix_run(abstractEval, callSite.expression).value.primops;
 
-                        return singleton<NodeLatticeElem>(elem);
-                    });
-                });
+                        return setFlatMap(primops, (primop) => {
+                            const binderGetter = primopBinderGetters[primop];
+                            const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
+                            const primopArgIndex = callSite.arguments.indexOf(node as Expression);
+                            const thisExpression = ts.isPropertyAccessExpression(callSite.expression)
+                                ? callSite.expression.expression
+                                : undefined;
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, (node) => fix_run(abstractEval, node)]);
+                        }) as NodeLattice;
+                    }
+                );
+
+                return union(boundFromArgs, boundFromPrimop);
             }
         }
     

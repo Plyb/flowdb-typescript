@@ -1,11 +1,11 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
 import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
+import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setSift, singleton } from './setUtil';
+import { empty, setFilter, setSift } from './setUtil';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
-import { cloneNode } from 'ts-clone-node';
+import { getElementNodesOfArrayValuedNode } from './util';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
@@ -214,25 +214,6 @@ export const primopArray = objectResult(
     }
 )
 
-type PrimopInternalReferenceSites = {
-    [id: string]: (args: ts.Expression[], argIndex: number) => NodeLattice
-}
-export const primopInternalReferenceSites: PrimopInternalReferenceSites = {
-    'Array#map': arrayMapInternalReferenceSites
-}
-
-function arrayMapInternalReferenceSites(this: ts.Expression, args: ts.Expression[], argIndex: number): NodeLattice {
-    if (argIndex !== 0) {
-        return empty();
-    }
-    
-    const convert = args[0]; // convert
-    const arrayAccess = ts.factory.createElementAccessExpression(this, 0); // this[0]
-    const call = ts.factory.createCallExpression(convert, [], [arrayAccess]); // convert(this[0])
-    const clonedCall = cloneNode(call, { setParents: true });
-    return singleton<NodeLatticeElem>(clonedCall.expression);
-}
-
 function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLattice {
     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
         const access = site.parent;
@@ -252,4 +233,25 @@ function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLa
         return call as ts.Node;
     });
     return setSift(callSitesOrFalses);
+}
+
+type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, fixed_eval: FixedEval) => NodeLattice;
+
+type PrimopBinderGetters = {
+    [id: string]: PrimopFunctionArgParamBinderGetter
+}
+
+export const primopBinderGetters: PrimopBinderGetters = {
+    'Array#map': arrayMapArgBinderGetter
+}
+
+function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, fixed_eval: FixedEval) {
+    if (this === undefined) {
+        throw new Error();
+    }
+    
+    if (primopArgIndex != 0 || argParameterIndex != 0) {
+        return empty();
+    }
+    return getElementNodesOfArrayValuedNode(this, fixed_eval);
 }
