@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
 import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
-import { getElementNodesOfArrayValuedNode, isBareSpecifier } from './util';
+import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopExpression, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
@@ -577,13 +577,4 @@ function getPrimitivePrimop(res: AbstractResult, name: string): PrimopId | undef
     }
 
     return undefined;
-}
-
-function unimplemented<T>(message: string, returnVal: T): T {
-    console.warn(message);
-    return returnVal;
-}
-
-function unimplementedRes(message: string): AbstractResult {
-    return unimplemented(message, botResult);
 }
