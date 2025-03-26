@@ -299,7 +299,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     abstractEval, parent.expression
                 ).value;
 
-                const possibleFunctions = possibleOperators.nodes;
+                const possibleFunctions = nodeLatticeFilter(possibleOperators.nodes, isFunctionLikeDeclaration);
                 const parameterReferences = nodeLatticeJoinMap(
                     possibleFunctions,
                     (func) => {
