@@ -541,7 +541,7 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
         } else if (node.text === 'JSON') {
             return primopJSON;
         } else if (node.text === 'Date') {
-            return primopDate;
+            return nodeResult(node);
         } else if (node.text === 'Object') {
             return primopObject;
         } else if (node.text === 'Array') {
