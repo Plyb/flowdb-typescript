@@ -6,7 +6,7 @@ import { AbstractResult, joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { structuralComparator } from './comparators';
-import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
+import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
@@ -73,7 +73,7 @@ function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Nod
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
         dcfa(callExpression.expression)
     );
-    return joinAll(...valuesOfCallExpressionOperators).value.nodes;
+    return nodeLatticeFilter(joinAll(...valuesOfCallExpressionOperators).value.nodes, isFunctionLikeDeclaration);
 }
 
 function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
