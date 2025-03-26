@@ -137,6 +137,9 @@ export const primops = {
     [SyntaxKind.QuestionQuestionToken as BinaryOperator]: questionQuestionPrimop,
     [SyntaxKind.BarBarToken as BinaryOperator]: barBarPrimop,
     'RegExp#test': regexTestPrimop,
+    'console.error': (() => botResult) as Primop, // TODO
+    'console.log': (() => botResult) as Primop,
+    'console.warn': (() => botResult) as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, expression: PrimopApplication) => AbstractResult, f: () => R): Primop {

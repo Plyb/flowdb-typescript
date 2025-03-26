@@ -157,6 +157,21 @@ export function getPrimops(primopExpression: PrimopExpression, fixed_eval: Fixed
                 console.warn(`Expected value constructor: ${printNodeAndPos(thisValue)}`);
                 return empty();
             }
+            if (ts.isIdentifier(thisValue)) {
+                const allPrimops = new SimpleSet<PrimopId>(structuralComparator, ...Object.keys(primops) as Iterable<PrimopId>);
+                const matchingPrimops = setFilter(allPrimops, primopId => {
+                    if (typeof primopId !== 'string') {
+                        return false;
+                    }
+                    const [object, method] = primopId.split('.')
+                    return object === thisValue.text && method === primopExpression.name.text;
+                });
+                if (matchingPrimops.size() === 0) {
+                    console.warn(`Unknown primop of built in object: ${printNodeAndPos(primopExpression)}`);
+                }
+                return matchingPrimops;
+            }
+
             const thisTypes = getTypesOf(thisValue, fixed_eval, printNodeAndPos);
             return setFlatMap(thisTypes, thisType => {
                 const methodsForType = builtInMethodsByType.get(thisType);
