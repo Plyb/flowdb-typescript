@@ -387,11 +387,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
                     
-                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
-                    const objectConstructors = resultBind<ObjectRef>(argsResults, 'objects', objRef => nodeResult(objRef))
-                        .value.nodes;
+                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg)).value.nodes;
 
-                    return getObjectsPropertyInitializers(objectConstructors, symbol.name);
+                    return getObjectsPropertyInitializers(argsResults, symbol.name);
                 }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
                 const moduleSpecifier = ts.isImportClause(declaration)
