@@ -108,7 +108,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return resolvePromise(expressionValue);
             } else if (ts.isArrayLiteralExpression(node)) {
-                return evalArray(node);
+                return nodeResult(node);
             } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {
                 /**
                  * I think we should only get here if we're trying to eval something that
