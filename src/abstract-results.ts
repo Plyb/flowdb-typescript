@@ -164,6 +164,8 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
         } else if (ts.isIdentifier(node)) {
             if (node.text === 'Date' && property.text === 'now') {
                 return nodeResult(node);
+            } else if (node.text === 'JSON' && property.text === 'parse') {
+                return nodeResult(node);
             } else {
                 return unimplementedRes(`Unknown primitive identifier`)
             }

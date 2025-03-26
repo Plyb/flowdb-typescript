@@ -540,7 +540,7 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
         } else if (node.text === 'fetch') {
             return nodeResult(node);
         } else if (node.text === 'JSON') {
-            return primopJSON;
+            return nodeResult(node);
         } else if (node.text === 'Date') {
             return nodeResult(node);
         } else if (node.text === 'Object') {
