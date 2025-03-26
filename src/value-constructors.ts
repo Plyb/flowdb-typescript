@@ -13,9 +13,11 @@ type ValueConstructor =
 | NewExpression
 | AsyncFunctionCall
 | PrimopApplication
-| PrimopExpression;
+| PrimopExpression
+| PrimObj;
 type PrimopExpression = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
 type AsyncFunctionCall = CallExpression
+type PrimObj = ts.Identifier;
 
 type BuiltInType =
 | 'string'
@@ -98,7 +100,9 @@ export function getTypesOf(cons: ValueConstructor, fixed_eval: FixedEval, printN
             }
             return retType;
         });
-    }
+    } else if (ts.isIdentifier(cons) && cons.text === 'Date') {
+        return singleton<BuiltInType>('object');
+    } 
     console.warn(`Unable to get type for ${printNodeAndPos(cons)}`);
     return empty();
 }
@@ -181,5 +185,6 @@ function isValueConstructor(node: ts.Node): node is ValueConstructor {
         || ts.isArrayLiteralExpression(node)
         || ts.isNewExpression(node)
         || ts.isCallExpression(node)
-        || ts.isPropertyAccessExpression(node);
+        || ts.isPropertyAccessExpression(node)
+        || ts.isIdentifier(node);
 }
