@@ -92,14 +92,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             } else if (isAtomicLiteral(node)) {
                 return literalResult(node);
             } else if (ts.isObjectLiteralExpression(node)) {
-                return evalObject(node);
+                return nodeResult(node);
             } else if (ts.isPropertyAccessExpression(node)) {
                 if (!ts.isIdentifier(node.name)) {
                     return unimplementedRes(`Expected simple identifier property access: ${node.name}`);
                 }
     
                 const expressionResult = fix_run(abstractEval, node.expression);
-                const propertyAccessResult = getObjectProperty(expressionResult, node.name);
+                const propertyAccessResult = getObjectProperty(expressionResult, node.name, node => fix_run(abstractEval, node));
                 if (propertyAccessResult !== botResult) {
                     return propertyAccessResult;
                 }

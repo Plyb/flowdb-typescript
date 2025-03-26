@@ -2,8 +2,8 @@ import ts from 'typescript';
 import { AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, MapStore, mapValue, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { mergeMaps } from './util';
-import { PrimopId } from './primops';
+import { mergeMaps, unimplementedRes } from './util';
+import { FixedEval, PrimopId } from './primops';
 import { AbstractMap } from './abstract-map';
 
 export type AbstractResult = {
@@ -133,24 +133,38 @@ export function joinAll(...abstractResults: AbstractResult[]): AbstractResult {
     return abstractResults.reduce(join, botResult);
 }
 
-export function getObjectProperty(from: AbstractResult, property: ts.Identifier): AbstractResult {
-    const objectLattice = from.value.objects;
-    const objectStore = from.objectStore;
-    if (isTop(objectLattice)) {
-        return topResult;
-    } else if (isBottom(objectLattice)) {
-        return botResult;
-    } else {
-        const ref = objectLattice.item;
-        const obj = objectStore.get(ref);
-        if (obj === undefined) {
-            throw new Error('expected obj to be in store');
+export function getObjectProperty(from: AbstractResult, property: ts.Identifier, fixed_eval: FixedEval): AbstractResult {
+    return nodeLatticeJoinMap(from.value.nodes, node => { // todo merge this with the spot in dcfa/abstractEval/isPropertyAccessExpression
+        if (ts.isObjectLiteralExpression(node)) {
+            for (const prop of node.properties) {
+                if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
+                    console.warn(`Expected identifier for property`);
+                    continue;
+                }
+
+                if (prop.name.text !== property.text) {
+                    continue;
+                }
+
+                if (ts.isPropertyAssignment(prop)) {
+                    return fixed_eval(prop.initializer);
+                } else if (ts.isShorthandPropertyAssignment(prop)) {
+                    return fixed_eval(prop.name)
+                } else {
+                    console.warn(`Unknown object property assignment`)
+                }
+            }
+            return unimplementedRes(`Unable to find object property ${property}`)
+        } else if (ts.isCallExpression(node)) { // todo is primop application
+            const operator = node.expression;
+            if (ts.isIdentifier(operator) && operator.text === 'fetch') { // todo make this not hard coded
+                return topResult;
+            }
+            return unimplementedRes(`Unknown operator for call constructor`);
+        } else {
+            return botResult;
         }
-        return {
-            ...from,
-            value: obj[property.text] ?? botValue,
-        };
-    }
+    })
 }
 export function getArrayElement(from: AbstractResult): AbstractResult {
     const arrayLattice = from.value.arrays;
