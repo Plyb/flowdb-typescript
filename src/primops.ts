@@ -140,6 +140,7 @@ export const primops = {
     'console.error': (() => botResult) as Primop, // TODO
     'console.log': (() => botResult) as Primop,
     'console.warn': (() => botResult) as Primop,
+    'Array#join': (() => botResult) as Primop,
 }
 
 function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, expression: PrimopApplication) => AbstractResult, f: () => R): Primop {

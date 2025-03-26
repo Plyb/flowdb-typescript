@@ -132,6 +132,7 @@ const primopReturnTypes = new Map<PrimopId, SimpleSet<BuiltInType>>([
     [SyntaxKind.QuestionQuestionToken, allTypes],
     [SyntaxKind.BarBarToken, allTypes],
     ['RegExp#test', singleton<BuiltInType>('boolean')],
+    ['Array#join', singleton<BuiltInType>('string')],
 ]);
 
 function filterMethods(type: string): SimpleSet<PrimopId> {
