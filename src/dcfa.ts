@@ -121,11 +121,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const expressionResult = fix_run(abstractEval, node.expression);
                 return getArrayElement(expressionResult);
             } else if (ts.isNewExpression(node)) {
-                if (!(ts.isIdentifier(node.expression) && node.expression.text === 'Map')) {
-                    return unimplementedRes(`New expression not yet implemented for ${printNode(node.expression)}`)
-                }
-    
-                return emptyMapResult(node);
+                return nodeResult(node);
             } else if (isNullLiteral(node)) {
                 return result(nullValue);
             } else if (ts.isBinaryExpression(node)) {

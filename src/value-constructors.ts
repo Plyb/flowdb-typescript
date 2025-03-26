@@ -160,7 +160,7 @@ export function getPrimops(primopExpression: PrimopExpression, fixed_eval: Fixed
                     console.warn(`No methods found for type ${thisType}`);
                     return empty();
                 }
-                return setFilter(methodsForType, method => method === primopExpression.name.text);
+                return setFilter(methodsForType, method => typeof method === 'string' && method.split('#')[1] === primopExpression.name.text);
             })
         })
     } else { // binary expression
