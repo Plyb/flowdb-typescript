@@ -1,4 +1,4 @@
-import ts, { ArrayLiteralExpression, CallExpression, NewExpression, ObjectLiteralExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
+import ts, { ArrayLiteralExpression, CallExpression, NewExpression, ObjectFlags, ObjectLiteralExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { FixedEval, PrimopApplication, PrimopId, primops} from './primops';
 import { AtomicLiteral, isAsync, isBooleaniteral, isFunctionLikeDeclaration, isLiteral } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
@@ -14,7 +14,7 @@ type ValueConstructor =
 | AsyncFunctionCall
 | PrimopApplication
 | PrimopExpression;
-type PrimopExpression = PropertyAccessExpression | ts.BinaryExpression;
+type PrimopExpression = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
 type AsyncFunctionCall = CallExpression
 
 type BuiltInType =
@@ -75,7 +75,7 @@ export function getTypesOf(cons: ValueConstructor, fixed_eval: FixedEval, printN
                     }
                     return getTypesOf(bodyValue, fixed_eval, printNodeAndPos);
                 })
-            } else if (ts.isPropertyAccessExpression(val)) { // todo is primop expression
+            } else if (ts.isPropertyAccessExpression(val) || ts.isIdentifier(val)) { // todo is primop expression
                 const primops = getPrimops(val, fixed_eval, printNodeAndPos);
                 return setFlatMap(primops, primop => {
                     const retType = primopReturnTypes.get(primop);
@@ -163,6 +163,12 @@ export function getPrimops(primopExpression: PrimopExpression, fixed_eval: Fixed
                 return setFilter(methodsForType, method => typeof method === 'string' && method.split('#')[1] === primopExpression.name.text);
             })
         })
+    } else if (ts.isIdentifier(primopExpression)) {
+        if (primops[primopExpression.text] === undefined) {
+            console.warn(`Expected an identifier primop: ${printNodeAndPos(primopExpression)}`);
+            return empty();
+        }
+        return singleton(primopExpression.text as PrimopId);
     } else { // binary expression
         const operator = primopExpression.operatorToken;
         return singleton<PrimopId>(operator.kind);

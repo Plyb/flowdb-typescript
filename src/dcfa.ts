@@ -62,6 +62,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         }
                         // In the case of calling a built in function, the call-site *is* the constructor site
                         return nodeResult(node);
+                    } else if (ts.isIdentifier(op)) {
+                        // verify that the id is a primop
+                        if (primops[op.text] === undefined) {
+                            return unimplementedRes(`Expected ${op.text} to be a primop @ ${getPosText(op)}`);
+                        }
+
+                        return nodeResult(node);
                     } else {
                         return unimplementedRes(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
                     }
