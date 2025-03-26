@@ -100,7 +100,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 }
     
                 const expressionResult = fix_run(abstractEval, node.expression);
-                const propertyAccessResult = getObjectProperty(expressionResult, node.name, node => fix_run(abstractEval, node));
+                const propertyAccessResult = getObjectProperty(expressionResult, node.name, node => fix_run(abstractEval, node), printNode);
                 if (!isEqual(propertyAccessResult, botResult)) {
                     return propertyAccessResult;
                 }

@@ -133,7 +133,7 @@ export function joinAll(...abstractResults: AbstractResult[]): AbstractResult {
     return abstractResults.reduce(join, botResult);
 }
 
-export function getObjectProperty(from: AbstractResult, property: ts.Identifier, fixed_eval: FixedEval): AbstractResult {
+export function getObjectProperty(from: AbstractResult, property: ts.Identifier, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractResult {
     return nodeLatticeJoinMap(from.value.nodes, node => { // todo merge this with the spot in dcfa/abstractEval/isPropertyAccessExpression
         if (ts.isObjectLiteralExpression(node)) {
             for (const prop of node.properties) {
@@ -160,7 +160,7 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
             if (ts.isIdentifier(operator) && operator.text === 'fetch') { // todo make this not hard coded
                 return topResult;
             }
-            return unimplementedRes(`Unknown operator for call constructor`);
+            return botResult;
         } else if (ts.isIdentifier(node)) {
             if (node.text === 'Date' && property.text === 'now') {
                 return nodeResult(node);
