@@ -141,7 +141,7 @@ const builtInMethodsByType = new Map<BuiltInType, SimpleSet<PrimopId>>([
     ['map', filterMethods('Map')]
 ])
 
-function getPrimops(primopExpression: PrimopExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
+export function getPrimops(primopExpression: PrimopExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
     if (ts.isPropertyAccessExpression(primopExpression)) {
         const thisExpression = primopExpression.expression;
         const thisValues = fixed_eval(thisExpression).value.nodes;

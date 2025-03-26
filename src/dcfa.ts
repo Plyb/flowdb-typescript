@@ -4,10 +4,11 @@ import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
-import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
+import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
+import { getPrimops } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -42,46 +43,29 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return nodeResult(node);
             } else if (ts.isCallExpression(node)) {
                 const operator: ts.Node = node.expression;
-                const possibleOperators = fix_run(abstractEval, operator).value;
+                const possibleOperators = fix_run(abstractEval, operator).value.nodes;
     
-                const possibleFunctions = possibleOperators.nodes;
-                const valuesOfFunctionBodies = nodeLatticeJoinMap(possibleFunctions, (func) => {
-                    if (!isFunctionLikeDeclaration(func)) {
-                        throw new Error(`Expected a function, got ${SyntaxKind[func.kind]}`)
-                    }
-    
-                    const body: ts.Node = func.body;
-                    const result = fix_run(abstractEval, body);
-                    if (isAsync(func)) {
-                        return promiseResult(func, result);
+                // const possibleFunctions = possibleOperators.nodes;
+                return nodeLatticeJoinMap(possibleOperators, (op) => {
+                    if (isFunctionLikeDeclaration(op)) {
+                        const body: ts.Node = op.body;
+                        const result = fix_run(abstractEval, body);
+                        if (isAsync(op)) {
+                            return promiseResult(op, result);
+                        } else {
+                            return result;
+                        }
+                    } else if (ts.isPropertyAccessExpression(op)) {
+                        const primops = getPrimops(op, node => fix_run(abstractEval, node), printNode); // TODO: fixed_eval and printNodeAndPos
+                        if (primops.size() === 0) {
+                            return unimplementedRes(`No primops found for a property access constructor ${op}`);
+                        }
+                        // In the case of calling a built in function, the call-site *is* the constructor site
+                        return nodeResult(node);
                     } else {
-                        return result;
+                        return unimplementedRes(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
                     }
                 });
-    
-                const possiblePrimops = possibleOperators.primops;
-                if (possiblePrimops.size() === 0) {
-                    if (possibleFunctions.size() === 0) {
-                        console.warn(`No operators found for ${printNode(node)} @ ${getPosText(node)}`)
-                    }
-                    return valuesOfFunctionBodies; // short circuit to prevent expensive computations
-                }
-                const thisResult = ts.isPropertyAccessExpression(node.expression)
-                    ? fix_run(abstractEval, node.expression.expression)
-                    : botResult;
-                const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
-                const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
-                    applyPrimop(
-                        node,
-                        node => fix_run(abstractEval, node),
-                        node => fix_run(getWhereValueReturned, node), 
-                        primopId,
-                        thisResult,
-                        argumentValues
-                    )
-                );
-    
-                return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
             } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
                 return result(undefinedValue);
             } else if (ts.isIdentifier(node)) {
@@ -113,12 +97,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return propertyAccessResult;
                 }
     
-                const primop = getPrimitivePrimop(expressionResult, node.name.text);
-                if (primop === undefined) {
+                const primops = getPrimops(node, node => fix_run(abstractEval, node), printNode);
+                if (primops.size() === 0) {
                     return unimplementedRes(`Property access must result in a non-bot value: ${printNode(node)} @ ${getPosText(node)}`);
                 }
 
-                return primopResult(primop)
+                // a property access that results in a built in method is itself a constructor
+                return nodeResult(node);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return resolvePromise(expressionValue);
@@ -463,7 +448,16 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         if (!ts.isCallExpression(callSite)) {
                             return empty<NodeLatticeElem>();
                         }
-                        const primops = fix_run(abstractEval, callSite.expression).value.primops;
+                        const primopsNodes = fix_run(abstractEval, callSite.expression).value.nodes;
+                        const primops = setFlatMap(primopsNodes, primopNode => {
+                            if (isTop(primopNode)) {
+                                return empty<PrimopId>(); // TODO: this should be all primops
+                            }
+                            if (!ts.isPropertyAccessExpression(primopNode)) {
+                                return empty<PrimopId>();
+                            }
+                            return getPrimops(primopNode, node => fix_run(abstractEval, node), printNode);
+                        });
 
                         return setFlatMap(primops, (primop) => {
                             const binderGetter = primopBinderGetters[primop];
