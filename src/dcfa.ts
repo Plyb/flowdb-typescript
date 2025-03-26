@@ -536,7 +536,7 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     // in the long run, probably need a better way than just checking ids, since ids are used all over the place
     if (ts.isIdentifier(node)) {
         if (node.text === 'Math') {
-            return primopMath;
+            return nodeResult(node);
         } else if (node.text === 'fetch') {
             return nodeResult(node);
         } else if (node.text === 'JSON') {
@@ -544,9 +544,9 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
         } else if (node.text === 'Date') {
             return nodeResult(node);
         } else if (node.text === 'Object') {
-            return primopObject;
+            return nodeResult(node);
         } else if (node.text === 'Array') {
-            return primopArray;
+            return nodeResult(node);
         } else if (node.text === 'console') {
             return nodeResult(node);
         }

@@ -162,12 +162,16 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
             }
             return botResult;
         } else if (ts.isIdentifier(node)) {
-            if (node.text === 'Date' && property.text === 'now') {
+            if (node.text === 'Date' && property.text === 'now') { // todo: this isn't quite right, we should be returning the property access, not the identifier
                 return nodeResult(node);
             } else if (node.text === 'JSON' && property.text === 'parse') {
                 return nodeResult(node);
             } else if (node.text === 'console') {
                 return nodeResult(node) // todo: more specific methods
+            } else if (node.text === 'Object') {
+                return nodeResult(node)
+            } else if (node.text === 'Array') {
+                return nodeResult(node)
             } else {
                 return unimplementedRes(`Unknown primitive identifier: ${printNodeAndPos(node)}`)
             }
