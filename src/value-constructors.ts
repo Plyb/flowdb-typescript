@@ -129,8 +129,16 @@ const primopReturnTypes = new Map<PrimopId, SimpleSet<BuiltInType>>([
     ['RegExp#test', singleton<BuiltInType>('boolean')],
 ]);
 
+function filterMethods(type: string): SimpleSet<PrimopId> {
+    return new SimpleSet<PrimopId>(
+        structuralComparator,
+        ...[...Object.keys(primops) as Iterable<PrimopId>].filter(method => typeof method === 'string' && method.split('#')[0] === type)
+    );
+}
 const builtInMethodsByType = new Map<BuiltInType, SimpleSet<PrimopId>>([
-
+    ['string', filterMethods('String')],
+    ['array', filterMethods('Array')],
+    ['map', filterMethods('Map')]
 ])
 
 function getPrimops(primopExpression: PrimopExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
