@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
-import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopExpression, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
+import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -555,7 +555,7 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     return false;
 }
 
-function applyPrimop<Arg, Ret>(expression: PrimopExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
+function applyPrimop<Arg, Ret>(expression: PrimopApplication, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
     return primops[primopId].apply(thisRes, [expression, fixed_eval, fixed_trace, ...args]);
 }
 

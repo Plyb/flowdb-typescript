@@ -3,7 +3,7 @@ import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
-import { PrimopExpression, PrimopId } from './primops'
+import { PrimopApplication, PrimopId } from './primops'
 import { AbstractMap } from './abstract-map'
 import { structuralComparator } from './comparators'
 
@@ -59,14 +59,14 @@ export type AbstractObject = { [key: string]: AbstractValue }
 export type ObjectLattice = FlatLattice<ObjectRef>
 export type ObjectStore = Map<ObjectRef, AbstractObject>
 
-export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopExpression;
+export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopApplication;
 export type AbstractPromise = {
     resolvesTo: AbstractValue
 }
 export type PromiseLattice = FlatLattice<PromiseRef>
 export type PromiseStore = Map<PromiseRef, AbstractPromise>
 
-export type ArrayRef = ts.ArrayLiteralExpression | PrimopExpression;
+export type ArrayRef = ts.ArrayLiteralExpression | PrimopApplication;
 export type AbstractArray = { element: AbstractValue }
 export type ArrayLattice = FlatLattice<ArrayRef>
 export type ArrayStore = Map<ArrayRef, AbstractArray>
