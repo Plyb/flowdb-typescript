@@ -161,6 +161,12 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
                 return topResult;
             }
             return unimplementedRes(`Unknown operator for call constructor`);
+        } else if (ts.isIdentifier(node)) {
+            if (node.text === 'Date' && property.text === 'now') {
+                return nodeResult(node);
+            } else {
+                return unimplementedRes(`Unknown primitive identifier`)
+            }
         } else {
             return botResult;
         }
