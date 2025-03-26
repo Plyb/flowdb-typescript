@@ -128,6 +128,7 @@ const primopReturnTypes = new Map<PrimopId, SimpleSet<BuiltInType>>([
     ['Map#get', allTypes],
     ['Map#set', singleton<BuiltInType>('map')],
     ['Object.freeze', singleton<BuiltInType>('object')],
+    ['Array.from', singleton<BuiltInType>('array')],
     [SyntaxKind.QuestionQuestionToken, allTypes],
     [SyntaxKind.BarBarToken, allTypes],
     ['RegExp#test', singleton<BuiltInType>('boolean')],
