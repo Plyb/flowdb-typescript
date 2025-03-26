@@ -9,6 +9,7 @@ import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
 import { getPrimops } from './value-constructors';
+import { isEqual } from 'lodash';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -100,7 +101,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 const expressionResult = fix_run(abstractEval, node.expression);
                 const propertyAccessResult = getObjectProperty(expressionResult, node.name, node => fix_run(abstractEval, node));
-                if (propertyAccessResult !== botResult) {
+                if (!isEqual(propertyAccessResult, botResult)) {
                     return propertyAccessResult;
                 }
     
