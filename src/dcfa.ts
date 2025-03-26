@@ -547,6 +547,8 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
             return primopObject;
         } else if (node.text === 'Array') {
             return primopArray;
+        } else if (node.text === 'console') {
+            return nodeResult(node);
         }
     }
 

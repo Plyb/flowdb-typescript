@@ -166,8 +166,10 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
                 return nodeResult(node);
             } else if (node.text === 'JSON' && property.text === 'parse') {
                 return nodeResult(node);
+            } else if (node.text === 'console') {
+                return nodeResult(node) // todo: more specific methods
             } else {
-                return unimplementedRes(`Unknown primitive identifier`)
+                return unimplementedRes(`Unknown primitive identifier: ${printNodeAndPos(node)}`)
             }
         } else {
             return botResult;
