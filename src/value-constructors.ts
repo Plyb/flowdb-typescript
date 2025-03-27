@@ -6,7 +6,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { AbstractResult, botResult, nodeResult, topResult } from './abstract-results';
-import { unimplementedRes } from './util';
+import { unimplemented, unimplementedRes } from './util';
 
 type ValueConstructor =
 | AtomicLiteral
@@ -377,13 +377,7 @@ function builtInStaticMethod(name: BuiltInValue & string): PropertyAccessGetter 
 
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pa) => {
-        const isBuiltInProtoMethod = builtInValues.elements.some(val => {
-            if (typeof val !== 'string') {
-                return false;
-            }
-            const [valTypeName, valMethodName] = val.split('#');
-            return valTypeName === typeName && valMethodName === pa.name.text
-        })
+        const isBuiltInProtoMethod = getBuiltInMethod(typeName, pa.name.text)
         return isBuiltInProtoMethod
             ? nodeResult(pa)
             : inaccessibleProperty(typeName)(pa);
@@ -484,4 +478,30 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#trim': inaccessibleElement,
     'String#trim()': inaccessibleElement,
     'fetch': inaccessibleElement,
+}
+
+/**
+ * @param cons here we're assuming a constructor that isn't "built in"
+ */
+export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltInProto | null {
+    if (ts.isStringLiteral(cons) || ts.isTemplateLiteral(cons)) {
+        return 'String';
+    } else if (ts.isRegularExpressionLiteral(cons)) {
+        return 'RegExp';
+    } else if (ts.isArrayLiteralExpression(cons)) {
+        return 'Array';
+    } else if (ts.isNewExpression(cons)) {
+        if (!(ts.isIdentifier(cons.expression) && cons.expression.text === 'Map')) {
+            return unimplemented(`New expression not yet implemented for ${printNodeAndPos(cons.expression)}`, null);
+        }
+        return 'Map';
+    }
+    return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
+}
+
+export function getBuiltInMethod(proto: BuiltInProto, methodName: string) {
+    return builtInValues.elements.find(val => {
+        const [valType, valMethod] = val.split('#');
+        return proto === valType && valMethod === methodName;
+    });
 }

@@ -5,7 +5,7 @@ import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps, unimplementedRes } from './util';
 import { FixedEval, PrimopId } from './primops';
 import { AbstractMap } from './abstract-map';
-import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, resultOfPropertyAccess } from './value-constructors';
+import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfPropertyAccess } from './value-constructors';
 
 export type AbstractResult = {
     value: AbstractValue,
@@ -137,7 +137,7 @@ export function joinAll(...abstractResults: AbstractResult[]): AbstractResult {
 export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractResult {
     const expressionResult = fixed_eval(access.expression);
     const property = access.name;
-    return nodeLatticeJoinMap(expressionResult.value.nodes, cons => { // todo merge this with the spot in dcfa/abstractEval/isPropertyAccessExpression
+    return nodeLatticeJoinMap(expressionResult.value.nodes, cons => {
         if (ts.isObjectLiteralExpression(cons)) {
             for (const prop of cons.properties) {
                 if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
@@ -162,7 +162,15 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
             return resultOfPropertyAccess[builtInValue](access);
         } else {
-            return unimplementedRes(`No constructors found for property access ${printNodeAndPos(access)}`);
+            const proto = getProtoOf(cons, printNodeAndPos);
+            if (proto === null) {
+                return unimplementedRes(`No constructors found for property access ${printNodeAndPos(access)}`);
+            }
+            const method = getBuiltInMethod(proto, property.text);
+            if (method === undefined) {
+                return unimplementedRes(`${property.text} is not a property of ${printNodeAndPos(cons)}`);
+            }
+            return nodeResult(access);
         }
     })
 }
