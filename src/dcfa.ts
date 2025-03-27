@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
-import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
+import { FixedEval, FixedTrace, primopBinderGetters, PrimopApplication, PrimopId, primops } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, getPrimops, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 import { isEqual } from 'lodash';
 
@@ -35,10 +35,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
         // "eval"
         function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
-            const overriddenResult = getOverriddenResult(node);
-            if (overriddenResult) {
-                return overriddenResult;
-            }
+            // const overriddenResult = getOverriddenResult(node);
+            // if (overriddenResult) {
+            //     return overriddenResult;
+            // }
     
             if (isFunctionLikeDeclaration(node)) {
                 return nodeResult(node);

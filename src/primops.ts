@@ -187,37 +187,37 @@ function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: FlatLatticeKey, args
     };
 }
 
-export const primopMath = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy
-    {
-        floor: primopValue('Math.floor'),
-    }
-)
-export const primopFecth = primopResult('fetch');
-export const primopJSON = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy
-    {
-        parse: primopValue('JSON.parse'),
-    }
-)
-export const primopDate = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy
-    {
-        now: primopValue('Date.now')
-    }
-)
-export const primopObject = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy
-    {
-        freeze: primopValue('Object.freeze')
-    }
-)
-export const primopArray = objectResult(
-    ts.factory.createObjectLiteralExpression(), // dummy
-    {
-        from: primopValue('Array.from')
-    }
-)
+// export const primopMath = objectResult(
+//     ts.factory.createObjectLiteralExpression(), // dummy
+//     {
+//         floor: primopValue('Math.floor'),
+//     }
+// )
+// export const primopFecth = primopResult('fetch');
+// export const primopJSON = objectResult(
+//     ts.factory.createObjectLiteralExpression(), // dummy
+//     {
+//         parse: primopValue('JSON.parse'),
+//     }
+// )
+// export const primopDate = objectResult(
+//     ts.factory.createObjectLiteralExpression(), // dummy
+//     {
+//         now: primopValue('Date.now')
+//     }
+// )
+// export const primopObject = objectResult(
+//     ts.factory.createObjectLiteralExpression(), // dummy
+//     {
+//         freeze: primopValue('Object.freeze')
+//     }
+// )
+// export const primopArray = objectResult(
+//     ts.factory.createObjectLiteralExpression(), // dummy
+//     {
+//         from: primopValue('Array.from')
+//     }
+// )
 
 function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLattice {
     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
