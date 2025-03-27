@@ -5,6 +5,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
+import { AbstractResult, nodeResult, topResult } from './abstract-results';
 
 type ValueConstructor =
 | AtomicLiteral
@@ -13,9 +14,9 @@ type ValueConstructor =
 | NewExpression
 | AsyncFunctionCall
 | PrimopApplication
-| BuildInConstructor
+| BuiltInConstructor
 | PrimObj;
-type BuildInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
+type BuiltInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
 type AsyncFunctionCall = CallExpression
 type PrimObj = ts.Identifier;
 
@@ -147,7 +148,7 @@ const builtInMethodsByType = new Map<BuiltInType, SimpleSet<PrimopId>>([
     ['map', filterMethods('Map')]
 ])
 
-export function getPrimops(primopExpression: BuildInConstructor, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
+export function getPrimops(primopExpression: BuiltInConstructor, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
     if (ts.isPropertyAccessExpression(primopExpression)) {
         const thisExpression = primopExpression.expression;
         const thisValues = fixed_eval(thisExpression).value.nodes;
@@ -242,7 +243,7 @@ type NodePrinter = (node: ts.Node) => string
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  * Note that this assumes there are no methods that share a name.
  */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuildInConstructor, printNodeAndPos: NodePrinter): BuiltInValue {
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, printNodeAndPos: NodePrinter): BuiltInValue {
     if (ts.isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
         const builtInValue = builtInValues.elements.find(val =>
@@ -265,4 +266,41 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuildInC
             throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
         }
     }
+}
+
+/**
+ * If a node is shaped like a built in constructor and is a value, it is a built in constructor
+ */
+export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstructor {
+    return ts.isPropertyAccessExpression(node)
+        || ts.isIdentifier(node)
+        || ts.isBinaryExpression(node);
+}
+
+export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: BuiltInConstructor) => AbstractResult} = {
+    'Array#filter': nodeResult,
+    'Array#find': nodeResult,
+    'Array#includes': nodeResult,
+    'Array#indexOf': nodeResult,
+    'Array#join': nodeResult,
+    'Array#map': nodeResult,
+    'Array#some': nodeResult,
+    'Array.from': nodeResult,
+    'Date.now': nodeResult,
+    'JSON.parse': nodeResult,
+    'Map#get': nodeResult, // TODO
+    'Map#keys': nodeResult, // TODO
+    'Map#set': nodeResult, // TODO
+    'Math.floor': nodeResult,
+    'Object.freeze': nodeResult, // TODO
+    'RegExp#test': nodeResult,
+    'String#includes': nodeResult,
+    'String#match': nodeResult,
+    'String#split': nodeResult,
+    'String#substring': nodeResult,
+    'String#toLowerCase': nodeResult,
+    'String#trim': nodeResult,
+    'fetch': () => topResult,
+    [SyntaxKind.BarBarToken]: nodeResult,
+    [SyntaxKind.QuestionQuestionToken]: nodeResult,
 }

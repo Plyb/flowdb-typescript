@@ -8,7 +8,7 @@ import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, 
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
-import { getPrimops } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, getPrimops, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 import { isEqual } from 'lodash';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
@@ -55,20 +55,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         } else {
                             return result;
                         }
-                    } else if (ts.isPropertyAccessExpression(op)) {
-                        const primops = getPrimops(op, node => fix_run(abstractEval, node), printNode); // TODO: fixed_eval and printNodeAndPos
-                        if (primops.size() === 0) {
-                            return unimplementedRes(`No primops found for a property access constructor ${op}`);
-                        }
-                        // In the case of calling a built in function, the call-site *is* the constructor site
-                        return nodeResult(node);
-                    } else if (ts.isIdentifier(op)) {
-                        // verify that the id is a primop
-                        if (primops[op.text] === undefined) {
-                            return unimplementedRes(`Expected ${op.text} to be a primop @ ${getPosText(op)}`);
-                        }
-
-                        return nodeResult(node);
+                    } else if (isBuiltInConstructorShaped(op)) {
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, printNode);
+                        return resultOfCalling[builtInValue](op);
                     } else {
                         return unimplementedRes(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
                     }
