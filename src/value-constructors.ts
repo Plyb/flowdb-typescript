@@ -276,7 +276,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
     } else { // call expression
         const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructor);
         const builtInValue = builtInValues.elements.find(val =>
-            typeof val === 'string' && val.split('()')[0] === expressionBuiltInValue
+            typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
         );
         assertNotUndefined(builtInValue);
         return builtInValue;
