@@ -5,7 +5,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { AbstractResult, botResult, nodeResult, topResult } from './abstract-results';
+import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, topResult } from './abstract-results';
 import { unimplemented, unimplementedRes } from './util';
 
 type ValueConstructor =
@@ -431,9 +431,21 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'fetch': inaccessibleProperty('fetch'),
 }
 
-type ElementAccessGetter = (cons: BuiltInConstructor, printNodeAndPos: NodePrinter) => AbstractResult
-const inaccessibleElement: ElementAccessGetter = (cons, printNodeAndPos) =>
+type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) => AbstractResult
+const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
     unimplementedRes(`Unable to get element of ${printNodeAndPos(cons)}`);
+const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
+    if (!ts.isCallExpression(cons)) {
+        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const argFuncs = fixed_eval(cons.arguments[0]).value.nodes;
+    return nodeLatticeJoinMap(argFuncs, func => {
+        if (!isFunctionLikeDeclaration(func)) {
+            return unimplementedRes(`Expected ${printNodeAndPos(func)} to be a function`);
+        }
+        return fixed_eval(func.body);
+    })
+}
 export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
     'Array': inaccessibleElement,
     'Array#filter': inaccessibleElement,
@@ -446,7 +458,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Array#join': inaccessibleElement,
     'Array#join()': inaccessibleElement,
     'Array#map': inaccessibleElement,
-    'Array#map()': inaccessibleElement, // TODO
+    'Array#map()': arrayMapEAG,
     'Array#some': inaccessibleElement,
     'Array#some()': inaccessibleElement,
     'Array.from': inaccessibleElement,

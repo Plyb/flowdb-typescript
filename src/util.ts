@@ -67,7 +67,7 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, fixed_eval: Fixe
             })
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, printNodeAndPos).value.nodes;
+            return resultOfElementAccess[builtInValue](cons, { fixed_eval, printNodeAndPos }).value.nodes;
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
