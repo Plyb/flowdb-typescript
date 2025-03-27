@@ -16,7 +16,7 @@ type ValueConstructor =
 | AsyncFunctionCall
 | BuiltInConstructor
 | PrimObj;
-type BuiltInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier | ts.CallExpression;
+type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 type AsyncFunctionCall = CallExpression
 type PrimObj = ts.Identifier;
 
@@ -92,15 +92,6 @@ export function getTypesOf(cons: ValueConstructor, fixed_eval: FixedEval, printN
             console.warn(`Unable to get type for call expression ${printNodeAndPos(cons)}`);
             return empty();
         })
-    } else if (ts.isBinaryExpression(cons)) {
-        const primops = getPrimops(cons, fixed_eval, printNodeAndPos);
-        return setFlatMap(primops, primop => { // TODO: unify this with the above
-            const retType = primopReturnTypes.get(primop);
-            if (retType === undefined) {
-                throw new Error(`Unable to get return type for primop ${primop} at ${printNodeAndPos(cons)}`)
-            }
-            return retType;
-        });
     } else if (ts.isIdentifier(cons) && cons.text === 'Date') {
         return singleton<BuiltInType>('object');
     } 
@@ -191,11 +182,8 @@ export function getPrimops(primopExpression: BuiltInConstructor, fixed_eval: Fix
             return empty();
         }
         return singleton(primopExpression.text as PrimopId);
-    } else if (ts.isCallExpression(primopExpression)) {
+    } else { // call expression
         throw new Error('TODO')
-    } else { // binary expression
-        const operator = primopExpression.operatorToken;
-        return singleton<PrimopId>(operator.kind);
     }
 }
 
@@ -254,8 +242,6 @@ const builtInValuesObject = {
     'String#match': true,
     'String#match()': true,
     'fetch': true,
-    [SyntaxKind.BarBarToken]: true,
-    [SyntaxKind.QuestionQuestionToken]: true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
@@ -287,15 +273,11 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
         assertNotUndefined(builtInValue);
         return builtInValue;
-    } else if (ts.isCallExpression(builtInConstructor)) {
+    } else { // call expression
         const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructor);
         const builtInValue = builtInValues.elements.find(val =>
             typeof val === 'string' && val.split('()')[0] === expressionBuiltInValue
         );
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    } else { // binary expression
-        const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.operatorToken.kind);
         assertNotUndefined(builtInValue);
         return builtInValue;
     }
@@ -376,8 +358,6 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'String#trim': nodeResult,
     'String#trim()': uncallable('String#trim()'),
     'fetch': () => topResult,
-    [SyntaxKind.BarBarToken]: nodeResult, // TODO
-    [SyntaxKind.QuestionQuestionToken]: nodeResult, // TODO
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
@@ -454,8 +434,6 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'String#trim': inaccessibleProperty('String#trim'),
     'String#trim()': builtInProtoMethod('String'),
     'fetch': inaccessibleProperty('fetch'),
-    [SyntaxKind.BarBarToken]: () => botResult, // TODO
-    [SyntaxKind.QuestionQuestionToken]: () => botResult, // TODO
 }
 
 type ElementAccessGetter = (cons: BuiltInConstructor, printNodeAndPos: NodePrinter) => AbstractResult
@@ -506,6 +484,4 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#trim': inaccessibleElement,
     'String#trim()': inaccessibleElement,
     'fetch': inaccessibleElement,
-    [SyntaxKind.BarBarToken]: inaccessibleElement, // TODO
-    [SyntaxKind.QuestionQuestionToken]: inaccessibleElement, // TODO
 }

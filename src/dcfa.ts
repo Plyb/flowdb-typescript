@@ -129,14 +129,11 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const lhsRes = fix_run(abstractEval, node.left);
                 const rhsRes = fix_run(abstractEval, node.right);
                 const primopId = node.operatorToken.kind;
-                return applyPrimop(
-                    node,
-                    node => fix_run(abstractEval, node),
-                    node => fix_run(getWhereValueReturned, node), 
-                    primopId,
-                    botResult,
-                    [lhsRes, rhsRes],
-                )
+                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                    return join(lhsRes, rhsRes);
+                } else {
+                    return unimplementedRes(`Unimplemented binary expression ${printNode(node)} @ ${getPosText(node)}`);
+                }
             } else if (ts.isTemplateExpression(node)) {
                 const components = [
                     fix_run(abstractEval, node.head),
