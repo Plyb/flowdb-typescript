@@ -135,19 +135,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return unimplementedRes(`Unimplemented binary expression ${printNode(node)} @ ${getPosText(node)}`);
                 }
             } else if (ts.isTemplateExpression(node)) {
-                const components = [
-                    fix_run(abstractEval, node.head),
-                    ...node.templateSpans.flatMap(span => [
-                        fix_run(abstractEval, span.expression),
-                        fix_run(abstractEval, span.literal),
-                    ]),
-                ];
-                return components.reduce(
-                    (acc, curr) => resultBind2(acc, curr, 'strings',
-                        (str1: string, str2) => result(stringValue(str1 + str2))
-                    ),
-                    result(stringValue(''))
-                )
+                return nodeResult(node);
             } else if (ts.isConditionalExpression(node)) {
                 const trueResult = fix_run(abstractEval, node.whenTrue);
                 const falseResult = fix_run(abstractEval, node.whenFalse);
