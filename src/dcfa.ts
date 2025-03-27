@@ -48,11 +48,11 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
                 return nodeLatticeJoinMap(possibleOperators, (op) => {
                     if (isFunctionLikeDeclaration(op)) {
-                        const body: ts.Node = op.body;
-                        const result = fix_run(abstractEval, body);
                         if (isAsync(op)) {
-                            return promiseResult(op, result);
+                            return nodeResult(op.modifiers[0])
                         } else {
+                            const body: ts.Node = op.body;
+                            const result = fix_run(abstractEval, body);
                             return result;
                         }
                     } else if (isBuiltInConstructorShaped(op)) {

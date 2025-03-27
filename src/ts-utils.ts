@@ -58,6 +58,8 @@ export function* getReturnStmts(node: ts.Node): Iterable<ts.ReturnStatement> {
 export type SimpleFunctionLikeDeclaration =
     (FunctionDeclaration | FunctionExpression | ArrowFunction)
     & { body: ts.Node }
+type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
+    & { modifiers: [AsyncKeyword]}
 export function isFunctionLikeDeclaration(node: ts.Node): node is SimpleFunctionLikeDeclaration {
     if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
         if (node.body === undefined) {
@@ -85,7 +87,7 @@ export function isBooleaniteral(node: ts.Node): node is BooleanLiteral {
 function isAsyncKeyword(node: ts.ModifierLike): node is AsyncKeyword {
     return node.kind === SyntaxKind.AsyncKeyword;
 }
-export function isAsync(node: SimpleFunctionLikeDeclaration): boolean {
+export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunctionLikeDeclarationAsync {
     return node.modifiers?.some(mod => isAsyncKeyword(mod)) ?? false;
 }
 export function isNullLiteral(node: ts.Node): node is NullLiteral {
