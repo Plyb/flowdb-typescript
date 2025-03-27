@@ -313,7 +313,8 @@ export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstr
 }
 
 function uncallable(name: BuiltInValue) { return () => unimplementedRes(`No result of calling ${name}`)}
-export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallExpression) => AbstractResult} = {
+type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => AbstractResult
+export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
     'Array#filter': nodeResult,
     'Array#filter()': uncallable('Array#filter()'),
@@ -328,7 +329,7 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'Array#map()': uncallable('Array#map()'),
     'Array#some': nodeResult,
     'Array#some()': uncallable('Array#some()'),
-    'Array.from': nodeResult,
+    'Array.from': (call, { fixed_eval }) => fixed_eval(call.arguments[0]),
     'Date': uncallable('Date'),
     'Date.now': nodeResult,
     'Date.now()': uncallable('Date.now()'),
