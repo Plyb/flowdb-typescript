@@ -5,7 +5,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { AbstractResult, nodeResult, topResult } from './abstract-results';
+import { AbstractResult, botResult, nodeResult, topResult } from './abstract-results';
 import { unimplementedRes } from './util';
 
 type ValueConstructor =
@@ -283,7 +283,7 @@ export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstr
         || ts.isBinaryExpression(node);
 }
 
-function uncallable(name: string) { return () => unimplementedRes(`No result of calling ${name}`)}
+function uncallable(name: BuiltInValue) { return () => unimplementedRes(`No result of calling ${name}`)}
 export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallExpression) => AbstractResult} = {
     'Array': uncallable('Array'),
     'Array#filter': nodeResult,
@@ -313,10 +313,53 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'String#toLowerCase': nodeResult,
     'String#trim': nodeResult,
     'fetch': () => topResult,
-    [SyntaxKind.BarBarToken]: nodeResult,
-    [SyntaxKind.QuestionQuestionToken]: nodeResult,
+    [SyntaxKind.BarBarToken]: nodeResult, // TODO
+    [SyntaxKind.QuestionQuestionToken]: nodeResult, // TODO
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
     return builtInValues.elements.some(val => val === id.text);
+}
+
+type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression) => AbstractResult;
+function inaccessibleProperty(name: BuiltInValue): PropertyAccessGetter {
+    return (pa) => unimplementedRes(`Unable to get property ${name}.${pa.name.text}`) 
+}
+function builtInStaticMethod(name: BuiltInValue & string): PropertyAccessGetter {
+    const methodName = name.split('.')[1];
+    return (pa) => pa.name.text === methodName
+        ? nodeResult(pa)
+        : inaccessibleProperty(name)(pa);
+}
+export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
+    'Array': builtInStaticMethod('Array.from'),
+    'Array#filter': inaccessibleProperty('Array#filter'),
+    'Array#find': inaccessibleProperty('Array#find'),
+    'Array#includes': inaccessibleProperty('Array#includes'),
+    'Array#indexOf': inaccessibleProperty('Array#indexOf'),
+    'Array#join': inaccessibleProperty('Array#join'),
+    'Array#map': inaccessibleProperty('Array#map'),
+    'Array#some': inaccessibleProperty('Array#some'),
+    'Array.from': inaccessibleProperty('Array.from'),
+    'Date': builtInStaticMethod('Date.now'),
+    'Date.now': inaccessibleProperty('Date.now'),
+    'JSON': builtInStaticMethod('JSON.parse'),
+    'JSON.parse': inaccessibleProperty('JSON.parse'),
+    'Map#get': inaccessibleProperty('Map#get'),
+    'Map#keys': inaccessibleProperty('Map#keys'),
+    'Map#set': inaccessibleProperty('Map#set'),
+    'Math': builtInStaticMethod('Math.floor'),
+    'Math.floor': inaccessibleProperty('Math.floor'),
+    'Object': builtInStaticMethod('Object.freeze'),
+    'Object.freeze': inaccessibleProperty('Object.freeze'),
+    'RegExp#test': inaccessibleProperty('RegExp#test'),
+    'String#includes': inaccessibleProperty('String#includes'),
+    'String#match': inaccessibleProperty('String#match'),
+    'String#split': inaccessibleProperty('String#split'),
+    'String#substring': inaccessibleProperty('String#substring'),
+    'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
+    'String#trim': inaccessibleProperty('String#trim'),
+    'fetch': inaccessibleProperty('fetch'),
+    [SyntaxKind.BarBarToken]: () => botResult, // TODO
+    [SyntaxKind.QuestionQuestionToken]: () => botResult, // TODO
 }
