@@ -63,7 +63,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     }
                 });
             } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
-                return result(undefinedValue);
+                return nodeResult(node);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
                 if (boundExprs.size() > 0) {
@@ -118,14 +118,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                  */
                 return topResult;
             } else if (ts.isElementAccessExpression(node)) {
-                const expressionResult = fix_run(abstractEval, node.expression);
                 const elementExpressions = getElementNodesOfArrayValuedNode(node, node => fix_run(abstractEval, node), printNode);
                 const elementResults = nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
                 return elementResults;
             } else if (ts.isNewExpression(node)) {
                 return nodeResult(node);
             } else if (isNullLiteral(node)) {
-                return result(nullValue);
+                return nodeResult(node);
             } else if (ts.isBinaryExpression(node)) {
                 const lhsRes = fix_run(abstractEval, node.left);
                 const rhsRes = fix_run(abstractEval, node.right);
