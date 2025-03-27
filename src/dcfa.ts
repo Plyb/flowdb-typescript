@@ -56,7 +56,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return result;
                         }
                     } else if (isBuiltInConstructorShaped(op)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, printNode);
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, node => fix_run(abstractEval, node), printNode);
                         return resultOfCalling[builtInValue](node);
                     } else {
                         return unimplementedRes(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);

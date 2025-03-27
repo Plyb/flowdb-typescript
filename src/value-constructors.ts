@@ -14,10 +14,9 @@ type ValueConstructor =
 | ArrayLiteralExpression
 | NewExpression
 | AsyncFunctionCall
-| PrimopApplication
 | BuiltInConstructor
 | PrimObj;
-type BuiltInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
+type BuiltInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier | ts.CallExpression;
 type AsyncFunctionCall = CallExpression
 type PrimObj = ts.Identifier;
 
@@ -192,6 +191,8 @@ export function getPrimops(primopExpression: BuiltInConstructor, fixed_eval: Fix
             return empty();
         }
         return singleton(primopExpression.text as PrimopId);
+    } else if (ts.isCallExpression(primopExpression)) {
+        throw new Error('TODO')
     } else { // binary expression
         const operator = primopExpression.operatorToken;
         return singleton<PrimopId>(operator.kind);
@@ -258,7 +259,7 @@ type NodePrinter = (node: ts.Node) => string
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  * Note that this assumes there are no methods that share a name.
  */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, printNodeAndPos: NodePrinter): BuiltInValue {
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, fixed_eval: FixedEval, printNodeAndPos: NodePrinter): BuiltInValue {
     if (ts.isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
         const builtInValue = builtInValues.elements.find(val =>
@@ -270,10 +271,30 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
         assertNotUndefined(builtInValue);
         return builtInValue;
+    } else if (ts.isCallExpression(builtInConstructor)) {
+        const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructor);
+        const builtInValue = builtInValues.elements.find(val =>
+            typeof val === 'string' && val.split('()')[0] === expressionBuiltInValue
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
     } else { // binary expression
         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.operatorToken.kind);
         assertNotUndefined(builtInValue);
         return builtInValue;
+    }
+
+    function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
+        const expressionResult = fixed_eval(call.expression)
+        const builtInConstructorsForExpression = setFilter(
+            expressionResult.value.nodes,
+            node => !isTop(node) && isBuiltInConstructorShaped(node)
+        ) as any as SimpleSet<BuiltInConstructor>; // TODO: deal with this as any
+        if (builtInConstructorsForExpression.size() !== 1) {
+            throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
+        }
+        const expressionConstructor = builtInConstructorsForExpression.elements[0];
+        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos);
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
