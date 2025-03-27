@@ -5,6 +5,7 @@ import { AtomicLiteral, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { mergeMaps, unimplementedRes } from './util';
 import { FixedEval, PrimopId } from './primops';
 import { AbstractMap } from './abstract-map';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, resultOfPropertyAccess } from './value-constructors';
 
 export type AbstractResult = {
     value: AbstractValue,
@@ -133,10 +134,12 @@ export function joinAll(...abstractResults: AbstractResult[]): AbstractResult {
     return abstractResults.reduce(join, botResult);
 }
 
-export function getObjectProperty(from: AbstractResult, property: ts.Identifier, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractResult {
-    return nodeLatticeJoinMap(from.value.nodes, node => { // todo merge this with the spot in dcfa/abstractEval/isPropertyAccessExpression
-        if (ts.isObjectLiteralExpression(node)) {
-            for (const prop of node.properties) {
+export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractResult {
+    const expressionResult = fixed_eval(access.expression);
+    const property = access.name;
+    return nodeLatticeJoinMap(expressionResult.value.nodes, cons => { // todo merge this with the spot in dcfa/abstractEval/isPropertyAccessExpression
+        if (ts.isObjectLiteralExpression(cons)) {
+            for (const prop of cons.properties) {
                 if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
                     console.warn(`Expected identifier for property`);
                     continue;
@@ -155,14 +158,11 @@ export function getObjectProperty(from: AbstractResult, property: ts.Identifier,
                 }
             }
             return unimplementedRes(`Unable to find object property ${property}`)
-        } else if (ts.isCallExpression(node)) { // todo is primop application
-            const operator = node.expression;
-            if (ts.isIdentifier(operator) && operator.text === 'fetch') { // todo make this not hard coded
-                return topResult;
-            }
-            return botResult;
+        } else if (isBuiltInConstructorShaped(cons)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
+            return resultOfPropertyAccess[builtInValue](access);
         } else {
-            return botResult;
+            return unimplementedRes(`No constructors found for property access ${printNodeAndPos(access)}`);
         }
     })
 }

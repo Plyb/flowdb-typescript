@@ -93,19 +93,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return unimplementedRes(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                const expressionResult = fix_run(abstractEval, node.expression);
-                const propertyAccessResult = getObjectProperty(expressionResult, node.name, node => fix_run(abstractEval, node), printNode);
-                if (!isEqual(propertyAccessResult, botResult)) {
-                    return propertyAccessResult;
-                }
-    
-                const primops = getPrimops(node, node => fix_run(abstractEval, node), printNode);
-                if (primops.size() === 0) {
-                    return unimplementedRes(`Property access must result in a non-bot value: ${printNode(node)} @ ${getPosText(node)}`);
-                }
-
-                // a property access that results in a built in method is itself a constructor
-                return nodeResult(node);
+                return getObjectProperty(node, node => fix_run(abstractEval, node), printNode);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return resolvePromise(expressionValue);

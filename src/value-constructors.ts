@@ -325,7 +325,8 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
 export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstructor {
     return ts.isPropertyAccessExpression(node)
         || ts.isIdentifier(node)
-        || ts.isBinaryExpression(node);
+        || ts.isBinaryExpression(node)
+        || ts.isCallExpression(node);
 }
 
 function uncallable(name: BuiltInValue) { return () => unimplementedRes(`No result of calling ${name}`)}
