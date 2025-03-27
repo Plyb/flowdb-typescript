@@ -111,7 +111,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return nodeResult(node);
             } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {
                 /**
-                 * I think we should only get here if we're trying to eval something that
+                 * I believe we should only get here if we're trying to eval something that
                  * depends on an imported package that uses a bare specifier (or the client
                  * has directly requested the value of an import statement). In that case,
                  * for simplicity's sake for now, we're just going to say it could be anything.
@@ -119,7 +119,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return topResult;
             } else if (ts.isElementAccessExpression(node)) {
                 const expressionResult = fix_run(abstractEval, node.expression);
-                return getArrayElement(expressionResult);
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, node => fix_run(abstractEval, node), printNode);
+                const elementResults = nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
+                return elementResults;
             } else if (ts.isNewExpression(node)) {
                 return nodeResult(node);
             } else if (isNullLiteral(node)) {
@@ -353,7 +355,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, node => fix_run(abstractEval, node));
+                    return getElementNodesOfArrayValuedNode(expression, node => fix_run(abstractEval, node), printNode);
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())

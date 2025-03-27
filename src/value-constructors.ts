@@ -232,6 +232,7 @@ const builtInValuesObject = {
     'JSON.parse': true,
     'Map#get': true,
     'Map#keys': true,
+    'Map#keys()': true,
     'Map#set': true,
     'Math': true,
     'Math.floor': true,
@@ -268,7 +269,7 @@ const builtInProtosObject = {
 type BuiltInProto = keyof typeof builtInProtosObject;
 const builtInProtos = new SimpleSet<BuiltInProto>(structuralComparator, ...[...Object.keys(builtInProtosObject) as Iterable<BuiltInProto>]);
 
-type NodePrinter = (node: ts.Node) => string
+export type NodePrinter = (node: ts.Node) => string // TODO move this somewhere better
 
 /**
  * Given a node that we already know represents some built-in value, which built in value does it represent?
@@ -353,6 +354,7 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'JSON.parse': () => topResult,
     'Map#get': nodeResult, // TODO
     'Map#keys': nodeResult, // TODO
+    'Map#keys()': uncallable('Map#keys()'),
     'Map#set': nodeResult, // TODO
     'Math': uncallable('Math'),
     'Math.floor': nodeResult,
@@ -430,6 +432,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'JSON.parse': inaccessibleProperty('JSON.parse'),
     'Map#get': inaccessibleProperty('Map#get'),
     'Map#keys': inaccessibleProperty('Map#keys'),
+    'Map#keys()': builtInProtoMethod('Array'),
     'Map#set': inaccessibleProperty('Map#set'),
     'Math': builtInStaticMethod('Math.floor'),
     'Math.floor': inaccessibleProperty('Math.floor'),
@@ -453,4 +456,56 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'fetch': inaccessibleProperty('fetch'),
     [SyntaxKind.BarBarToken]: () => botResult, // TODO
     [SyntaxKind.QuestionQuestionToken]: () => botResult, // TODO
+}
+
+type ElementAccessGetter = (cons: BuiltInConstructor, printNodeAndPos: NodePrinter) => AbstractResult
+const inaccessibleElement: ElementAccessGetter = (cons, printNodeAndPos) =>
+    unimplementedRes(`Unable to get element of ${printNodeAndPos(cons)}`);
+export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
+    'Array': inaccessibleElement,
+    'Array#filter': inaccessibleElement,
+    'Array#filter()': inaccessibleElement, // TODO,
+    'Array#find': inaccessibleElement,
+    'Array#includes': inaccessibleElement,
+    'Array#includes()': inaccessibleElement,
+    'Array#indexOf': inaccessibleElement,
+    'Array#indexOf()': inaccessibleElement,
+    'Array#join': inaccessibleElement,
+    'Array#join()': inaccessibleElement,
+    'Array#map': inaccessibleElement,
+    'Array#map()': inaccessibleElement, // TODO
+    'Array#some': inaccessibleElement,
+    'Array#some()': inaccessibleElement,
+    'Array.from': inaccessibleElement,
+    'Date': inaccessibleElement,
+    'Date.now': inaccessibleElement,
+    'Date.now()': inaccessibleElement,
+    'JSON': inaccessibleElement,
+    'JSON.parse': inaccessibleElement,
+    'Map#get': inaccessibleElement,
+    'Map#keys': inaccessibleElement,
+    'Map#keys()': inaccessibleElement, // TODO
+    'Map#set': inaccessibleElement,
+    'Math': inaccessibleElement,
+    'Math.floor': inaccessibleElement,
+    'Math.floor()': inaccessibleElement,
+    'Object': inaccessibleElement,
+    'Object.freeze': inaccessibleElement,
+    'RegExp#test': inaccessibleElement,
+    'RegExp#test()': inaccessibleElement,
+    'String#includes': inaccessibleElement,
+    'String#includes()': inaccessibleElement,
+    'String#match': inaccessibleElement,
+    'String#match()': inaccessibleElement,
+    'String#split': inaccessibleElement,
+    'String#split()': inaccessibleElement,
+    'String#substring': inaccessibleElement,
+    'String#substring()': inaccessibleElement,
+    'String#toLowerCase': inaccessibleElement,
+    'String#toLowerCase()': inaccessibleElement,
+    'String#trim': inaccessibleElement,
+    'String#trim()': inaccessibleElement,
+    'fetch': inaccessibleElement,
+    [SyntaxKind.BarBarToken]: inaccessibleElement, // TODO
+    [SyntaxKind.QuestionQuestionToken]: inaccessibleElement, // TODO
 }

@@ -1,10 +1,12 @@
 import ts, { SyntaxKind } from 'typescript';
 import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, resultBind } from './abstract-results';
 import { FixedEval } from './primops';
-import { ArrayRef, NodeLattice, NodeLatticeElem } from './abstract-values';
+import { ArrayRef, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { isFunctionLikeDeclaration } from './ts-utils';
+import { empty, singleton } from './setUtil';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter, resultOfElementAccess } from './value-constructors';
 
 export function id<T>(x: T): T {
     return x;
@@ -50,41 +52,24 @@ export function unimplementedRes(message: string): AbstractResult {
     return unimplemented(message, botResult);
 }
 
-export function getElementNodesOfArrayValuedNode(node: ts.Node, fixed_eval: FixedEval): NodeLattice {
-    const res = fixed_eval(node);
-    return resultBind<ArrayRef>(res, 'arrays', arrayRef => {
-        if (ts.isBinaryExpression(arrayRef)) {
-            return unimplementedRes(`Expected array literal or call expression: ${SyntaxKind[arrayRef.kind]}`)
-        }
-
-        if (ts.isArrayLiteralExpression(arrayRef)) {
-            const elements = arrayRef.elements;
-            return nodeLatticeJoinMap(new SimpleSet<NodeLatticeElem>(structuralComparator, ...elements), elem => {
-                if (ts.isSpreadElement(elem)) {
-                    return nodesResult(getElementNodesOfArrayValuedNode(elem.expression, fixed_eval));
+export function getElementNodesOfArrayValuedNode(node: ts.Node, fixed_eval: FixedEval, printNodeAndPos: NodePrinter): NodeLattice {
+    const conses = fixed_eval(node).value.nodes;
+    return nodeLatticeFlatMap(conses, cons => {
+        if (ts.isArrayLiteralExpression(cons)) {
+            const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
+            return nodeLatticeFlatMap(elements, element => {
+                if (ts.isSpreadElement(element)) {
+                    const subElements = getElementNodesOfArrayValuedNode(element.expression, fixed_eval, printNodeAndPos);
+                    return subElements;
                 }
 
-                return nodeResult(elem);
-            });
-        }
-
-        const primops = fixed_eval(arrayRef.expression).value.primops;
-        if (primops.has('Array#map')) {
-            const argFunctions = fixed_eval(arrayRef.arguments[0]).value.nodes;
-            return nodeLatticeJoinMap(argFunctions, func => {
-                if (!isFunctionLikeDeclaration(func)) {
-                    return unimplementedRes(`Expected function value for argument to Array#map: ${SyntaxKind[func.kind]}`);
-                }
-
-                return nodeResult(func.body)
-            });
-        } else if (primops.has('Array#filter')) {
-            if (!ts.isPropertyAccessExpression(arrayRef.expression)) {
-                return unimplementedRes(`Expected Array#filter to come from a property access expression: ${SyntaxKind[arrayRef.expression.kind]}`);
-            }
-            return nodesResult(getElementNodesOfArrayValuedNode(arrayRef.expression.expression, fixed_eval));
+                return singleton<NodeLatticeElem>(element);
+            })
+        } else if (isBuiltInConstructorShaped(cons)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
+            return resultOfElementAccess[builtInValue](cons, printNodeAndPos).value.nodes;
         } else {
-            return unimplementedRes(`Unimplemented primop for getting element nodes of array valued node: ${[...primops].join(',')}`)
+            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
-    }).value.nodes;
+    });
 }

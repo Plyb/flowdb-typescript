@@ -6,6 +6,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setSift } from './setUtil';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
 import { getElementNodesOfArrayValuedNode } from './util';
+import { NodePrinter } from './value-constructors';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
@@ -257,5 +258,5 @@ function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex
     if (primopArgIndex != 0 || argParameterIndex != 0) {
         return empty<NodeLatticeElem>();
     }
-    return getElementNodesOfArrayValuedNode(this, fixed_eval);
+    return getElementNodesOfArrayValuedNode(this, fixed_eval, null as any as NodePrinter);
 }
