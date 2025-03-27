@@ -8,7 +8,7 @@ import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, 
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopApplication, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
-import { getBuiltInValueOfBuiltInConstructor, getPrimops, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, getPrimops, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 import { isEqual } from 'lodash';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
@@ -66,7 +66,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return result(undefinedValue);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
-                return nodeLatticeJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
+                if (boundExprs.size() > 0) {
+                    return nodeLatticeJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
+                } else if (idIsBuiltIn(node)) {
+                    return nodeResult(node);
+                } else {
+                    return unimplementedRes(`Could not find binding for ${printNode(node)} @ ${getPosText(node)}`)
+                }
             } else if (ts.isParenthesizedExpression(node)) {
                 return fix_run(abstractEval, node.expression);
             } else if (ts.isBlock(node)) {

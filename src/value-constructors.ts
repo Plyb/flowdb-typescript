@@ -6,6 +6,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { AbstractResult, nodeResult, topResult } from './abstract-results';
+import { unimplementedRes } from './util';
 
 type ValueConstructor =
 | AtomicLiteral
@@ -208,29 +209,34 @@ function isValueConstructor(node: ts.Node): node is ValueConstructor {
 }
 
 const builtInValuesObject = {
-    'Math.floor': true,
-    'String#includes': true,
-    'String#substring': true,
-    'String#split': true,
-    'String#trim': true,
-    'String#toLowerCase': true,
-    'fetch': true,
-    'JSON.parse': true,
-    'Date.now': true,
-    'String#match': true,
-    'Array#map': true,
+    'Array': true,
     'Array#filter': true,
-    'Array#indexOf': true,
-    'Array#some': true,
-    'Array#includes': true,
     'Array#find': true,
-    'Map#keys': true,
-    'Map#get': true,
-    'Map#set': true,
-    'Object.freeze': true,
-    'Array.from': true,
-    'RegExp#test': true,
+    'Array#includes': true,
+    'Array#indexOf': true,
     'Array#join': true,
+    'Array#map': true,
+    'Array#some': true,
+    'Array.from': true,
+    'Date': true,
+    'Date.now': true,
+    'JSON': true,
+    'JSON.parse': true,
+    'Map#get': true,
+    'Map#keys': true,
+    'Map#set': true,
+    'Math': true,
+    'Math.floor': true,
+    'Object': true,
+    'Object.freeze': true,
+    'RegExp#test': true,
+    'String#includes': true,
+    'String#split': true,
+    'String#substring': true,
+    'String#toLowerCase': true,
+    'String#trim': true,
+    'String#match': true,
+    'fetch': true,
     [SyntaxKind.BarBarToken]: true,
     [SyntaxKind.QuestionQuestionToken]: true,
 }
@@ -277,7 +283,9 @@ export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstr
         || ts.isBinaryExpression(node);
 }
 
+function uncallable(name: string) { return () => unimplementedRes(`No result of calling ${name}`)}
 export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: BuiltInConstructor) => AbstractResult} = {
+    'Array': uncallable('Array'),
     'Array#filter': nodeResult,
     'Array#find': nodeResult,
     'Array#includes': nodeResult,
@@ -286,12 +294,16 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: BuiltI
     'Array#map': nodeResult,
     'Array#some': nodeResult,
     'Array.from': nodeResult,
+    'Date': uncallable('Date'),
     'Date.now': nodeResult,
+    'JSON': uncallable('JSON'),
     'JSON.parse': nodeResult,
     'Map#get': nodeResult, // TODO
     'Map#keys': nodeResult, // TODO
     'Map#set': nodeResult, // TODO
+    'Math': uncallable('Math'),
     'Math.floor': nodeResult,
+    'Object': uncallable('Object'),
     'Object.freeze': nodeResult, // TODO
     'RegExp#test': nodeResult,
     'String#includes': nodeResult,
@@ -303,4 +315,8 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: BuiltI
     'fetch': () => topResult,
     [SyntaxKind.BarBarToken]: nodeResult,
     [SyntaxKind.QuestionQuestionToken]: nodeResult,
+}
+
+export function idIsBuiltIn(id: ts.Identifier): boolean {
+    return builtInValues.elements.some(val => val === id.text);
 }
