@@ -1,6 +1,6 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression, ModifierFlags, NodeFlags } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
@@ -431,29 +431,28 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 const boundFromPrimop = nodeLatticeFlatMap(
                     sitesWhereDeclaringFunctionReturned,
                     (node) => {
-                        const callSite = node.parent;
-                        if (!ts.isCallExpression(callSite)) {
+                        const callSiteWhereArg = node.parent;
+                        if (!ts.isCallExpression(callSiteWhereArg)) {
                             return empty<NodeLatticeElem>();
                         }
-                        const primopsNodes = fix_run(abstractEval, callSite.expression).value.nodes;
-                        const primops = setFlatMap(primopsNodes, primopNode => {
-                            if (isTop(primopNode)) {
-                                return empty<PrimopId>(); // TODO: this should be all primops
-                            }
-                            if (!ts.isPropertyAccessExpression(primopNode)) {
-                                return empty<PrimopId>();
-                            }
-                            return getPrimops(primopNode, node => fix_run(abstractEval, node), printNode);
-                        });
+                        const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression).value.nodes;
+                        const consumerConses = setFilter(consumerValues, value => {
+                            return !isTop(value);
+                        }) as SimpleSet<ts.Node>;
 
-                        return setFlatMap(primops, (primop) => {
-                            const binderGetter = primopBinderGetters[primop];
+                        return setFlatMap(consumerConses, (cons) => {
+                            if (!isBuiltInConstructorShaped(cons)) {
+                                return empty();
+                            }
+
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, node => fix_run(abstractEval, node), printNode);
+                            const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
-                            const primopArgIndex = callSite.arguments.indexOf(node as Expression);
-                            const thisExpression = ts.isPropertyAccessExpression(callSite.expression)
-                                ? callSite.expression.expression
+                            const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
+                            const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+                                ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, (node) => fix_run(abstractEval, node)]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval: (node) => fix_run(abstractEval, node), printNodeAndPos: printNode }]);
                         }) as NodeLattice;
                     }
                 );

@@ -240,17 +240,17 @@ function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLa
     return setSift(callSitesOrFalses);
 }
 
-type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, fixed_eval: FixedEval) => NodeLattice;
+type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) => NodeLattice;
 
 type PrimopBinderGetters = {
     [id: string]: PrimopFunctionArgParamBinderGetter
 }
 
-export const primopBinderGetters: PrimopBinderGetters = {
+export const primopBinderGetters: PrimopBinderGetters = { // TODO: fill this out and make it type safe
     'Array#map': arrayMapArgBinderGetter
 }
 
-function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, fixed_eval: FixedEval) {
+function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) {
     if (this === undefined) {
         throw new Error();
     }
@@ -258,5 +258,5 @@ function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex
     if (primopArgIndex != 0 || argParameterIndex != 0) {
         return empty<NodeLatticeElem>();
     }
-    return getElementNodesOfArrayValuedNode(this, fixed_eval, null as any as NodePrinter);
+    return getElementNodesOfArrayValuedNode(this, fixed_eval, printNodeAndPos);
 }
