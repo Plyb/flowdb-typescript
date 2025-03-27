@@ -284,7 +284,7 @@ export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstr
 }
 
 function uncallable(name: string) { return () => unimplementedRes(`No result of calling ${name}`)}
-export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: BuiltInConstructor) => AbstractResult} = {
+export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallExpression) => AbstractResult} = {
     'Array': uncallable('Array'),
     'Array#filter': nodeResult,
     'Array#find': nodeResult,
