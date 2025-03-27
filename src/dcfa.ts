@@ -1,9 +1,9 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression, ModifierFlags, NodeFlags } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword } from './ts-utils';
+import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
 import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
@@ -320,6 +320,13 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
+            }
+
+            if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
+                if (!idIsBuiltIn(id)) {
+                    return unimplemented(`Expected ${printNode(id)} @ ${getPosText(id)} to be built in`, empty());
+                }
+                return empty();
             }
     
             return getBoundExprsOfSymbol(symbol, fix_run);

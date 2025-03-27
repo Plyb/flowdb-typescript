@@ -28,7 +28,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
       return ts.ScriptSnapshot.fromString(fs.readFileSync(fileName).toString());
     },
     getCurrentDirectory: () => process.cwd(),
-    getCompilationSettings: () => ({...options, noLib: true, noResolve: true, types: []}),
+    getCompilationSettings: () => ({...options, types: []}),
     getDefaultLibFileName: options => ts.getDefaultLibFilePath(options),
     fileExists: ts.sys.fileExists,
     readFile: ts.sys.readFile,
