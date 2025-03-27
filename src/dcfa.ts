@@ -85,7 +85,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 });
                 return joinAll(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
-                return literalResult(node);
+                return nodeResult(node);
             } else if (ts.isObjectLiteralExpression(node)) {
                 return nodeResult(node);
             } else if (ts.isPropertyAccessExpression(node)) {
