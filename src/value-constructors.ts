@@ -217,7 +217,6 @@ const builtInValuesObject = {
     'Array#join': true,
     'Array#map': true,
     'Array#some': true,
-    'Array%Proto': true,
     'Array.from': true,
     'Date': true,
     'Date.now': true,
@@ -226,26 +225,32 @@ const builtInValuesObject = {
     'Map#get': true,
     'Map#keys': true,
     'Map#set': true,
-    'Map%Proto': true,
     'Math': true,
     'Math.floor': true,
     'Object': true,
     'Object.freeze': true,
     'RegExp#test': true,
-    'RegExp%Proto': true,
     'String#includes': true,
     'String#split': true,
     'String#substring': true,
     'String#toLowerCase': true,
     'String#trim': true,
     'String#match': true,
-    'String%Proto': true,
     'fetch': true,
     [SyntaxKind.BarBarToken]: true,
     [SyntaxKind.QuestionQuestionToken]: true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
+
+const builtInProtosObject = {
+    'Array': true,
+    'Map': true,
+    'RegExp': true,
+    'String': true,
+}
+type BuiltInProto = keyof typeof builtInProtosObject;
+const builtInProtos = new SimpleSet<BuiltInProto>(structuralComparator, ...[...Object.keys(builtInProtosObject) as Iterable<BuiltInProto>]);
 
 type NodePrinter = (node: ts.Node) => string
 
@@ -297,7 +302,6 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'Array#join': nodeResult,
     'Array#map': nodeResult,
     'Array#some': nodeResult,
-    'Array%Proto': uncallable('Array%Proto'),
     'Array.from': nodeResult,
     'Date': uncallable('Date'),
     'Date.now': nodeResult,
@@ -306,20 +310,17 @@ export const resultOfCalling: { [K in BuiltInValue]: (builtInConstructor: CallEx
     'Map#get': nodeResult, // TODO
     'Map#keys': nodeResult, // TODO
     'Map#set': nodeResult, // TODO
-    'Map%Proto': uncallable('Array%Proto'),
     'Math': uncallable('Math'),
     'Math.floor': nodeResult,
     'Object': uncallable('Object'),
     'Object.freeze': nodeResult, // TODO
     'RegExp#test': nodeResult,
-    'RegExp%Proto': uncallable('RegExp%Proto'),
     'String#includes': nodeResult,
     'String#match': nodeResult,
     'String#split': nodeResult,
     'String#substring': nodeResult,
     'String#toLowerCase': nodeResult,
     'String#trim': nodeResult,
-    'String%Proto': uncallable('String%Proto'),
     'fetch': () => topResult,
     [SyntaxKind.BarBarToken]: nodeResult, // TODO
     [SyntaxKind.QuestionQuestionToken]: nodeResult, // TODO
@@ -339,6 +340,39 @@ function builtInStaticMethod(name: BuiltInValue & string): PropertyAccessGetter 
         ? nodeResult(pa)
         : inaccessibleProperty(name)(pa);
 }
+export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
+    'Array': builtInStaticMethod('Array.from'),
+    'Array#filter': inaccessibleProperty('Array#filter'),
+    'Array#find': inaccessibleProperty('Array#find'),
+    'Array#includes': inaccessibleProperty('Array#includes'),
+    'Array#indexOf': inaccessibleProperty('Array#indexOf'),
+    'Array#join': inaccessibleProperty('Array#join'),
+    'Array#map': inaccessibleProperty('Array#map'),
+    'Array#some': inaccessibleProperty('Array#some'),
+    'Array.from': inaccessibleProperty('Array.from'),
+    'Date': builtInStaticMethod('Date.now'),
+    'Date.now': inaccessibleProperty('Date.now'),
+    'JSON': builtInStaticMethod('JSON.parse'),
+    'JSON.parse': inaccessibleProperty('JSON.parse'),
+    'Map#get': inaccessibleProperty('Map#get'),
+    'Map#keys': inaccessibleProperty('Map#keys'),
+    'Map#set': inaccessibleProperty('Map#set'),
+    'Math': builtInStaticMethod('Math.floor'),
+    'Math.floor': inaccessibleProperty('Math.floor'),
+    'Object': builtInStaticMethod('Object.freeze'),
+    'Object.freeze': inaccessibleProperty('Object.freeze'),
+    'RegExp#test': inaccessibleProperty('RegExp#test'),
+    'String#includes': inaccessibleProperty('String#includes'),
+    'String#match': inaccessibleProperty('String#match'),
+    'String#split': inaccessibleProperty('String#split'),
+    'String#substring': inaccessibleProperty('String#substring'),
+    'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
+    'String#trim': inaccessibleProperty('String#trim'),
+    'fetch': inaccessibleProperty('fetch'),
+    [SyntaxKind.BarBarToken]: () => botResult, // TODO
+    [SyntaxKind.QuestionQuestionToken]: () => botResult, // TODO
+}
+
 function builtInProtoMethod(name: BuiltInValue & string): PropertyAccessGetter {
     const typeName = name.split('%')[0];
     return (pa) => {
@@ -353,40 +387,4 @@ function builtInProtoMethod(name: BuiltInValue & string): PropertyAccessGetter {
             ? nodeResult(pa)
             : inaccessibleProperty(name)(pa);
     }
-}
-export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
-    'Array': builtInStaticMethod('Array.from'),
-    'Array#filter': inaccessibleProperty('Array#filter'),
-    'Array#find': inaccessibleProperty('Array#find'),
-    'Array#includes': inaccessibleProperty('Array#includes'),
-    'Array#indexOf': inaccessibleProperty('Array#indexOf'),
-    'Array#join': inaccessibleProperty('Array#join'),
-    'Array#map': inaccessibleProperty('Array#map'),
-    'Array#some': inaccessibleProperty('Array#some'),
-    'Array%Proto': builtInProtoMethod('Array%Proto'),
-    'Array.from': inaccessibleProperty('Array.from'),
-    'Date': builtInStaticMethod('Date.now'),
-    'Date.now': inaccessibleProperty('Date.now'),
-    'JSON': builtInStaticMethod('JSON.parse'),
-    'JSON.parse': inaccessibleProperty('JSON.parse'),
-    'Map#get': inaccessibleProperty('Map#get'),
-    'Map#keys': inaccessibleProperty('Map#keys'),
-    'Map#set': inaccessibleProperty('Map#set'),
-    'Map%Proto': builtInProtoMethod('Map%Proto'),
-    'Math': builtInStaticMethod('Math.floor'),
-    'Math.floor': inaccessibleProperty('Math.floor'),
-    'Object': builtInStaticMethod('Object.freeze'),
-    'Object.freeze': inaccessibleProperty('Object.freeze'),
-    'RegExp#test': inaccessibleProperty('RegExp#test'),
-    'RegExp%Proto': builtInProtoMethod('RegExp%Proto'),
-    'String#includes': inaccessibleProperty('String#includes'),
-    'String#match': inaccessibleProperty('String#match'),
-    'String#split': inaccessibleProperty('String#split'),
-    'String#substring': inaccessibleProperty('String#substring'),
-    'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
-    'String#trim': inaccessibleProperty('String#trim'),
-    'String%Proto': builtInProtoMethod('String%Proto'),
-    'fetch': inaccessibleProperty('fetch'),
-    [SyntaxKind.BarBarToken]: () => botResult, // TODO
-    [SyntaxKind.QuestionQuestionToken]: () => botResult, // TODO
 }
