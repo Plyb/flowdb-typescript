@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
+import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword } from './ts-utils';
 import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
 import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
@@ -95,8 +95,18 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 return getObjectProperty(node, node => fix_run(abstractEval, node), printNode);
             } else if (ts.isAwaitExpression(node)) {
-                const expressionValue = fix_run(abstractEval, node.expression);
-                return resolvePromise(expressionValue);
+                const expressionValue = fix_run(abstractEval, node.expression).value.nodes;
+                return nodeLatticeJoinMap(expressionValue, cons => {
+                    if (isAsyncKeyword(cons)) {
+                        const sourceFunction = cons.parent;
+                        if (!isFunctionLikeDeclaration(sourceFunction)) {
+                            return unimplementedRes(`Expected ${printNode(sourceFunction)} @ ${getPosText(sourceFunction)} to be the source of a promise value`);
+                        }
+                        return fix_run(abstractEval, sourceFunction.body);
+                    } else {
+                        return nodeResult(cons);
+                    }
+                })
             } else if (ts.isArrayLiteralExpression(node)) {
                 return nodeResult(node);
             } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {

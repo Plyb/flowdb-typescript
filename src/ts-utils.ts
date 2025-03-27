@@ -84,7 +84,7 @@ export function isFalseLiteral(node: ts.Node): node is FalseLiteral {
 export function isBooleaniteral(node: ts.Node): node is BooleanLiteral {
     return isTrueLiteral(node) || isFalseLiteral(node);
 }
-function isAsyncKeyword(node: ts.ModifierLike | undefined): node is AsyncKeyword {
+export function isAsyncKeyword(node: ts.Node | undefined): node is AsyncKeyword {
     return node?.kind === SyntaxKind.AsyncKeyword;
 }
 export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunctionLikeDeclarationAsync {
