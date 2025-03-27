@@ -45,8 +45,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             } else if (ts.isCallExpression(node)) {
                 const operator: ts.Node = node.expression;
                 const possibleOperators = fix_run(abstractEval, operator).value.nodes;
-    
-                // const possibleFunctions = possibleOperators.nodes;
+
                 return nodeLatticeJoinMap(possibleOperators, (op) => {
                     if (isFunctionLikeDeclaration(op)) {
                         const body: ts.Node = op.body;

@@ -13,9 +13,9 @@ type ValueConstructor =
 | NewExpression
 | AsyncFunctionCall
 | PrimopApplication
-| PrimopExpression
+| BuildInConstructor
 | PrimObj;
-type PrimopExpression = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
+type BuildInConstructor = PropertyAccessExpression | ts.BinaryExpression | ts.Identifier;
 type AsyncFunctionCall = CallExpression
 type PrimObj = ts.Identifier;
 
@@ -147,7 +147,7 @@ const builtInMethodsByType = new Map<BuiltInType, SimpleSet<PrimopId>>([
     ['map', filterMethods('Map')]
 ])
 
-export function getPrimops(primopExpression: PrimopExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
+export function getPrimops(primopExpression: BuildInConstructor, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): SimpleSet<PrimopId> {
     if (ts.isPropertyAccessExpression(primopExpression)) {
         const thisExpression = primopExpression.expression;
         const thisValues = fixed_eval(thisExpression).value.nodes;
@@ -204,4 +204,65 @@ function isValueConstructor(node: ts.Node): node is ValueConstructor {
         || ts.isCallExpression(node)
         || ts.isPropertyAccessExpression(node)
         || ts.isIdentifier(node);
+}
+
+const builtInValuesObject = {
+    'Math.floor': true,
+    'String#includes': true,
+    'String#substring': true,
+    'String#split': true,
+    'String#trim': true,
+    'String#toLowerCase': true,
+    'fetch': true,
+    'JSON.parse': true,
+    'Date.now': true,
+    'String#match': true,
+    'Array#map': true,
+    'Array#filter': true,
+    'Array#indexOf': true,
+    'Array#some': true,
+    'Array#includes': true,
+    'Array#find': true,
+    'Map#keys': true,
+    'Map#get': true,
+    'Map#set': true,
+    'Object.freeze': true,
+    'Array.from': true,
+    'RegExp#test': true,
+    'Array#join': true,
+    [SyntaxKind.BarBarToken]: true,
+    [SyntaxKind.QuestionQuestionToken]: true,
+}
+type BuiltInValue = keyof typeof builtInValuesObject;
+const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
+
+type NodePrinter = (node: ts.Node) => string
+
+/**
+ * Given a node that we already know represents some built-in value, which built in value does it represent?
+ * Note that this assumes there are no methods that share a name.
+ */
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuildInConstructor, printNodeAndPos: NodePrinter): BuiltInValue {
+    if (ts.isPropertyAccessExpression(builtInConstructor)) {
+        const methodName = builtInConstructor.name.text;
+        const builtInValue = builtInValues.elements.find(val =>
+            typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else if (ts.isIdentifier(builtInConstructor)) {
+        const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else { // binary expression
+        const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.operatorToken.kind);
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    }
+
+    function assertNotUndefined<T>(val: T | undefined): asserts val is T {
+        if (val === undefined) {
+            throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
+        }
+    }
 }
