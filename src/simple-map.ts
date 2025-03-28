@@ -1,5 +1,4 @@
-import { isEqual } from 'lodash';
-import { Comparator, SimpleSet } from 'typescript-super-set';
+import { Comparator } from 'typescript-super-set';
 
 export class SimpleMap<K, V> {
     private internalMap: Map<K, V> = new Map()

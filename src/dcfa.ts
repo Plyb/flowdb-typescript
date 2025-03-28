@@ -1,22 +1,25 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, ShorthandPropertyAssignment, ArrayLiteralExpression } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFlatMap, setMap, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral } from './ts-utils';
-import { ArrayRef, bot, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
-import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
-import { FixedEval, FixedTrace, primopArray, primopBinderGetters, primopDate, PrimopExpression, primopFecth, PrimopId, primopJSON, primopMath, primopObject, primops } from './primops';
+import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
+import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
+import { isBareSpecifier, unimplemented } from './util';
+import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
+import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-value-utils';
 
-export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
+export type FixedEval = (node: ts.Node) => AbstractValue;
+export type FixedTrace = (node: ts.Node) => AbstractValue;
+
+export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractValue {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
     const printer = ts.createPrinter();
 
-    const valueOf = makeFixpointComputer(botResult, {
-        printArgs: printNode,
-        printRet: result => pretty(result, printNode).toString() 
+    const valueOf = makeFixpointComputer(botValue, {
+        printArgs: printNodeAndPos,
+        printRet: val => pretty(val, printNodeAndPos).toString() 
     });
     
     return function dcfa(node: ts.Node) {
@@ -24,7 +27,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         if (node === undefined) {
             throw new Error('no node at that position')
         }
-        console.info(`dcfa for: ${printNode(node)}`)
+        console.info(`dcfa for: ${printNodeAndPos(node)}`)
     
         return valueOf({
             func: abstractEval,
@@ -32,215 +35,128 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         });
     
         // "eval"
-        function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
-            const overriddenResult = getOverriddenResult(node);
-            if (overriddenResult) {
-                return overriddenResult;
-            }
-    
+        function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractValue>): AbstractValue {    
+            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+
             if (isFunctionLikeDeclaration(node)) {
-                return nodeResult(node);
+                return nodeValue(node);
             } else if (ts.isCallExpression(node)) {
                 const operator: ts.Node = node.expression;
-                const possibleOperators = fix_run(abstractEval, operator).value;
-    
-                const possibleFunctions = possibleOperators.nodes;
-                const valuesOfFunctionBodies = nodeLatticeJoinMap(possibleFunctions, (func) => {
-                    if (!isFunctionLikeDeclaration(func)) {
-                        throw new Error(`Expected a function, got ${SyntaxKind[func.kind]}`)
-                    }
-    
-                    const body: ts.Node = func.body;
-                    const result = fix_run(abstractEval, body);
-                    if (isAsync(func)) {
-                        return promiseResult(func, result);
+                const possibleOperators = fix_run(abstractEval, operator);
+
+                return nodeLatticeJoinMap(possibleOperators, (op) => {
+                    if (isFunctionLikeDeclaration(op)) {
+                        if (isAsync(op)) {
+                            return nodeValue(op.modifiers[0])
+                        } else {
+                            const body: ts.Node = op.body;
+                            return fix_run(abstractEval, body);
+                        }
+                    } else if (isBuiltInConstructorShaped(op)) {
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos);
+                        return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
-                        return result;
+                        return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
                 });
-    
-                const possiblePrimops = possibleOperators.primops;
-                if (possiblePrimops.size() === 0) {
-                    if (possibleFunctions.size() === 0) {
-                        console.warn(`No operators found for ${printNode(node)} @ ${getPosText(node)}`)
-                    }
-                    return valuesOfFunctionBodies; // short circuit to prevent expensive computations
-                }
-                const thisResult = ts.isPropertyAccessExpression(node.expression)
-                    ? fix_run(abstractEval, node.expression.expression)
-                    : botResult;
-                const argumentValues = node.arguments.map(arg => fix_run(abstractEval, arg));
-                const valuesOfPrimopExpresssions = setJoinMap(possiblePrimops, (primopId) =>
-                    applyPrimop(
-                        node,
-                        node => fix_run(abstractEval, node),
-                        node => fix_run(getWhereValueReturned, node), 
-                        primopId,
-                        thisResult,
-                        argumentValues
-                    )
-                );
-    
-                return join(valuesOfFunctionBodies, valuesOfPrimopExpresssions);
-            } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
-                return result(undefinedValue);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
-                return nodeLatticeJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
+                if (boundExprs.size() > 0) {
+                    return nodeLatticeJoinMap(boundExprs, fixed_eval);
+                } else if (idIsBuiltIn(node)) {
+                    return nodeValue(node);
+                } else {
+                    return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
+                }
             } else if (ts.isParenthesizedExpression(node)) {
                 return fix_run(abstractEval, node.expression);
             } else if (ts.isBlock(node)) {
                 const returnStatements = [...getReturnStmts(node)];
                 const returnStatementValues = returnStatements.map(returnStatement => {
                     if (returnStatement.expression === undefined) {
-                        return botResult;
+                        return botValue;
                     }
                     return fix_run(abstractEval, returnStatement.expression);
                 });
-                return joinAll(...returnStatementValues);
+                return joinAllValues(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
-                return literalResult(node);
+                return nodeValue(node);
             } else if (ts.isObjectLiteralExpression(node)) {
-                return evalObject(node);
+                return nodeValue(node);
             } else if (ts.isPropertyAccessExpression(node)) {
                 if (!ts.isIdentifier(node.name)) {
-                    return unimplementedRes(`Expected simple identifier property access: ${node.name}`);
+                    return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                const expressionResult = fix_run(abstractEval, node.expression);
-                const propertyAccessResult = getObjectProperty(expressionResult, node.name);
-                if (propertyAccessResult !== botResult) {
-                    return propertyAccessResult;
-                }
-    
-                const primop = getPrimitivePrimop(expressionResult, node.name.text);
-                if (primop === undefined) {
-                    return unimplementedRes(`Property access must result in a non-bot value: ${printNode(node)} @ ${getPosText(node)}`);
-                }
-
-                return primopResult(primop)
+                return getObjectProperty(node, fixed_eval, printNodeAndPos);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
-                return resolvePromise(expressionValue);
+                return nodeLatticeJoinMap(expressionValue, cons => {
+                    if (isAsyncKeyword(cons)) {
+                        const sourceFunction = cons.parent;
+                        if (!isFunctionLikeDeclaration(sourceFunction)) {
+                            return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
+                        }
+                        return fix_run(abstractEval, sourceFunction.body);
+                    } else {
+                        return nodeValue(cons);
+                    }
+                })
             } else if (ts.isArrayLiteralExpression(node)) {
-                return evalArray(node);
+                return nodeValue(node);
             } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {
                 /**
-                 * I think we should only get here if we're trying to eval something that
+                 * I believe we should only get here if we're trying to eval something that
                  * depends on an imported package that uses a bare specifier (or the client
                  * has directly requested the value of an import statement). In that case,
                  * for simplicity's sake for now, we're just going to say it could be anything.
                  */
-                return topResult;
+                return topValue;
             } else if (ts.isElementAccessExpression(node)) {
-                const expressionResult = fix_run(abstractEval, node.expression);
-                return getArrayElement(expressionResult);
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos });
+                return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
-                if (!(ts.isIdentifier(node.expression) && node.expression.text === 'Map')) {
-                    return unimplementedRes(`New expression not yet implemented for ${printNode(node.expression)}`)
-                }
-    
-                return emptyMapResult(node);
+                return nodeValue(node);
             } else if (isNullLiteral(node)) {
-                return result(nullValue);
+                return nodeValue(node);
             } else if (ts.isBinaryExpression(node)) {
                 const lhsRes = fix_run(abstractEval, node.left);
                 const rhsRes = fix_run(abstractEval, node.right);
                 const primopId = node.operatorToken.kind;
-                return applyPrimop(
-                    node,
-                    node => fix_run(abstractEval, node),
-                    node => fix_run(getWhereValueReturned, node), 
-                    primopId,
-                    botResult,
-                    [lhsRes, rhsRes],
-                )
+                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                    return joinValue(lhsRes, rhsRes);
+                } else {
+                    return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
+                }
             } else if (ts.isTemplateExpression(node)) {
-                const components = [
-                    fix_run(abstractEval, node.head),
-                    ...node.templateSpans.flatMap(span => [
-                        fix_run(abstractEval, span.expression),
-                        fix_run(abstractEval, span.literal),
-                    ]),
-                ];
-                return components.reduce(
-                    (acc, curr) => resultBind2(acc, curr, 'strings',
-                        (str1: string, str2) => result(stringValue(str1 + str2))
-                    ),
-                    result(stringValue(''))
-                )
+                return nodeValue(node);
             } else if (ts.isConditionalExpression(node)) {
-                const trueResult = fix_run(abstractEval, node.whenTrue);
-                const falseResult = fix_run(abstractEval, node.whenFalse);
-                return join(trueResult, falseResult)
+                const thenValue = fix_run(abstractEval, node.whenTrue);
+                const elseValue = fix_run(abstractEval, node.whenFalse);
+                return joinValue(thenValue, elseValue)
             }
-            return unimplementedRes(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
-    
-            function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
-                const { object, stores } = node.properties.reduce((acc, curr) => {
-                    if (curr.name === undefined || !ts.isIdentifier(curr.name)) {
-                        return unimplemented(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`, acc)
-                    }
-    
-                    let result: AbstractResult;
-                    if (ts.isPropertyAssignment(curr)) {
-                        result = fix_run(abstractEval, curr.initializer);
-                    } else if (ts.isShorthandPropertyAssignment(curr)) {
-                        result = fix_run(abstractEval, curr.name);
-                    } else {
-                        return unimplemented(`Unimplemented object property assignment: ${SyntaxKind[curr.kind]}:${getPosText(curr)}}`, acc)
-                    }
-                    acc.object[curr.name.text] = result.value;
-                    acc.stores = joinStores(acc.stores, result);
-                    return acc;
-                }, { object: {}, stores: botResult });
-    
-                return objectResult(node, object, stores);
-            }
-    
-            function evalArray(node: ts.ArrayLiteralExpression): AbstractResult {
-                const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => 
-                    evalArrayElement(elem, fix_run)
-                );
-    
-                return arrayResult(node, itemValue);
-            }
-        }
-
-        function evalArrayElement(elem: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-            if (ts.isSpreadElement(elem)) {
-                const expressionResult = fix_run(abstractEval, elem.expression);
-                return resultBind(expressionResult, 'arrays', 
-                    (arrRef: ArrayRef) => ({
-                        ...expressionResult,
-                        value: expressionResult.arrayStore.get(arrRef)!.element,
-                    })
-                );
-            } else {
-                return fix_run(abstractEval, elem)
-            }
+            return unimplementedVal(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }
         
         // "expr"
-        function getWhereValueApplied(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        function getWhereValueApplied(node: ts.Node, fix_run: FixRunFunc<Node, AbstractValue>): AbstractValue {
             const operatorSites = nodeLatticeFilter(
-                getWhereValueReturned(node, fix_run).value.nodes,
+                getWhereValueReturned(node, fix_run),
                 func => ts.isCallExpression(func.parent) && isOperatorOf(func, func.parent)
             );
-            return nodesResult(
-                nodeLatticeMap(operatorSites, op => op.parent)
-            )
+            return nodeLatticeMap(operatorSites, op => op.parent);
         }
     
-        function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-            return join(nodeResult(node), getWhereValueReturnedElsewhere(node, fix_run));
+        function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractValue>): AbstractValue {
+            return joinValue(nodeValue(node), getWhereValueReturnedElsewhere(node, fix_run));
         }
     
-        function getWhereValueReturnedElsewhere(node: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
+        function getWhereValueReturnedElsewhere(node: ts.Node, fix_run: FixRunFunc<Node, AbstractValue>): AbstractValue {
             const parent = node.parent;
             if (ts.isCallExpression(parent)) {
                 if (isOperatorOf(node, parent)) {
-                    return botResult; // If we're the operator, our value doesn't get propogated anywhere
+                    return botValue; // If we're the operator, our value doesn't get propogated anywhere
                 } else {
                     return getWhereReturnedInsideFunction(parent, node, (parameterName) =>
                         ts.isIdentifier(parameterName) 
@@ -249,34 +165,34 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     );
                 }
             } else if (isFunctionLikeDeclaration(parent)) {
-                const closedOverSites = fix_run(getWhereClosed, node).value.nodes;
+                const closedOverSites = fix_run(getWhereClosed, node);
                 return nodeLatticeJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
             } else if (ts.isParenthesizedExpression(parent)) {
                 return fix_run(getWhereValueReturned, parent);
             } else if (ts.isVariableDeclaration(parent)) {
                 if (!ts.isIdentifier(parent.name)) {
-                    return botResult; // if it's not an identifier, we're destructuring it, which will return different values
+                    return botValue; // if it's not an identifier, we're destructuring it, which will return different values
                 }
     
                 const refs = getReferences(parent.name)
                 return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
-                    return unimplementedRes('function declaration should have name')
+                    return unimplementedVal('function declaration should have name')
                 }
     
                 const refs = getReferences(node.name);
                 return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isForOfStatement(parent) && parent.expression === node) {
-                return botResult; // we're effectively "destructuring" the expression here, so the original value is gone
+                return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
             } else if (ts.isPropertyAccessExpression(parent)) {
                 if (node != parent.expression) {
-                    return unimplementedRes(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNode(node)} @ ${getPosText(node)} `)
+                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
                 }
 
-                return botResult;
+                return botValue;
             } else if (ts.isShorthandPropertyAssignment(parent)) {
-                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent).value.nodes;
+                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
                 return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
                     const returnLocParent = returnLoc.parent;
                     if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
@@ -287,30 +203,30 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             const destructedName = parameterName.elements.find(elem => 
                                 ts.isIdentifier(elem.name)
                                     ? elem.name.text === parent.name.text
-                                    : unimplemented(`Nested binding patterns unimplemented: ${printNode(elem)} @ ${getPosText(elem)}`, empty())
+                                    : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
                             )?.name;
                             if (destructedName === undefined) {
-                                return unimplemented(`Unable to find destructed identifier in ${printNode(parameterName)} @ ${getPosText(parameterName)}`, empty())
+                                return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
                             }
                             if (!ts.isIdentifier(destructedName)) {
-                                return unimplemented(`Expected a simple binding name ${printNode(destructedName)} @ ${getPosText(destructedName)}`, empty())
+                                return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
                             }
 
                             return getReferences(destructedName);
                         })
                     }
-                    return unimplementedRes(`Unknown result for obtaining ${parent.name.text} from object at ${printNode(returnLocParent)} @ ${getPosText(returnLocParent)}`);
+                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
                 })
             }
-            return unimplementedRes(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
+            return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
             function getWhereReturnedInsideFunction(parent: ts.CallExpression, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName) => NodeLattice) {
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
                     abstractEval, parent.expression
-                ).value;
+                );
 
-                const possibleFunctions = possibleOperators.nodes;
+                const possibleFunctions = nodeLatticeFilter(possibleOperators, isFunctionLikeDeclaration);
                 const parameterReferences = nodeLatticeJoinMap(
                     possibleFunctions,
                     (func) => {
@@ -318,15 +234,15 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         const refs = getReferencesFromParameter(parameterName);
                         return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                     }
-                ).value.nodes;
+                );
                 return nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
             }
         }
         
         // "call"
-        function getWhereClosed(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
+        function getWhereClosed(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractValue>): AbstractValue {
             if (!isFunctionLikeDeclaration(node.parent)) {
-                return unimplementedRes(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
+                return unimplementedVal(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
             }
     
             return fix_run(getWhereValueApplied, node.parent)
@@ -349,16 +265,26 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         }
         
         // bind
-        function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractResult>): NodeLattice {
+        function getBoundExprs(id: ts.Identifier, fix_run: FixRunFunc<ts.Node, AbstractValue>): NodeLattice {
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
+            }
+
+            if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
+                if (!idIsBuiltIn(id)) {
+                    return unimplemented(`Expected ${printNodeAndPos(id)} to be built in`, empty());
+                }
+                return empty();
             }
     
             return getBoundExprsOfSymbol(symbol, fix_run);
         }
 
-        function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractResult>): NodeLattice {
+        function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractValue>): NodeLattice {
+            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
@@ -372,7 +298,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, node => fix_run(abstractEval, node));
+                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -390,19 +316,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
     
-                    const initializerResult = fix_run(abstractEval, initializer);
-                    const objectLiterals = resultBind<ObjectRef>(initializerResult, 'objects', objRef => nodeResult(objRef))
-                        .value.nodes;
-
-                    return getObjectsPropertyInitializers(objectLiterals, symbol.name);
+                    const objectConses = fix_run(abstractEval, initializer);
+                    return getObjectsPropertyInitializers(objectConses, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
                     
-                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
-                    const objectConstructors = resultBind<ObjectRef>(argsResults, 'objects', objRef => nodeResult(objRef))
-                        .value.nodes;
+                    const argsValues = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
 
-                    return getObjectsPropertyInitializers(objectConstructors, symbol.name);
+                    return getObjectsPropertyInitializers(argsValues, symbol.name);
                 }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
                 const moduleSpecifier = ts.isImportClause(declaration)
@@ -417,7 +338,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     /**
                      * This is a little bit of a hack. Here we're saying "bare specified modules
                      * (those that are imported as packages) are 'bound' by themselves", which
-                     * abstractEval will interpret as `topResult`, so that we don't need to dig
+                     * abstractEval will interpret as `topValue`, so that we don't need to dig
                      * into a bunch of package internals. Maybe I'll come up with a better way
                      * later, but this is good enough for now.
                      */
@@ -450,29 +371,37 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         
                 const definingFunctionCallSites = fix_run(
                     getWhereClosed, definingFunctionBody
-                ).value.nodes;
+                );
                 const boundFromArgs =  setMap(definingFunctionCallSites, (callSite) => {
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
 
-                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction).value.nodes;
+                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
                 const boundFromPrimop = nodeLatticeFlatMap(
                     sitesWhereDeclaringFunctionReturned,
                     (node) => {
-                        const callSite = node.parent;
-                        if (!ts.isCallExpression(callSite)) {
+                        const callSiteWhereArg = node.parent;
+                        if (!ts.isCallExpression(callSiteWhereArg)) {
                             return empty<NodeLatticeElem>();
                         }
-                        const primops = fix_run(abstractEval, callSite.expression).value.primops;
+                        const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression);
+                        const consumerConses = setFilter(consumerValues, value => {
+                            return !isTop(value);
+                        }) as SimpleSet<ts.Node>;
 
-                        return setFlatMap(primops, (primop) => {
-                            const binderGetter = primopBinderGetters[primop];
+                        return setFlatMap(consumerConses, (cons) => {
+                            if (!isBuiltInConstructorShaped(cons)) {
+                                return empty();
+                            }
+
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
+                            const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
-                            const primopArgIndex = callSite.arguments.indexOf(node as Expression);
-                            const thisExpression = ts.isPropertyAccessExpression(callSite.expression)
-                                ? callSite.expression.expression
+                            const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
+                            const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+                                ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, (node) => fix_run(abstractEval, node)]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos }]);
                         }) as NodeLattice;
                     }
                 );
@@ -483,6 +412,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
         function getObjectsPropertyInitializers(objConstructors: NodeLattice, idName: string): NodeLattice {
             return nodeLatticeFlatMap(objConstructors, objConstructor => {
+                if (!ts.isObjectLiteralExpression(objConstructor)) {
+                    return unimplemented(`Destructuring non-object literals not yet implemented: ${printNodeAndPos(objConstructor)}`, empty());
+                }
+
                 const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
                 
                 return initializer !== undefined
@@ -491,6 +424,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             });
         }
     }
+
+    function printNodeAndPos(node: ts.Node): string {
+        return `${printNode(node)} @ ${getPosText(node)}`;
+    }
     
     function printNode(node: ts.Node) {
         const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
@@ -498,7 +435,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     }
 
     function getPosText(node: ts.Node) {
-        const { line, character } = ts.getLineAndCharacterOfPosition(program.getSourceFiles()[0], node.pos);
+        const { line, character } = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.pos);
         return line + ':' + character
     }
 }
@@ -517,9 +454,9 @@ function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, i
     function getShorthandPropertyAssignmentInitializer() {
         const shorthandPropAssignment = reversedProps.find(prop =>
             ts.isShorthandPropertyAssignment(prop) && prop.name.text === idName
-        ) as ShorthandPropertyAssignment;
+        );
 
-        return shorthandPropAssignment.name;
+        return shorthandPropAssignment?.name;
     }
 
     return getPropertyAssignmentInitializer()
@@ -532,49 +469,4 @@ function isOperatorOf(op: ts.Node, call: ts.CallExpression) {
 
 function getArgumentIndex(call: ts.CallExpression, arg: ts.Node) {
     return call.arguments.indexOf(arg as Expression);
-}
-
-function getOverriddenResult(node: ts.Node): false | AbstractResult {
-    // in the long run, probably need a better way than just checking ids, since ids are used all over the place
-    if (ts.isIdentifier(node)) {
-        if (node.text === 'Math') {
-            return primopMath;
-        } else if (node.text === 'fetch') {
-            return primopFecth;
-        } else if (node.text === 'JSON') {
-            return primopJSON;
-        } else if (node.text === 'Date') {
-            return primopDate;
-        } else if (node.text === 'Object') {
-            return primopObject;
-        } else if (node.text === 'Array') {
-            return primopArray;
-        }
-    }
-
-    return false;
-}
-
-function applyPrimop<Arg, Ret>(expression: PrimopExpression, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
-    return primops[primopId].apply(thisRes, [expression, fixed_eval, fixed_trace, ...args]);
-}
-
-function getPrimitivePrimop(res: AbstractResult, name: string): PrimopId | undefined {
-    const primopIds = Object.keys(primops);
-
-    if (res.value.strings !== bot) {
-        const stringPrimops = primopIds.filter(id => id.split('#')[0] === 'String');
-        return stringPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.arrays !== bot) {
-        const arrayPrimops = primopIds.filter(id => id.split('#')[0] === 'Array');
-        return arrayPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.maps !== bot) {
-        const mapPrimops = primopIds.filter(id => id.split('#')[0] === 'Map');
-        return mapPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.regexps !== bot) {
-        const regexpPrimops = primopIds.filter(id => id.split('#')[0] === 'RegExp');
-        return regexpPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    }
-
-    return undefined;
 }

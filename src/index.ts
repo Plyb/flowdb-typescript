@@ -1,8 +1,8 @@
 import ts from 'typescript';
 import * as path from 'path';
 import fs from 'fs';
-import { pretty } from './abstract-results';
 import { analyze } from './analysis';
+import { pretty } from './abstract-values';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number) {
   const rootFolder = path.resolve(__dirname, pathString)
@@ -28,7 +28,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
       return ts.ScriptSnapshot.fromString(fs.readFileSync(fileName).toString());
     },
     getCurrentDirectory: () => process.cwd(),
-    getCompilationSettings: () => ({...options, noLib: true, noResolve: true, types: []}),
+    getCompilationSettings: () => ({...options, types: []}),
     getDefaultLibFileName: options => ts.getDefaultLibFilePath(options),
     fileExists: ts.sys.fileExists,
     readFile: ts.sys.readFile,

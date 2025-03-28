@@ -5,6 +5,10 @@ import { Truthy } from 'lodash';
 export function setMap<T, R>(set: SimpleSet<T>, f: (a: T) => R, rComparator: Comparator<R> = structuralComparator): SimpleSet<R> {
   return new SimpleSet(rComparator, ...set.elements.map(f));
 }
+export function setFilter<T, S extends T>(set: SimpleSet<T>, predicate: (a: T) => a is S, rComparator: Comparator<S>): SimpleSet<S>; 
+export function setFilter<T, S extends T>(set: SimpleSet<T>, predicate: (a: T) => a is S): SimpleSet<S>; 
+export function setFilter<T>(set: SimpleSet<T>, predicate: (a: T) => boolean, rComparator: Comparator<T>): SimpleSet<T>; 
+export function setFilter<T>(set: SimpleSet<T>, predicate: (a: T) => boolean): SimpleSet<T>; 
 export function setFilter<T>(set: SimpleSet<T>, predicate: (a: T) => boolean, rComparator: Comparator<T> = structuralComparator): SimpleSet<T> {
   return new SimpleSet(rComparator, ...set.elements.filter(predicate));
 }
@@ -25,4 +29,7 @@ export function empty<T>(comparator: Comparator<T> = structuralComparator) {
 }
 export function setFlatMap<T, R>(set: SimpleSet<T>, f: (a: T) => SimpleSet<R>, rComparator: Comparator<R> = structuralComparator): SimpleSet<R> {
   return new SimpleSet(rComparator, ...set.elements.flatMap((elem) => f(elem).elements));
+}
+export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
+    return set.elements.some(predicate);
 }

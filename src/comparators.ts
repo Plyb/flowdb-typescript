@@ -1,4 +1,4 @@
-import { before, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import { Comparator, ComparatorResult, SimpleSet } from 'typescript-super-set';
 
 

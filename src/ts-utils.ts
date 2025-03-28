@@ -1,7 +1,9 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, FunctionLikeDeclaration, LiteralExpression, Modifier, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 
+
+export type NodePrinter = (node: ts.Node) => string
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
@@ -39,25 +41,14 @@ export function* getReturnStmts(node: ts.Node): Iterable<ts.ReturnStatement> {
             yield* getReturnStmts(node.finallyBlock);
         }
     }
-    // else if (
-    //   ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node) ||
-    //   ts.isArrowFunction(node) || ts.isFunctionExpression(node) ||
-    //   ts.isConstructorDeclaration(node)
-    // ) {
-    //   if (node.body != null) {
-    //     if (ts.isBlock(node.body)) {
-    //       yield* getReturnStmts(node.body);
-    //     } else {
-    //       yield node.body;
-    //     }
-    //   }
-    // }
 }
 
 
 export type SimpleFunctionLikeDeclaration =
     (FunctionDeclaration | FunctionExpression | ArrowFunction)
     & { body: ts.Node }
+type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
+    & { modifiers: [AsyncKeyword]}
 export function isFunctionLikeDeclaration(node: ts.Node): node is SimpleFunctionLikeDeclaration {
     if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
         if (node.body === undefined) {
@@ -82,11 +73,14 @@ export function isFalseLiteral(node: ts.Node): node is FalseLiteral {
 export function isBooleaniteral(node: ts.Node): node is BooleanLiteral {
     return isTrueLiteral(node) || isFalseLiteral(node);
 }
-function isAsyncKeyword(node: ts.ModifierLike): node is AsyncKeyword {
-    return node.kind === SyntaxKind.AsyncKeyword;
+export function isAsyncKeyword(node: ts.Node | undefined): node is AsyncKeyword {
+    return node?.kind === SyntaxKind.AsyncKeyword;
 }
-export function isAsync(node: SimpleFunctionLikeDeclaration): boolean {
-    return node.modifiers?.some(mod => isAsyncKeyword(mod)) ?? false;
+export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunctionLikeDeclarationAsync {
+    if (node.modifiers?.slice(1).some(isAsyncKeyword)) {
+        console.warn('Async keyword found in non-0 position')
+    }
+    return isAsyncKeyword(node.modifiers?.[0]) ?? false;
 }
 export function isNullLiteral(node: ts.Node): node is NullLiteral {
     return node.kind === SyntaxKind.NullKeyword;
@@ -154,3 +148,4 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
     }
 }
 
+export const Ambient = 2**25;
