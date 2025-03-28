@@ -1,6 +1,6 @@
 import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
-import { isFunctionLikeDeclaration } from './ts-utils';
+import { isFunctionLikeDeclaration, NodePrinter } from './ts-utils';
 import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
@@ -67,8 +67,6 @@ const builtInProtosObject = {
     'String': true,
 }
 type BuiltInProto = keyof typeof builtInProtosObject;
-
-export type NodePrinter = (node: ts.Node) => string // TODO move this somewhere better
 
 /**
  * Given a node that we already know represents some built-in value, which built in value does it represent?

@@ -3,8 +3,9 @@ import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
 import { structuralComparator } from './comparators'
 import { unimplemented } from './util';
-import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, NodePrinter, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
+import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { FixedEval, FixedTrace } from './primops';
+import { NodePrinter } from './ts-utils';
 
 export type AbstractValue = NodeLattice;
 

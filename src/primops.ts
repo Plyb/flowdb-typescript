@@ -1,7 +1,8 @@
 import ts from 'typescript';
 import { AbstractValue, getElementNodesOfArrayValuedNode, NodeLattice, NodeLatticeElem, nodeLatticeMap, nodeLatticeSome } from './abstract-values';
 import { empty, setSift } from './setUtil';
-import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped } from './value-constructors';
+import { NodePrinter } from './ts-utils';
 
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
