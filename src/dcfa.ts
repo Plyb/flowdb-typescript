@@ -4,12 +4,11 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
-import { ArrayRef, bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, nullValue, ObjectRef, stringValue, undefinedValue } from './abstract-values';
-import { AbstractResult, arrayResult, botResult, emptyMapResult, getArrayElement, getObjectProperty, join, joinAll, joinStores, literalResult, nodeLatticeJoinMap, nodeResult, nodesResult, objectResult, pretty, primopResult, promiseResult, resolvePromise, result, resultBind, resultBind2, setJoinMap, topResult } from './abstract-results';
+import { bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
+import { AbstractResult, botResult, getObjectProperty, join, joinAll, nodeLatticeJoinMap, nodeResult, nodesResult, pretty, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
 import { FixedEval, FixedTrace, primopBinderGetters, PrimopApplication, PrimopId, primops } from './primops';
-import { getBuiltInValueOfBuiltInConstructor, getPrimops, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
-import { isEqual } from 'lodash';
+import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
     const program = service.getProgram()!;
@@ -142,50 +141,6 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return join(trueResult, falseResult)
             }
             return unimplementedRes(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
-    
-            function evalObject(node: ts.ObjectLiteralExpression): AbstractResult {
-                const { object, stores } = node.properties.reduce((acc, curr) => {
-                    if (curr.name === undefined || !ts.isIdentifier(curr.name)) {
-                        return unimplemented(`expected identifier for property: ${SyntaxKind[curr.kind]}:${getPosText(curr)}`, acc)
-                    }
-    
-                    let result: AbstractResult;
-                    if (ts.isPropertyAssignment(curr)) {
-                        result = fix_run(abstractEval, curr.initializer);
-                    } else if (ts.isShorthandPropertyAssignment(curr)) {
-                        result = fix_run(abstractEval, curr.name);
-                    } else {
-                        return unimplemented(`Unimplemented object property assignment: ${SyntaxKind[curr.kind]}:${getPosText(curr)}}`, acc)
-                    }
-                    acc.object[curr.name.text] = result.value;
-                    acc.stores = joinStores(acc.stores, result);
-                    return acc;
-                }, { object: {}, stores: botResult });
-    
-                return objectResult(node, object, stores);
-            }
-    
-            function evalArray(node: ts.ArrayLiteralExpression): AbstractResult {
-                const itemValue = setJoinMap(new SimpleSet(structuralComparator, ...node.elements), (elem) => 
-                    evalArrayElement(elem, fix_run)
-                );
-    
-                return arrayResult(node, itemValue);
-            }
-        }
-
-        function evalArrayElement(elem: ts.Node, fix_run: FixRunFunc<Node, AbstractResult>): AbstractResult {
-            if (ts.isSpreadElement(elem)) {
-                const expressionResult = fix_run(abstractEval, elem.expression);
-                return resultBind(expressionResult, 'arrays', 
-                    (arrRef: ArrayRef) => ({
-                        ...expressionResult,
-                        value: expressionResult.arrayStore.get(arrRef)!.element,
-                    })
-                );
-            } else {
-                return fix_run(abstractEval, elem)
-            }
         }
         
         // "expr"
