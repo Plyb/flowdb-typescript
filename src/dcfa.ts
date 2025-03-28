@@ -364,11 +364,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
     
-                    const initializerResult = fix_run(abstractEval, initializer);
-                    const objectLiterals = resultBind<ObjectRef>(initializerResult, 'objects', objRef => nodeResult(objRef))
-                        .value.nodes;
-
-                    return getObjectsPropertyInitializers(objectLiterals, symbol.name);
+                    const objectConses = fix_run(abstractEval, initializer).value.nodes;
+                    return getObjectsPropertyInitializers(objectConses, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
                     
@@ -463,6 +460,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
         function getObjectsPropertyInitializers(objConstructors: NodeLattice, idName: string): NodeLattice {
             return nodeLatticeFlatMap(objConstructors, objConstructor => {
+                if (!ts.isObjectLiteralExpression(objConstructor)) {
+                    return unimplemented(`Destructuring non-object literals not yet implemented: ${printNode(objConstructor)} @ ${getPosText(objConstructor)}`, empty());
+                }
+
                 const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
                 
                 return initializer !== undefined
