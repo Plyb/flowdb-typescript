@@ -1,10 +1,9 @@
-import ts, { SyntaxKind } from 'typescript';
-import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, resultBind } from './abstract-results';
+import ts from 'typescript';
+import { AbstractResult, botResult } from './abstract-results';
 import { FixedEval, FixedTrace } from './primops';
-import { ArrayRef, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
+import { NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
-import { isFunctionLikeDeclaration } from './ts-utils';
 import { empty, singleton } from './setUtil';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter, resultOfElementAccess } from './value-constructors';
 

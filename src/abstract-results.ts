@@ -30,17 +30,6 @@ export function nodesResult(nodes: NodeLattice): AbstractResult {
     }
 }
 
-export function result(value: AbstractValue): AbstractResult {
-    return {
-        ...botResult,
-        value,
-    };
-}
-
-export function resultFrom<T>(construct: (item: T) => AbstractValue) {
-    return (item: T) => result(construct(item));
-}
-
 export function join(a: AbstractResult, b: AbstractResult): AbstractResult {
     return {
         value: joinValue(a.value, b.value),
@@ -98,60 +87,6 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
             return nodeResult(access);
         }
     })
-}
-
-export function resultBind<T>(res: AbstractResult, key: FlatLatticeKey, f: (item: T) => AbstractResult): AbstractResult {
-    const value = res.value;
-    const items = value[key] as FlatLattice<T>;
-
-    if (isTop(items)) {
-        return {
-            ...res,
-            value: {
-                ... topValue,
-                [key]: top
-            },
-        }
-    } else if (isBottom(items)) {
-        return {
-            ...res,
-            value: {
-                ... botValue,
-                [key]: bot
-            },
-        }
-    } else {
-        const result = f(items.item);
-        return {
-            value: result.value,
-        }
-    }
-}
-export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: FlatLatticeKey, f: (item1: T, item2: T) => AbstractResult): AbstractResult {
-    const val1 = res1.value;
-    const val2 = res2.value;
-    const items1 = val1[key] as FlatLattice<T>;
-    const items2 = val2[key] as FlatLattice<T>;
-    if (isTop(items1) || isTop(items2)) {
-        return {
-            value: {
-                ... topValue,
-                [key]: top
-            },
-        }
-    } else if (isBottom(items1) || isBottom(items2)) {
-        return {
-            value: {
-                ... botValue,
-                [key]: bot
-            },
-        }
-    } else {
-        const result = f(items1.item, items2.item);
-        return {
-            value: result.value,
-        }
-    }
 }
 
 export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node) => string): any[] {
