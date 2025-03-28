@@ -1,6 +1,6 @@
 import { ComparatorResult, SimpleSet } from 'typescript-super-set'
 import { Lookup } from './lookup'
-import { lexicographic, simpleSetComparator, stringCompare, structuralComparator } from './comparators'
+import { lexicographic, stringCompare, structuralComparator } from './comparators'
 import { SimpleMap } from './simple-map'
 
 type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>) => Ret

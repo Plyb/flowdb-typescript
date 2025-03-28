@@ -1,48 +1,14 @@
-import ts, { ArrayLiteralExpression, CallExpression, NewExpression, ObjectFlags, ObjectLiteralExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
+import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
-import { AtomicLiteral, isAsync, isBooleaniteral, isFunctionLikeDeclaration, isLiteral } from './ts-utils';
-import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
+import { isFunctionLikeDeclaration } from './ts-utils';
+import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { botValue, isTop, nodeLatticeFlatMap, top } from './abstract-values';
+import { isTop, nodeLatticeFlatMap } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedRes } from './util';
 
-type ValueConstructor =
-| AtomicLiteral
-| ObjectLiteralExpression
-| ArrayLiteralExpression
-| NewExpression
-| AsyncFunctionCall
-| BuiltInConstructor
-| PrimObj;
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
-type AsyncFunctionCall = CallExpression
-type PrimObj = ts.Identifier;
-
-type BuiltInType =
-| 'string'
-| 'number'
-| 'boolean'
-| 'date'
-| 'regexp'
-| 'object'
-| 'promise'
-| 'array'
-| 'map';
-
-const allTypes = new SimpleSet<BuiltInType>(structuralComparator,
-    'string', 'number', 'boolean', 'date', 'regexp', 'object', 'promise', 'array', 'map');
-
-function isValueConstructor(node: ts.Node): node is ValueConstructor {
-    return isLiteral(node)
-        || ts.isObjectLiteralExpression(node)
-        || ts.isArrayLiteralExpression(node)
-        || ts.isNewExpression(node)
-        || ts.isCallExpression(node)
-        || ts.isPropertyAccessExpression(node)
-        || ts.isIdentifier(node);
-}
 
 const builtInValuesObject = {
     'Array': true,
@@ -101,7 +67,6 @@ const builtInProtosObject = {
     'String': true,
 }
 type BuiltInProto = keyof typeof builtInProtosObject;
-const builtInProtos = new SimpleSet<BuiltInProto>(structuralComparator, ...[...Object.keys(builtInProtosObject) as Iterable<BuiltInProto>]);
 
 export type NodePrinter = (node: ts.Node) => string // TODO move this somewhere better
 

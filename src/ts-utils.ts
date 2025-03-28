@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, FunctionLikeDeclaration, LiteralExpression, Modifier, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 
@@ -39,19 +39,6 @@ export function* getReturnStmts(node: ts.Node): Iterable<ts.ReturnStatement> {
             yield* getReturnStmts(node.finallyBlock);
         }
     }
-    // else if (
-    //   ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node) ||
-    //   ts.isArrowFunction(node) || ts.isFunctionExpression(node) ||
-    //   ts.isConstructorDeclaration(node)
-    // ) {
-    //   if (node.body != null) {
-    //     if (ts.isBlock(node.body)) {
-    //       yield* getReturnStmts(node.body);
-    //     } else {
-    //       yield node.body;
-    //     }
-    //   }
-    // }
 }
 
 

@@ -1,4 +1,3 @@
-import { isEqual } from 'lodash';
 import { Comparator, SimpleSet } from 'typescript-super-set';
 
 export class Lookup<K, V> {
