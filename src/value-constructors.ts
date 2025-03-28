@@ -3,10 +3,10 @@ import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
 import { isFunctionLikeDeclaration } from './ts-utils';
 import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isTop, nodeLatticeFlatMap } from './abstract-values';
+import { AbstractValue, botValue, isTop, nodeLatticeFlatMap, nodesValue, nodeValue, topValue } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, topResult } from './abstract-results';
-import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedRes } from './util';
+import { nodeLatticeJoinMap } from './abstract-results';
+import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedVal } from './util';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -98,7 +98,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
     function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
         const expressionResult = fixed_eval(call.expression)
         const builtInConstructorsForExpression = setFilter(
-            expressionResult.value.nodes,
+            expressionResult.nodes,
             node => !isTop(node) && isBuiltInConstructorShaped(node)
         ) as any as SimpleSet<BuiltInConstructor>; // TODO: deal with this as any
         if (builtInConstructorsForExpression.size() !== 1) {
@@ -125,82 +125,82 @@ export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstr
         || ts.isCallExpression(node);
 }
 
-function uncallable(name: BuiltInValue) { return () => unimplementedRes(`No result of calling ${name}`)}
-type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => AbstractResult
+function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
+type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => AbstractValue
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
-    'Array#filter': nodeResult,
+    'Array#filter': nodeValue,
     'Array#filter()': uncallable('Array#filter()'),
     'Array#find': uncallable('Array#find'), // TODO
-    'Array#includes': nodeResult,
+    'Array#includes': nodeValue,
     'Array#includes()': uncallable('Array#includes()'),
-    'Array#indexOf': nodeResult,
+    'Array#indexOf': nodeValue,
     'Array#indexOf()': uncallable('Array#indexOf()'),
-    'Array#join': nodeResult,
+    'Array#join': nodeValue,
     'Array#join()': uncallable('Array#join()'),
-    'Array#map': nodeResult,
+    'Array#map': nodeValue,
     'Array#map()': uncallable('Array#map()'),
-    'Array#some': nodeResult,
+    'Array#some': nodeValue,
     'Array#some()': uncallable('Array#some()'),
     'Array.from': (call, { fixed_eval }) => fixed_eval(call.arguments[0]),
     'Date': uncallable('Date'),
-    'Date.now': nodeResult,
+    'Date.now': nodeValue,
     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
-    'JSON.parse': () => topResult,
+    'JSON.parse': () => topValue,
     'Map#get': uncallable('Map#get'), // TODO
-    'Map#keys': nodeResult,
+    'Map#keys': nodeValue,
     'Map#keys()': uncallable('Map#keys()'),
     'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
-    'Math.floor': nodeResult,
+    'Math.floor': nodeValue,
     'Math.floor()': uncallable('Math.floor()'),
     'Object': uncallable('Object'),
     'Object.freeze': uncallable('Object.freeze'), // TODO
     'Object.assign': uncallable('Object.assign'), // TODO
-    'RegExp#test': nodeResult,
+    'RegExp#test': nodeValue,
     'RegExp#test()': uncallable('RegExp#test()'),
-    'String#includes': nodeResult,
+    'String#includes': nodeValue,
     'String#includes()': uncallable('String#includes()'),
-    'String#match': nodeResult,
+    'String#match': nodeValue,
     'String#match()': uncallable('String#match()'),
-    'String#split': nodeResult,
+    'String#split': nodeValue,
     'String#split()': uncallable('String#split()'),
-    'String#substring': nodeResult,
+    'String#substring': nodeValue,
     'String#substring()': uncallable('String#substring()'),
-    'String#toLowerCase': nodeResult,
+    'String#toLowerCase': nodeValue,
     'String#toLowerCase()': uncallable('String#toLowerCase()'),
-    'String#trim': nodeResult,
+    'String#trim': nodeValue,
     'String#trim()': uncallable('String#trim()'),
-    'fetch': () => topResult,
+    'fetch': () => topValue,
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
     return builtInValues.elements.some(val => val === id.text);
 }
 
-type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression) => AbstractResult;
+type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression) => AbstractValue;
 function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
-    return (pa) => unimplementedRes(`Unable to get property ${name}.${pa.name.text}`) 
+    return (pa) => unimplementedVal(`Unable to get property ${name}.${pa.name.text}`) 
 }
 function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
     const [typeName, methodName] = name.split('.');
     return (pa) => pa.name.text === methodName
-        ? nodeResult(pa)
+        ? nodeValue(pa)
         : inaccessibleProperty(typeName as BuiltInValue)(pa);
 }
 function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
     const [typeName] = names[0].split('.');
     const methodNames = names.map(name => name.split('.')[1]);
     return (pa) => methodNames.some(methodName => pa.name.text === methodName)
-        ? nodeResult(pa)
+        ? nodeValue(pa)
         : inaccessibleProperty(typeName as BuiltInValue)(pa);
 }
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pa) => {
         const isBuiltInProtoMethod = getBuiltInMethod(typeName, pa.name.text)
         return isBuiltInProtoMethod
-            ? nodeResult(pa)
+            ? nodeValue(pa)
             : inaccessibleProperty(typeName)(pa);
     }
 }
@@ -252,51 +252,51 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'fetch': inaccessibleProperty('fetch'),
 }
 
-type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractResult
+type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractValue
 const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
-    unimplementedRes(`Unable to get element of ${printNodeAndPos(cons)}`);
+    unimplementedVal(`Unable to get element of ${printNodeAndPos(cons)}`);
 const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
     if (!ts.isCallExpression(cons)) {
-        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
-    const argFuncs = fixed_eval(cons.arguments[0]).value.nodes;
+    const argFuncs = fixed_eval(cons.arguments[0]).nodes;
     return nodeLatticeJoinMap(argFuncs, func => {
         if (!isFunctionLikeDeclaration(func)) {
-            return unimplementedRes(`Expected ${printNodeAndPos(func)} to be a function`);
+            return unimplementedVal(`Expected ${printNodeAndPos(func)} to be a function`);
         }
         return fixed_eval(func.body);
     })
 }
 const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
     if (!ts.isCallExpression(cons)) {
-        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression).value.nodes;
+    const funcs = fixed_eval(funcExpression).nodes;
     const thisArrayConses = nodeLatticeJoinMap(funcs, cons => {
         if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Array#filter') {
-            return botResult;
+            return botValue;
         }
         return fixed_eval(cons.expression);
-    }).value.nodes;
-    return nodeLatticeJoinMap(thisArrayConses, cons => nodesResult(
+    }).nodes;
+    return nodeLatticeJoinMap(thisArrayConses, cons => nodesValue(
         getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos })
     ));
 }
 const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
     if (!ts.isCallExpression(cons)) { // TODO: unify this with array filter
-        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression).value.nodes;
+    const funcs = fixed_eval(funcExpression).nodes;
     const thisMapConses = nodeLatticeJoinMap(funcs, cons => {
         if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Map#keys') {
-            return botResult;
+            return botValue;
         }
         return fixed_eval(cons.expression);
-    }).value.nodes;
+    }).nodes;
     const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
-        getMapSetCalls(fixed_trace(mapCons).value.nodes, { fixed_eval, printNodeAndPos })
+        getMapSetCalls(fixed_trace(mapCons).nodes, { fixed_eval, printNodeAndPos })
     );
     return nodeLatticeJoinMap(setSites, site => {
         const keyArg = (site as CallExpression).arguments[0];

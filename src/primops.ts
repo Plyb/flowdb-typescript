@@ -1,12 +1,12 @@
 import ts from 'typescript';
-import { AbstractResult, nodeLatticeSome } from './abstract-results';
-import { NodeLattice, NodeLatticeElem, nodeLatticeMap } from './abstract-values';
+import { nodeLatticeSome } from './abstract-results';
+import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeMap } from './abstract-values';
 import { empty, setSift } from './setUtil';
 import { getElementNodesOfArrayValuedNode } from './util';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
 
-export type FixedEval = (node: ts.Node) => AbstractResult;
-export type FixedTrace = (node: ts.Node) => AbstractResult;
+export type FixedEval = (node: ts.Node) => AbstractValue;
+export type FixedTrace = (node: ts.Node) => AbstractValue;
 export type PrimopApplication = ts.CallExpression | ts.BinaryExpression;
 
 export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }): NodeLattice {
@@ -16,7 +16,7 @@ export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNode
             return false;
         }
         const accessResult = fixed_eval(access);
-        if (!nodeLatticeSome(accessResult.value.nodes, cons =>
+        if (!nodeLatticeSome(accessResult.nodes, cons =>
                 isBuiltInConstructorShaped(cons)
                 && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) === 'Map#set'
             )

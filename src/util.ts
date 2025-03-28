@@ -1,7 +1,6 @@
 import ts from 'typescript';
-import { AbstractResult, botResult } from './abstract-results';
 import { FixedEval, FixedTrace } from './primops';
-import { NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
+import { AbstractValue, botValue, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, singleton } from './setUtil';
@@ -47,12 +46,12 @@ export function unimplemented<T>(message: string, returnVal: T): T {
     return returnVal;
 }
 
-export function unimplementedRes(message: string): AbstractResult {
-    return unimplemented(message, botResult);
+export function unimplementedVal(message: string): AbstractValue {
+    return unimplemented(message, botValue);
 }
 
 export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
-    const conses = fixed_eval(node).value.nodes;
+    const conses = fixed_eval(node).nodes;
     return nodeLatticeFlatMap(conses, cons => {
         if (ts.isArrayLiteralExpression(cons)) {
             const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
@@ -66,7 +65,7 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fi
             })
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos }).value.nodes;
+            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos }).nodes;
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }

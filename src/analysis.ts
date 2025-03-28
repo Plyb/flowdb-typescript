@@ -2,10 +2,9 @@ import ts from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { makeDcfaComputer } from './dcfa';
-import { AbstractResult, joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, union } from './setUtil';
-import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
+import { AbstractValue, isTop, joinAllValues, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
@@ -37,7 +36,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
 
 
 
-function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractResult): NodeLattice {
+function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node: ts.Node) => AbstractValue): NodeLattice {
     const valueOf = makeFixpointComputer(empty<NodeLatticeElem>(), { printArgs: getFuncName, printRet: set => setMap(set, getFuncName).toString() });
     return valueOf({ func: compute, args: node }, );
     
@@ -63,7 +62,7 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node:
     }
 }
 
-function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Node) => AbstractResult): NodeLattice {
+function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Node) => AbstractValue): NodeLattice {
     if (isTop(node)) {
         return empty();
     }
@@ -72,7 +71,7 @@ function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Nod
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
         dcfa(callExpression.expression)
     );
-    return nodeLatticeFilter(joinAll(...valuesOfCallExpressionOperators).value.nodes, isFunctionLikeDeclaration);
+    return nodeLatticeFilter(joinAllValues(...valuesOfCallExpressionOperators).nodes, isFunctionLikeDeclaration);
 }
 
 function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
