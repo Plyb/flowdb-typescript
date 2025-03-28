@@ -55,6 +55,7 @@ const builtInValuesObject = {
     'String#match': true,
     'String#match()': true,
     'fetch': true,
+    'undefined': true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
@@ -172,6 +173,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'String#trim': nodeValue,
     'String#trim()': uncallable('String#trim()'),
     'fetch': () => topValue,
+    'undefined': uncallable('undefined'),
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
@@ -249,6 +251,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'String#trim': inaccessibleProperty('String#trim'),
     'String#trim()': builtInProtoMethod('String'),
     'fetch': inaccessibleProperty('fetch'),
+    'undefined': inaccessibleProperty('undefined'),
 }
 
 type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractValue
@@ -346,6 +349,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#trim': inaccessibleElement,
     'String#trim()': inaccessibleElement,
     'fetch': inaccessibleElement,
+    'undefined': inaccessibleElement,
 }
 
 /**

@@ -54,9 +54,6 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return unimplementedVal(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
                     }
                 });
-            } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
-                // TODO: I think we can treat this like a built in
-                return nodeValue(node);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
                 if (boundExprs.size() > 0) {
