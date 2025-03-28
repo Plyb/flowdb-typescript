@@ -12,8 +12,6 @@ export type AbstractValue = {
 export type NodeLatticeElem = ts.Node | Top;
 export type NodeLattice = SimpleSet<NodeLatticeElem>;
 
-
-type Bottom = { __bottomBrand: true }
 export type Top = { __topBrand: true }
 
 export type ObjectRef = ts.ObjectLiteralExpression
@@ -32,7 +30,6 @@ export type ArrayStore = Map<ArrayRef, AbstractArray>
 
 export type MapRef = ts.NewExpression;
 
-export const bot: Bottom = { __bottomBrand: true }
 export const top: Top = { __topBrand: true }
 
 export const botValue: AbstractValue = {
