@@ -1,26 +1,20 @@
 import ts from 'typescript';
-import { AbstractObject, AbstractValue, ArrayRef, ArrayStore, arrayValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, ObjectStore, objectValue, prettyFlatLattice, primopValue, PromiseStore, promiseValue, resolvePromiseValue, topValue, top, bot, PromiseRef, NodeLattice } from './abstract-values';
+import { AbstractValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, prettyFlatLattice, topValue, top, bot, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { AtomicLiteral } from './ts-utils';
-import { mergeMaps, unimplementedRes } from './util';
-import { FixedEval, PrimopId } from './primops';
+import { unimplementedRes } from './util';
+import { FixedEval } from './primops';
 import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfPropertyAccess } from './value-constructors';
 
 export type AbstractResult = {
     value: AbstractValue,
-    promiseStore: PromiseStore,
-    arrayStore: ArrayStore,
 }
 
 export const botResult: AbstractResult = {
     value: botValue,
-    promiseStore: new Map(),
-    arrayStore: new Map(),
 }
 export const topResult: AbstractResult = {
     value: topValue,
-    promiseStore: new Map(),
-    arrayStore: new Map(),
 }
 
 export function nodeResult(node: ts.Node): AbstractResult {
@@ -41,22 +35,6 @@ export function literalResult(node: AtomicLiteral): AbstractResult {
         value: literalValue(node),
     }
 }
-export function promiseResult(promiseSource: PromiseRef, resultToWrap: AbstractResult): AbstractResult {
-    const value = promiseValue(promiseSource);
-    const store = new Map(resultToWrap.promiseStore)
-    store.set(promiseSource, { resolvesTo: resultToWrap.value });
-    return {
-        ...resultToWrap,
-        value,
-        promiseStore: store,
-    }
-}
-export function primopResult(primopId: PrimopId): AbstractResult {
-    return {
-        ...botResult,
-        value: primopValue(primopId),
-    };
-}
 
 export const anyObjectResult = {
     ...botResult,
@@ -74,29 +52,9 @@ export function resultFrom<T>(construct: (item: T) => AbstractValue) {
     return (item: T) => result(construct(item));
 }
 
-export function arrayResult(node: ArrayRef, elementResult: AbstractResult): AbstractResult {
-    const value = arrayValue(node);
-    const store = new Map(elementResult.arrayStore);
-    store.set(node, { element: elementResult.value });
-    return {
-        ...elementResult,
-        value,
-        arrayStore: store,
-    }
-}
-
 export function join(a: AbstractResult, b: AbstractResult): AbstractResult {
     return {
-        ...joinStores(a, b),
         value: joinValue(a.value, b.value),
-    }
-}
-
-export function joinStores(a: AbstractResult, b: AbstractResult): AbstractResult {
-    return {
-        value: botValue,
-        promiseStore: mergeMaps(a.promiseStore, b.promiseStore),
-        arrayStore: mergeMaps(a.arrayStore, b.arrayStore),
     }
 }
 
@@ -152,34 +110,6 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
         }
     })
 }
-export function getArrayElement(from: AbstractResult): AbstractResult {
-    const arrayLattice = from.value.arrays;
-    const arrayStore = from.arrayStore;
-    if (isTop(arrayLattice)) {
-        return topResult;
-    } else if (isBottom(arrayLattice)) {
-        return botResult;
-    } else {
-        const ref = arrayLattice.item;
-        const arr = arrayStore.get(ref);
-        if (arr === undefined) {
-            throw new Error('expected arr to be in store');
-        }
-        return {
-            ...from,
-            value: arr.element,
-        }
-    }
-}
-
-export function resolvePromise(promiseResult: AbstractResult): AbstractResult {
-    const promiseValue = resolvePromiseValue(promiseResult.value, promiseResult.promiseStore);
-
-    return {
-        ...promiseResult,
-        value: promiseValue,
-    }
-}
 
 export function resultBind<T>(res: AbstractResult, key: FlatLatticeKey, f: (item: T) => AbstractResult): AbstractResult {
     const value = res.value;
@@ -204,7 +134,6 @@ export function resultBind<T>(res: AbstractResult, key: FlatLatticeKey, f: (item
     } else {
         const result = f(items.item);
         return {
-            ...joinStores(result, res),
             value: result.value,
         }
     }
@@ -216,7 +145,6 @@ export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: 
     const items2 = val2[key] as FlatLattice<T>;
     if (isTop(items1) || isTop(items2)) {
         return {
-            ...joinStores(res1, res2),
             value: {
                 ... topValue,
                 [key]: top
@@ -224,7 +152,6 @@ export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: 
         }
     } else if (isBottom(items1) || isBottom(items2)) {
         return {
-            ...joinStores(res1, res2),
             value: {
                 ... botValue,
                 [key]: bot
@@ -233,7 +160,6 @@ export function resultBind2<T>(res1: AbstractResult, res2: AbstractResult, key: 
     } else {
         const result = f(items1.item, items2.item);
         return {
-            ...joinStores(result, joinStores(res1, res2)),
             value: result.value,
         }
     }
@@ -251,11 +177,8 @@ export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node
         ...prettyFlatLattice(abstractResult.value.promises, 'PROMISE'),
         ...prettyFlatLattice(abstractResult.value.arrays, 'ARRAY'),
         ...prettyFlatLattice(abstractResult.value.maps, 'MAP'),
-        ...abstractResult.value.primops.elements,
         ...(abstractResult.value.null ? ['null'] : []),
         ...(abstractResult.value.undefined ? ['undefined'] : []),
-        abstractResult.promiseStore,
-        abstractResult.arrayStore,
       ]
 }
 

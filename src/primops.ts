@@ -1,5 +1,5 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, anyObjectResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
 import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
@@ -8,8 +8,6 @@ import { SimpleFunctionLikeDeclaration } from './ts-utils';
 import { getElementNodesOfArrayValuedNode } from './util';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
 
-export type PrimopId = keyof Primops;
-type Primops = typeof primops
 export type FixedEval = (node: ts.Node) => AbstractResult;
 export type FixedTrace = (node: ts.Node) => AbstractResult;
 export type PrimopApplication = ts.CallExpression | ts.BinaryExpression;
@@ -22,68 +20,14 @@ const stringSubstringPrimop =
     createBinaryPrimopWithThisHetero('strings', 'numbers', resultFrom(stringValue),
         String.prototype.substring
     );
-const stringSplitPrimop =
-    createUnaryPrimopWithThis('strings',
-        (arr, expression) =>
-            arrayResult(
-                expression,
-                setJoinMap(new SimpleSet(structuralComparator, ...arr), resultFrom(stringValue))
-            ),
-        String.prototype.substring
-    );
 const stringTrimPrimop =
     createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.trim);
 const stringToLowerCasePrimop =
     createNullaryPrimopWithThis('strings', resultFrom(stringValue), String.prototype.toLowerCase);
-const fetchPrimop: Primop =
-    createUnaryPrimop('strings',
-        (_, expression) =>
-            promiseResult(expression, anyObjectResult),
-        () => null
-    );
 const jsonParsePrimop = createUnaryPrimop('strings', () => topResult, () => null);
 const dateNowPrimop = (() => result(anyDateValue)) as Primop;
-const stringMatchPrimop = createUnaryPrimopWithThisHetero('strings', 'regexps',
-    (arr, expression) =>
-        arrayResult(
-            expression,
-            setJoinMap(new SimpleSet(structuralComparator, ...arr!), resultFrom(stringValue))
-        ),
-    String.prototype.match
-)
-function arrayMapPrimop(expression: PrimopApplication, fixed_eval: FixedEval, _: FixedTrace, arg: AbstractResult): AbstractResult {
-    const elementResult = setJoinMap(arg.value.nodes, func => fixed_eval((func as SimpleFunctionLikeDeclaration).body));
-    return arrayResult(expression, elementResult);
-}
-function arrayFilterPrimop(this: AbstractResult, expression: PrimopApplication): AbstractResult {
-    const elementResult = resultBind<ArrayRef>(this, 'arrays', arrRef => {
-        const abstractArray = this.arrayStore.get(arrRef);
-        if (abstractArray === undefined) {
-            throw new Error('expected arr to be present in store');
-        }
-        return {
-            ...this,
-            value: abstractArray.element
-        }
-    })
-    return arrayResult(expression, elementResult);
-}
 const arrayIndexOf = (() => result(anyNumberValue)) as Primop;
 const arraySome = (() => result(anyBooleanValue)) as Primop;
-const arrayIncludes = (() => result(anyBooleanValue)) as Primop;
-function arrayFindPrimop(this: AbstractResult): AbstractResult {
-    const elementResult = resultBind<ArrayRef>(this, 'arrays', arrRef => {
-        const abstractArray = this.arrayStore.get(arrRef);
-        if (abstractArray === undefined) {
-            throw new Error('expected arr to be present in store');
-        }
-        return {
-            ...this,
-            value: abstractArray.element
-        }
-    })
-    return elementResult;
-}
 function mapKeysPrimop(this: AbstractResult, _: PrimopApplication, fixed_eval: FixedEval, fixed_trace: FixedTrace): AbstractResult {
     return resultBind<MapRef>(this, 'maps', (ref) => {
         const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, null as any);
@@ -113,36 +57,6 @@ const arrayFromPrimop = ((_, __, ___, arg) => arg) as Primop
 const questionQuestionPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
 const barBarPrimop = ((_, __, ___, lhs, rhs) => join(lhs, rhs)) as Primop
 const regexTestPrimop = createUnaryPrimopWithThisHetero('regexps', 'strings', resultFrom(booleanValue), RegExp.prototype.test);
-export const primops = {
-    'Math.floor': mathFloorPrimop,
-    'String#includes': stringIncludesPrimop,
-    'String#substring': stringSubstringPrimop,
-    'String#split': stringSplitPrimop,
-    'String#trim': stringTrimPrimop,
-    'String#toLowerCase': stringToLowerCasePrimop,
-    'fetch': fetchPrimop,
-    'JSON.parse': jsonParsePrimop,
-    'Date.now': dateNowPrimop,
-    'String#match': stringMatchPrimop,
-    'Array#map': arrayMapPrimop as Primop,
-    'Array#filter': arrayFilterPrimop as Primop,
-    'Array#indexOf': arrayIndexOf,
-    'Array#some': arraySome,
-    'Array#includes': arrayIncludes,
-    'Array#find': arrayFindPrimop as Primop,
-    'Map#keys': mapKeysPrimop as Primop,
-    'Map#get': mapGetPrimop as Primop,
-    'Map#set': mapSetPrimop,
-    'Object.freeze': objectFreezePrimop,
-    'Array.from': arrayFromPrimop,
-    [SyntaxKind.QuestionQuestionToken as BinaryOperator]: questionQuestionPrimop,
-    [SyntaxKind.BarBarToken as BinaryOperator]: barBarPrimop,
-    'RegExp#test': regexTestPrimop,
-    'console.error': (() => botResult) as Primop, // TODO
-    'console.log': (() => botResult) as Primop,
-    'console.warn': (() => botResult) as Primop,
-    'Array#join': (() => botResult) as Primop,
-}
 
 function createNullaryPrimopWithThis<R>(key: FlatLatticeKey, construct: (val: R, expression: PrimopApplication) => AbstractResult, f: () => R): Primop {
     return function(this: AbstractResult, expression) {

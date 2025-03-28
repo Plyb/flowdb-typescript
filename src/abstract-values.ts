@@ -3,7 +3,7 @@ import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil'
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
-import { PrimopApplication, PrimopId } from './primops'
+import { PrimopApplication } from './primops'
 import { structuralComparator } from './comparators'
 
 export type AbstractValue = {
@@ -16,7 +16,6 @@ export type AbstractValue = {
     objects: ObjectLattice,
     promises: PromiseLattice,
     arrays: ArrayLattice,
-    primops: SimpleSet<PrimopId>,
     maps: MapLattice,
     null: SingletonLattice,
     undefined: SingletonLattice,
@@ -92,7 +91,6 @@ export const botValue: AbstractValue = {
     objects: bot,
     promises: bot,
     arrays: bot,
-    primops: empty(),
     maps: bot,
     null: false,
     undefined: false,
@@ -107,7 +105,6 @@ export const topValue: AbstractValue = {
     objects: top,
     promises: top,
     arrays: top,
-    primops: empty(),
     maps: top,
     null: true,
     undefined: true,
@@ -182,12 +179,6 @@ export function arrayValue(ref: ArrayRef): AbstractValue {
         arrays: single(ref)
     }
 }
-export function primopValue(primopId: PrimopId): AbstractValue {
-    return {
-        ...botValue,
-        primops: singleton(primopId),
-    }
-}
 export function mapValue(constructorSite: ts.NewExpression): AbstractValue {
     return {
         ...botValue,
@@ -260,7 +251,6 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
         objects: joinFlatLattice(a.objects, b.objects),
         promises: joinFlatLattice(a.promises, b.promises),
         arrays: joinFlatLattice(a.arrays, b.arrays),
-        primops: union(a.primops, b.primops),
         maps: joinFlatLattice(a.maps, b.maps),
         null: a.null || b.null,
         undefined: a.undefined || b.undefined,
@@ -280,7 +270,6 @@ export function subsumes(a: AbstractValue, b: AbstractValue) {
         && latticSubsumes(a.objects, b.objects)
         && latticSubsumes(a.promises, b.promises)
         && latticSubsumes(a.arrays, b.arrays)
-        && a.primops.hasAll(...b.primops)
         && latticSubsumes(a.maps, b.maps)
         && (b.null || !a.null)
 }

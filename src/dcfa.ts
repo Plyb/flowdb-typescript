@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { bot, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
 import { AbstractResult, botResult, getObjectProperty, join, joinAll, nodeLatticeJoinMap, nodeResult, nodesResult, pretty, topResult } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedRes } from './util';
-import { FixedEval, FixedTrace, primopBinderGetters, PrimopApplication, PrimopId, primops } from './primops';
+import { primopBinderGetters } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractResult {
@@ -491,28 +491,4 @@ function getOverriddenResult(node: ts.Node): false | AbstractResult {
     }
 
     return false;
-}
-
-function applyPrimop<Arg, Ret>(expression: PrimopApplication, fixed_eval: FixedEval, fixed_trace: FixedTrace, primopId: PrimopId, thisRes: AbstractResult, args: AbstractResult[]): AbstractResult {
-    return primops[primopId].apply(thisRes, [expression, fixed_eval, fixed_trace, ...args]);
-}
-
-function getPrimitivePrimop(res: AbstractResult, name: string): PrimopId | undefined {
-    const primopIds = Object.keys(primops);
-
-    if (res.value.strings !== bot) {
-        const stringPrimops = primopIds.filter(id => id.split('#')[0] === 'String');
-        return stringPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.arrays !== bot) {
-        const arrayPrimops = primopIds.filter(id => id.split('#')[0] === 'Array');
-        return arrayPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.maps !== bot) {
-        const mapPrimops = primopIds.filter(id => id.split('#')[0] === 'Map');
-        return mapPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    } else if (res.value.regexps !== bot) {
-        const regexpPrimops = primopIds.filter(id => id.split('#')[0] === 'RegExp');
-        return regexpPrimops.find(id => id.split('#')[1] === name) as PrimopId ?? false;
-    }
-
-    return undefined;
 }
