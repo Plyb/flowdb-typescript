@@ -4,7 +4,6 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { isEqual } from 'lodash'
 import { AtomicLiteral, isFalseLiteral, isFunctionLikeDeclaration, isTrueLiteral, SimpleFunctionLikeDeclaration } from './ts-utils'
 import { PrimopApplication, PrimopId } from './primops'
-import { AbstractMap } from './abstract-map'
 import { structuralComparator } from './comparators'
 
 export type AbstractValue = {
@@ -73,7 +72,6 @@ export type ArrayStore = Map<ArrayRef, AbstractArray>
 
 export type MapRef = ts.NewExpression;
 type MapLattice = FlatLattice<MapRef>
-export type MapStore = Map<MapRef, AbstractMap>
 
 export const bot: Bottom = { __bottomBrand: true }
 export const top: Top = { __topBrand: true }
