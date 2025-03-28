@@ -1,12 +1,12 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
 import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setSift } from './setUtil';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
 import { getElementNodesOfArrayValuedNode } from './util';
-import { NodePrinter } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
 
 export type PrimopId = keyof Primops;
 type Primops = typeof primops
@@ -86,7 +86,7 @@ function arrayFindPrimop(this: AbstractResult): AbstractResult {
 }
 function mapKeysPrimop(this: AbstractResult, _: PrimopApplication, fixed_eval: FixedEval, fixed_trace: FixedTrace): AbstractResult {
     return resultBind<MapRef>(this, 'maps', (ref) => {
-        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
+        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, null as any);
         return nodeLatticeJoinMap(setSites, site => {
             const keyArg = (site as CallExpression).arguments[0];
             return fixed_eval(keyArg)
@@ -95,7 +95,7 @@ function mapKeysPrimop(this: AbstractResult, _: PrimopApplication, fixed_eval: F
 }
 function mapGetPrimop(this: AbstractResult, _: PrimopApplication, fixed_eval: FixedEval, fixed_trace: FixedTrace, key: AbstractResult): AbstractResult {
     return resultBind<MapRef>(this, 'maps', (ref) => {
-        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, fixed_eval);
+        const setSites = getMapSetCalls(fixed_trace(ref).value.nodes, null as any);
         const setSitesWithKey = setFilter(setSites, site => {
             const siteKeyNode = (site as CallExpression).arguments[0];
             const siteKeyValue = fixed_eval(siteKeyNode).value;
@@ -219,14 +219,18 @@ function createBinaryPrimopWithThisHetero<T, A, R>(thisKey: FlatLatticeKey, args
 //     }
 // )
 
-function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLattice {
+export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }): NodeLattice {
     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
         const access = site.parent;
         if (!(ts.isPropertyAccessExpression(access))) {
             return false;
         }
         const accessResult = fixed_eval(access);
-        if (!subsumes(accessResult.value, primopValue('Map#set'))) {
+        if (!nodeLatticeSome(accessResult.value.nodes, cons =>
+                isBuiltInConstructorShaped(cons)
+                && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) === 'Map#set'
+            )
+        ) {
             return false;
         }
 
@@ -240,7 +244,7 @@ function getMapSetCalls(returnSites: NodeLattice, fixed_eval: FixedEval): NodeLa
     return setSift(callSitesOrFalses);
 }
 
-type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) => NodeLattice;
+type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => NodeLattice;
 
 type PrimopBinderGetters = {
     [id: string]: PrimopFunctionArgParamBinderGetter
@@ -250,7 +254,7 @@ export const primopBinderGetters: PrimopBinderGetters = { // TODO: fill this out
     'Array#map': arrayMapArgBinderGetter
 }
 
-function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) {
+function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) {
     if (this === undefined) {
         throw new Error();
     }
@@ -258,5 +262,5 @@ function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex
     if (primopArgIndex != 0 || argParameterIndex != 0) {
         return empty<NodeLatticeElem>();
     }
-    return getElementNodesOfArrayValuedNode(this, fixed_eval, printNodeAndPos);
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos });
 }

@@ -118,7 +118,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                  */
                 return topResult;
             } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node, node => fix_run(abstractEval, node), printNode);
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval: node => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
                 const elementResults = nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
                 return elementResults;
             } else if (ts.isNewExpression(node)) {
@@ -346,7 +346,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, node => fix_run(abstractEval, node), printNode);
+                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval: node => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -452,7 +452,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
                                 ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval: (node) => fix_run(abstractEval, node), printNodeAndPos: printNode }]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval: (node) => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode }]);
                         }) as NodeLattice;
                     }
                 );

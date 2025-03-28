@@ -130,6 +130,10 @@ export function setJoinMap<T>(set: SimpleSet<T>, f: (item: T) => AbstractResult)
     return set.elements.map(f).reduce(join, botResult);
 }
 
+export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
+    return set.elements.some(predicate);
+}
+
 export function joinAll(...abstractResults: AbstractResult[]): AbstractResult {
     return abstractResults.reduce(join, botResult);
 }
@@ -288,4 +292,8 @@ export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node
         return topResult;
     }
     return setJoinMap(lattice as SimpleSet<ts.Node>, convert);
+}
+
+export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node) => boolean): boolean {
+    return setSome(lattice, (elem) => !isTop(elem) && predicate(elem));
 }

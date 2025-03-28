@@ -1,5 +1,5 @@
 import ts, { ArrayLiteralExpression, CallExpression, NewExpression, ObjectFlags, ObjectLiteralExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
-import { FixedEval, PrimopApplication, PrimopId, primops} from './primops';
+import { FixedEval, FixedTrace, getMapSetCalls, PrimopApplication, PrimopId, primops} from './primops';
 import { AtomicLiteral, isAsync, isBooleaniteral, isFunctionLikeDeclaration, isLiteral } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
@@ -431,7 +431,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'fetch': inaccessibleProperty('fetch'),
 }
 
-type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }) => AbstractResult
+type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractResult
 const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
     unimplementedRes(`Unable to get element of ${printNodeAndPos(cons)}`);
 const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
@@ -446,7 +446,7 @@ const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos })
         return fixed_eval(func.body);
     })
 }
-const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
+const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
     if (!ts.isCallExpression(cons)) {
         return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
@@ -459,8 +459,28 @@ const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos
         return fixed_eval(cons.expression);
     }).value.nodes;
     return nodeLatticeJoinMap(thisArrayConses, cons => nodesResult(
-        getElementNodesOfArrayValuedNode(cons, fixed_eval, printNodeAndPos)
+        getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos })
     ));
+}
+const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
+    if (!ts.isCallExpression(cons)) { // TODO: unify this with array filter
+        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const funcExpression = cons.expression;
+    const funcs = fixed_eval(funcExpression).value.nodes;
+    const thisMapConses = nodeLatticeJoinMap(funcs, cons => {
+        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Map#keys') {
+            return botResult;
+        }
+        return fixed_eval(cons.expression);
+    }).value.nodes;
+    const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
+        getMapSetCalls(fixed_trace(mapCons).value.nodes, { fixed_eval, printNodeAndPos })
+    );
+    return nodeLatticeJoinMap(setSites, site => {
+        const keyArg = (site as CallExpression).arguments[0];
+        return fixed_eval(keyArg)
+    });
 }
 export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
     'Array': inaccessibleElement,
@@ -485,7 +505,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'JSON.parse': inaccessibleElement,
     'Map#get': inaccessibleElement,
     'Map#keys': inaccessibleElement,
-    'Map#keys()': inaccessibleElement, // TODO
+    'Map#keys()': mapKeysEAG,
     'Map#set': inaccessibleElement,
     'Math': inaccessibleElement,
     'Math.floor': inaccessibleElement,

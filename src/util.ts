@@ -1,6 +1,6 @@
 import ts, { SyntaxKind } from 'typescript';
 import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, resultBind } from './abstract-results';
-import { FixedEval } from './primops';
+import { FixedEval, FixedTrace } from './primops';
 import { ArrayRef, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
@@ -52,14 +52,14 @@ export function unimplementedRes(message: string): AbstractResult {
     return unimplemented(message, botResult);
 }
 
-export function getElementNodesOfArrayValuedNode(node: ts.Node, fixed_eval: FixedEval, printNodeAndPos: NodePrinter): NodeLattice {
+export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
     const conses = fixed_eval(node).value.nodes;
     return nodeLatticeFlatMap(conses, cons => {
         if (ts.isArrayLiteralExpression(cons)) {
             const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
             return nodeLatticeFlatMap(elements, element => {
                 if (ts.isSpreadElement(element)) {
-                    const subElements = getElementNodesOfArrayValuedNode(element.expression, fixed_eval, printNodeAndPos);
+                    const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos });
                     return subElements;
                 }
 
@@ -67,7 +67,7 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, fixed_eval: Fixe
             })
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, printNodeAndPos }).value.nodes;
+            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos }).value.nodes;
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
