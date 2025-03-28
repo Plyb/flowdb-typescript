@@ -319,7 +319,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
     'Array#filter': nodeResult,
     'Array#filter()': uncallable('Array#filter()'),
-    'Array#find': nodeResult, // TODO
+    'Array#find': uncallable('Array#find'), // TODO
     'Array#includes': nodeResult,
     'Array#includes()': uncallable('Array#includes()'),
     'Array#indexOf': nodeResult,
@@ -336,15 +336,15 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
     'JSON.parse': () => topResult,
-    'Map#get': nodeResult, // TODO
-    'Map#keys': nodeResult, // TODO
+    'Map#get': uncallable('Map#get'), // TODO
+    'Map#keys': uncallable('Map#keys'), // TODO
     'Map#keys()': uncallable('Map#keys()'),
-    'Map#set': nodeResult, // TODO
+    'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
     'Math.floor': nodeResult,
     'Math.floor()': uncallable('Math.floor()'),
     'Object': uncallable('Object'),
-    'Object.freeze': nodeResult, // TODO
+    'Object.freeze': uncallable('Object.freeze'), // TODO
     'Object.assign': uncallable('Object.assign'), // TODO
     'RegExp#test': nodeResult,
     'RegExp#test()': uncallable('RegExp#test()'),
