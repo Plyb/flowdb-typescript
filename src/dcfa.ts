@@ -432,7 +432,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     }
 
     function getPosText(node: ts.Node) {
-        const { line, character } = ts.getLineAndCharacterOfPosition(program.getSourceFiles()[0], node.pos);
+        const { line, character } = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.pos);
         return line + ':' + character
     }
 }
