@@ -498,9 +498,9 @@ function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, i
     function getShorthandPropertyAssignmentInitializer() {
         const shorthandPropAssignment = reversedProps.find(prop =>
             ts.isShorthandPropertyAssignment(prop) && prop.name.text === idName
-        ) as ShorthandPropertyAssignment;
+        );
 
-        return shorthandPropAssignment.name;
+        return shorthandPropAssignment?.name;
     }
 
     return getPropertyAssignmentInitializer()
