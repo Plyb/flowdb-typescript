@@ -2,7 +2,7 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, NodePrinter } from './ts-utils';
 import { empty, setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, Top, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
@@ -95,11 +95,11 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
     }
 
     function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
-        const expressionValue = fixed_eval(call.expression)
+        const expressionValue = fixed_eval(call.expression);
         const builtInConstructorsForExpression = setFilter(
             expressionValue,
-            node => !isTop(node) && isBuiltInConstructorShaped(node)
-        ) as any as SimpleSet<BuiltInConstructor>; // TODO: deal with this as any
+            isBuiltInConstructorShaped
+        );
         if (builtInConstructorsForExpression.size() !== 1) {
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
@@ -117,7 +117,11 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
 /**
  * If a node is shaped like a built in constructor and is a value, it is a built in constructor
  */
-export function isBuiltInConstructorShaped(node: ts.Node): node is BuiltInConstructor {
+export function isBuiltInConstructorShaped(node: ts.Node | Top): node is BuiltInConstructor {
+    if (isTop(node)) {
+        return false;
+    }
+
     return ts.isPropertyAccessExpression(node)
         || ts.isIdentifier(node)
         || ts.isBinaryExpression(node)

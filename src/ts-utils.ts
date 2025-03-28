@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 
 
-export type NodePrinter = (node: ts.Node) => string // TODO move this somewhere better
+export type NodePrinter = (node: ts.Node) => string
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
