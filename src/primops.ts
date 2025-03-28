@@ -3,9 +3,8 @@ import { AbstractValue, getElementNodesOfArrayValuedNode, NodeLattice, NodeLatti
 import { empty, setSift } from './setUtil';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped } from './value-constructors';
 import { NodePrinter } from './ts-utils';
+import { FixedEval } from './dcfa';
 
-export type FixedEval = (node: ts.Node) => AbstractValue;
-export type FixedTrace = (node: ts.Node) => AbstractValue;
 export type PrimopApplication = ts.CallExpression | ts.BinaryExpression;
 
 export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }): NodeLattice {

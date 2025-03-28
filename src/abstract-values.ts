@@ -4,8 +4,8 @@ import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from 
 import { structuralComparator } from './comparators'
 import { unimplemented } from './util';
 import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
-import { FixedEval, FixedTrace } from './primops';
 import { NodePrinter } from './ts-utils';
+import { FixedEval, FixedTrace } from './dcfa';
 
 export type AbstractValue = NodeLattice;
 
