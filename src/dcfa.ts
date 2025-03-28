@@ -33,12 +33,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         });
     
         // "eval"
-        function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {
-            // const overriddenResult = getOverriddenResult(node);
-            // if (overriddenResult) {
-            //     return overriddenResult;
-            // }
-    
+        function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractResult>): AbstractResult {    
             if (isFunctionLikeDeclaration(node)) {
                 return nodeResult(node);
             } else if (ts.isCallExpression(node)) {
@@ -62,6 +57,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     }
                 });
             } else if (ts.isIdentifier(node) && node.text == 'undefined') { // `undefined` is represented in the AST just as a special identifier, so we need to check for this before we look for other identifiers
+                // TODO: I think we can treat this like a built in
                 return nodeResult(node);
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
@@ -468,27 +464,4 @@ function isOperatorOf(op: ts.Node, call: ts.CallExpression) {
 
 function getArgumentIndex(call: ts.CallExpression, arg: ts.Node) {
     return call.arguments.indexOf(arg as Expression);
-}
-
-function getOverriddenResult(node: ts.Node): false | AbstractResult {
-    // in the long run, probably need a better way than just checking ids, since ids are used all over the place
-    if (ts.isIdentifier(node)) {
-        if (node.text === 'Math') {
-            return nodeResult(node);
-        } else if (node.text === 'fetch') {
-            return nodeResult(node);
-        } else if (node.text === 'JSON') {
-            return nodeResult(node);
-        } else if (node.text === 'Date') {
-            return nodeResult(node);
-        } else if (node.text === 'Object') {
-            return nodeResult(node);
-        } else if (node.text === 'Array') {
-            return nodeResult(node);
-        } else if (node.text === 'console') {
-            return nodeResult(node);
-        }
-    }
-
-    return false;
 }

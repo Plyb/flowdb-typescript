@@ -1,12 +1,11 @@
-import ts, { Identifier } from 'typescript';
+import ts from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { makeDcfaComputer } from './dcfa';
 import { AbstractResult, joinAll } from './abstract-results';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { structuralComparator } from './comparators';
-import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap } from './abstract-values';
+import { empty, setFilter, setFlatMap, setMap, union } from './setUtil';
+import { isTop, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
