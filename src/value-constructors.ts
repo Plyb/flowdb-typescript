@@ -227,6 +227,7 @@ const builtInValuesObject = {
     'Math.floor()': true,
     'Object': true,
     'Object.freeze': true,
+    'Object.assign': true,
     'RegExp#test': true,
     'RegExp#test()': true,
     'String#includes': true,
@@ -344,6 +345,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Math.floor()': uncallable('Math.floor()'),
     'Object': uncallable('Object'),
     'Object.freeze': nodeResult, // TODO
+    'Object.assign': uncallable('Object.assign'), // TODO
     'RegExp#test': nodeResult,
     'RegExp#test()': uncallable('RegExp#test()'),
     'String#includes': nodeResult,
@@ -369,13 +371,19 @@ type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression) => Abstra
 function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
     return (pa) => unimplementedRes(`Unable to get property ${name}.${pa.name.text}`) 
 }
-function builtInStaticMethod(name: BuiltInValue & string): PropertyAccessGetter {
-    const methodName = name.split('.')[1];
+function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
+    const [typeName, methodName] = name.split('.');
     return (pa) => pa.name.text === methodName
         ? nodeResult(pa)
-        : inaccessibleProperty(name)(pa);
+        : inaccessibleProperty(typeName as BuiltInValue)(pa);
 }
-
+function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
+    const [typeName] = names[0].split('.');
+    const methodNames = names.map(name => name.split('.')[1]);
+    return (pa) => methodNames.some(methodName => pa.name.text === methodName)
+        ? nodeResult(pa)
+        : inaccessibleProperty(typeName as BuiltInValue)(pa);
+}
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pa) => {
         const isBuiltInProtoMethod = getBuiltInMethod(typeName, pa.name.text)
@@ -412,8 +420,9 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Math': builtInStaticMethod('Math.floor'),
     'Math.floor': inaccessibleProperty('Math.floor'),
     'Math.floor()': inaccessibleProperty('Math.floor()'),
-    'Object': builtInStaticMethod('Object.freeze'),
+    'Object': builtInStaticMethods('Object.freeze', 'Object.assign'),
     'Object.freeze': inaccessibleProperty('Object.freeze'),
+    'Object.assign': inaccessibleProperty('Object.assign'),
     'RegExp#test': inaccessibleProperty('RegExp#test'),
     'RegExp#test()': inaccessibleProperty('RegExp#test()'),
     'String#includes': inaccessibleProperty('String#includes'),
@@ -512,6 +521,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Math.floor()': inaccessibleElement,
     'Object': inaccessibleElement,
     'Object.freeze': inaccessibleElement,
+    'Object.assign': inaccessibleElement,
     'RegExp#test': inaccessibleElement,
     'RegExp#test()': inaccessibleElement,
     'String#includes': inaccessibleElement,
