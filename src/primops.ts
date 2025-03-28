@@ -1,6 +1,6 @@
 import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
-import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, objectResult, primopResult, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, primopValue, stringValue, subsumes } from './abstract-values';
+import { AbstractResult, anyObjectResult, arrayResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, promiseResult, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, stringValue, subsumes } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setSift } from './setUtil';

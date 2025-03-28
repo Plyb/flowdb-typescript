@@ -8,20 +8,17 @@ import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBu
 
 export type AbstractResult = {
     value: AbstractValue,
-    objectStore: ObjectStore,
     promiseStore: PromiseStore,
     arrayStore: ArrayStore,
 }
 
 export const botResult: AbstractResult = {
     value: botValue,
-    objectStore: new Map(),
     promiseStore: new Map(),
     arrayStore: new Map(),
 }
 export const topResult: AbstractResult = {
     value: topValue,
-    objectStore: new Map(),
     promiseStore: new Map(),
     arrayStore: new Map(),
 }
@@ -42,16 +39,6 @@ export function literalResult(node: AtomicLiteral): AbstractResult {
     return {
         ...botResult,
         value: literalValue(node),
-    }
-}
-export function objectResult(node: ts.ObjectLiteralExpression, obj: AbstractObject, existingStores: AbstractResult = botResult): AbstractResult {
-    const value = objectValue(node);
-    const map = new Map(existingStores.objectStore)
-    map.set(node, obj);
-    return {
-        ...existingStores,
-        value,
-        objectStore: map,
     }
 }
 export function promiseResult(promiseSource: PromiseRef, resultToWrap: AbstractResult): AbstractResult {
@@ -108,7 +95,6 @@ export function join(a: AbstractResult, b: AbstractResult): AbstractResult {
 export function joinStores(a: AbstractResult, b: AbstractResult): AbstractResult {
     return {
         value: botValue,
-        objectStore: mergeMaps(a.objectStore, b.objectStore),
         promiseStore: mergeMaps(a.promiseStore, b.promiseStore),
         arrayStore: mergeMaps(a.arrayStore, b.arrayStore),
     }
@@ -268,7 +254,6 @@ export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node
         ...abstractResult.value.primops.elements,
         ...(abstractResult.value.null ? ['null'] : []),
         ...(abstractResult.value.undefined ? ['undefined'] : []),
-        abstractResult.objectStore,
         abstractResult.promiseStore,
         abstractResult.arrayStore,
       ]
