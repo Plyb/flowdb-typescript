@@ -161,7 +161,7 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
                     console.warn(`Unknown object property assignment`)
                 }
             }
-            return unimplementedRes(`Unable to find object property ${property}`)
+            return unimplementedRes(`Unable to find object property ${printNodeAndPos(property)}`)
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
             return resultOfPropertyAccess[builtInValue](access);
