@@ -13,8 +13,8 @@ export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNode
         if (!(ts.isPropertyAccessExpression(access))) {
             return false;
         }
-        const accessResult = fixed_eval(access);
-        if (!nodeLatticeSome(accessResult, cons =>
+        const accessConses = fixed_eval(access);
+        if (!nodeLatticeSome(accessConses, cons =>
                 isBuiltInConstructorShaped(cons)
                 && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) === 'Map#set'
             )

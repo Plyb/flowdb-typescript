@@ -4,8 +4,8 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
-import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue } from './abstract-values';
-import { isBareSpecifier, unimplemented, unimplementedVal } from './util';
+import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
+import { isBareSpecifier, unimplemented } from './util';
 import { primopBinderGetters } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 
@@ -16,7 +16,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
     const valueOf = makeFixpointComputer(botValue, {
         printArgs: printNode,
-        printRet: result => pretty(result, printNode).toString() 
+        printRet: val => pretty(val, printNode).toString() 
     });
     
     return function dcfa(node: ts.Node) {
@@ -45,8 +45,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return nodeValue(op.modifiers[0])
                         } else {
                             const body: ts.Node = op.body;
-                            const result = fix_run(abstractEval, body);
-                            return result;
+                            return fix_run(abstractEval, body);
                         }
                     } else if (isBuiltInConstructorShaped(op)) {
                         const builtInValue = getBuiltInValueOfBuiltInConstructor(op, node => fix_run(abstractEval, node), printNode);
@@ -113,8 +112,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return topValue;
             } else if (ts.isElementAccessExpression(node)) {
                 const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval: node => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
-                const elementResults = nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
-                return elementResults;
+                return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
                 return nodeValue(node);
             } else if (isNullLiteral(node)) {
@@ -131,9 +129,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             } else if (ts.isTemplateExpression(node)) {
                 return nodeValue(node);
             } else if (ts.isConditionalExpression(node)) {
-                const trueResult = fix_run(abstractEval, node.whenTrue);
-                const falseResult = fix_run(abstractEval, node.whenFalse);
-                return joinValue(trueResult, falseResult)
+                const thenValue = fix_run(abstractEval, node.whenTrue);
+                const elseValue = fix_run(abstractEval, node.whenFalse);
+                return joinValue(thenValue, elseValue)
             }
             return unimplementedVal(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }
@@ -214,7 +212,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return getReferences(destructedName);
                         })
                     }
-                    return unimplementedVal(`Unknown result for obtaining ${parent.name.text} from object at ${printNode(returnLocParent)} @ ${getPosText(returnLocParent)}`);
+                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNode(returnLocParent)} @ ${getPosText(returnLocParent)}`);
                 })
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
@@ -317,9 +315,9 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
                     
-                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
+                    const argsValues = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
 
-                    return getObjectsPropertyInitializers(argsResults, symbol.name);
+                    return getObjectsPropertyInitializers(argsValues, symbol.name);
                 }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
                 const moduleSpecifier = ts.isImportClause(declaration)

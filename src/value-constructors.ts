@@ -3,9 +3,9 @@ import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
 import { isFunctionLikeDeclaration } from './ts-utils';
 import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue } from './abstract-values';
+import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { unimplemented, unimplementedVal } from './util';
+import { unimplemented } from './util';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -95,9 +95,9 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
     }
 
     function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
-        const expressionResult = fixed_eval(call.expression)
+        const expressionValue = fixed_eval(call.expression)
         const builtInConstructorsForExpression = setFilter(
-            expressionResult,
+            expressionValue,
             node => !isTop(node) && isBuiltInConstructorShaped(node)
         ) as any as SimpleSet<BuiltInConstructor>; // TODO: deal with this as any
         if (builtInConstructorsForExpression.size() !== 1) {

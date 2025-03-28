@@ -2,7 +2,7 @@ import ts from 'typescript'
 import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
 import { structuralComparator } from './comparators'
-import { unimplemented, unimplementedVal } from './util';
+import { unimplemented } from './util';
 import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, NodePrinter, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { FixedEval, FixedTrace } from './primops';
 
@@ -61,9 +61,9 @@ export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) 
 }
 
 export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractValue {
-    const expressionResult = fixed_eval(access.expression);
+    const expressionConses = fixed_eval(access.expression);
     const property = access.name;
-    return nodeLatticeJoinMap(expressionResult, cons => {
+    return nodeLatticeJoinMap(expressionConses, cons => {
         if (ts.isObjectLiteralExpression(cons)) {
             for (const prop of cons.properties) {
                 if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
@@ -121,4 +121,8 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fi
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
     });
+}
+
+export function unimplementedVal(message: string): AbstractValue {
+    return unimplemented(message, botValue);
 }
