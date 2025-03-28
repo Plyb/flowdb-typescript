@@ -29,17 +29,6 @@ export function nodesResult(nodes: NodeLattice): AbstractResult {
         value: nodesValue(nodes),
     }
 }
-export function literalResult(node: AtomicLiteral): AbstractResult {
-    return {
-        ...botResult,
-        value: literalValue(node),
-    }
-}
-
-export const anyObjectResult = {
-    ...botResult,
-    value: { ...botValue, objects: top }
-};
 
 export function result(value: AbstractValue): AbstractResult {
     return {

@@ -1,10 +1,7 @@
-import ts, { BinaryOperator, CallExpression, SyntaxKind } from 'typescript';
-import { AbstractResult, anyObjectResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
-import { anyBooleanValue, anyDateValue, anyNumberValue, ArrayRef, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, stringValue, subsumes } from './abstract-values';
-import { structuralComparator } from './comparators';
-import { SimpleSet } from 'typescript-super-set';
+import ts, { CallExpression } from 'typescript';
+import { AbstractResult, botResult, join, nodeLatticeJoinMap, nodeLatticeSome, result, resultBind, resultBind2, resultFrom, setJoinMap, topResult } from './abstract-results';
+import { anyBooleanValue, anyDateValue, anyNumberValue, booleanValue, FlatLatticeKey, MapRef, NodeLattice, NodeLatticeElem, nodeLatticeMap, numberValue, stringValue, subsumes } from './abstract-values';
 import { empty, setFilter, setSift } from './setUtil';
-import { SimpleFunctionLikeDeclaration } from './ts-utils';
 import { getElementNodesOfArrayValuedNode } from './util';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
 
