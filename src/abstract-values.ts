@@ -14,22 +14,6 @@ export type NodeLattice = SimpleSet<NodeLatticeElem>;
 
 export type Top = { __topBrand: true }
 
-export type ObjectRef = ts.ObjectLiteralExpression
-export type AbstractObject = { [key: string]: AbstractValue }
-export type ObjectStore = Map<ObjectRef, AbstractObject>
-
-export type PromiseRef = SimpleFunctionLikeDeclaration | PrimopApplication;
-export type AbstractPromise = {
-    resolvesTo: AbstractValue
-}
-export type PromiseStore = Map<PromiseRef, AbstractPromise>
-
-export type ArrayRef = ts.ArrayLiteralExpression | PrimopApplication;
-export type AbstractArray = { element: AbstractValue }
-export type ArrayStore = Map<ArrayRef, AbstractArray>
-
-export type MapRef = ts.NewExpression;
-
 export const top: Top = { __topBrand: true }
 
 export const botValue: AbstractValue = {
@@ -41,13 +25,11 @@ export const topValue: AbstractValue = {
 
 export function nodeValue(node: ts.Node): AbstractValue {
     return {
-        ...botValue,
         nodes: singleton<NodeLatticeElem>(node),
     }
 }
 export function nodesValue(nodes: NodeLattice): AbstractValue {
     return {
-        ...botValue,
         nodes,
     }
 }
@@ -59,10 +41,6 @@ export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
 }
 export function joinAllValues(...values: AbstractValue[]): AbstractValue {
     return values.reduce(joinValue, botValue);
-}
-
-export function subsumes(a: AbstractValue, b: AbstractValue) {
-    return a.nodes.hasAll(...b.nodes)
 }
 
 export function isTop(lattice: any): lattice is Top {
