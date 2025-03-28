@@ -6,8 +6,8 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
 import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
-import { FixedEval, FixedTrace, primopBinderGetters } from './primops';
-import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
+import { FixedEval, FixedTrace } from './primops';
+import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractValue {
     const program = service.getProgram()!;

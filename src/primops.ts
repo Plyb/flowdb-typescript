@@ -32,24 +32,3 @@ export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNode
     });
     return setSift(callSitesOrFalses);
 }
-
-type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => NodeLattice;
-
-type PrimopBinderGetters = {
-    [id: string]: PrimopFunctionArgParamBinderGetter
-}
-
-export const primopBinderGetters: PrimopBinderGetters = { // TODO: fill this out and make it type safe
-    'Array#map': arrayMapArgBinderGetter
-}
-
-function arrayMapArgBinderGetter(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) {
-    if (this === undefined) {
-        throw new Error();
-    }
-    
-    if (primopArgIndex != 0 || argParameterIndex != 0) {
-        return empty<NodeLatticeElem>();
-    }
-    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos });
-}

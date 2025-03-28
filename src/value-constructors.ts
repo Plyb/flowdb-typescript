@@ -1,9 +1,9 @@
 import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
 import { isFunctionLikeDeclaration, NodePrinter } from './ts-utils';
-import { setFilter } from './setUtil';
+import { empty, setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { unimplemented } from './util';
 
@@ -374,4 +374,68 @@ export function getBuiltInMethod(proto: BuiltInProto, methodName: string) {
         const [valType, valMethod] = val.split('#');
         return proto === valType && valMethod === methodName;
     });
+}
+
+
+type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractValue;
+type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
+const getBot = () => botValue;
+const notSupported = (name: BuiltInValue) => () => unimplementedVal(`Unimplemented function arg param binder getter for ${name}`);
+export const primopBinderGetters: PrimopBinderGetters = {
+    'Array': notSupported('Array'),
+    'Array#filter': notSupported('Array#filter'),
+    'Array#filter()': notSupported('Array#filter()'),
+    'Array#find': notSupported('Array#find'),
+    'Array#includes': notSupported('Array#includes'),
+    'Array#includes()': notSupported('Array#includes()'),
+    'Array#indexOf': notSupported('Array#indexOf'),
+    'Array#indexOf()': notSupported('Array#indexOf()'),
+    'Array#join': notSupported('Array#join'),
+    'Array#join()': notSupported('Array#join()'),
+    'Array#map': arrayMapABG,
+    'Array#map()': notSupported('Array'),
+    'Array#some': notSupported('Array#some'),
+    'Array#some()': notSupported('Array#some()'),
+    'Array.from': notSupported('Array.from'),
+    'Date': notSupported('Date'),
+    'Date.now': notSupported('Date.now'),
+    'Date.now()': notSupported('Date.now()'),
+    'JSON': notSupported('JSON'),
+    'JSON.parse': notSupported('JSON.parse'),
+    'Map#get': notSupported('Map#get'),
+    'Map#keys': notSupported('Map#keys'),
+    'Map#keys()': notSupported('Map#keys()'),
+    'Map#set': notSupported('Map#set'),
+    'Math': notSupported('Math'),
+    'Math.floor': notSupported('Math.floor'),
+    'Math.floor()': notSupported('Math.floor()'),
+    'Object': notSupported('Object'),
+    'Object.freeze': notSupported('Object.freeze'),
+    'Object.assign': notSupported('Object.assign'),
+    'RegExp#test': notSupported('RegExp#test'),
+    'RegExp#test()': notSupported('RegExp#test()'),
+    'String#includes': notSupported('String#includes'),
+    'String#includes()': notSupported('String#includes()'),
+    'String#match': notSupported('String#match'),
+    'String#match()': notSupported('String#match()'),
+    'String#split': notSupported('String#split'),
+    'String#split()': notSupported('String#split()'),
+    'String#substring': notSupported('String#substring'),
+    'String#substring()': notSupported('String#substring()'),
+    'String#toLowerCase': notSupported('String#toLowerCase'),
+    'String#toLowerCase()': notSupported('String#toLowerCase()'),
+    'String#trim': notSupported('String#trim'),
+    'String#trim()': notSupported('String#trim()'),
+    'fetch': notSupported('fetch'),
+    'undefined': notSupported('undefined'),
+}
+function arrayMapABG(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) {
+    if (this === undefined) {
+        throw new Error();
+    }
+    
+    if (primopArgIndex != 0 || argParameterIndex != 0) {
+        return empty<NodeLatticeElem>();
+    }
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos });
 }
