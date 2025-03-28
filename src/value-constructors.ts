@@ -337,7 +337,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'JSON': uncallable('JSON'),
     'JSON.parse': () => topResult,
     'Map#get': uncallable('Map#get'), // TODO
-    'Map#keys': uncallable('Map#keys'), // TODO
+    'Map#keys': nodeResult,
     'Map#keys()': uncallable('Map#keys()'),
     'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
