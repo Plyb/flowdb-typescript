@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
 import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
-import { FixedEval, primopBinderGetters } from './primops';
+import { FixedEval, FixedTrace, primopBinderGetters } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractValue {
@@ -15,8 +15,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     const printer = ts.createPrinter();
 
     const valueOf = makeFixpointComputer(botValue, {
-        printArgs: printNode,
-        printRet: val => pretty(val, printNode).toString() 
+        printArgs: printNodeAndPos,
+        printRet: val => pretty(val, printNodeAndPos).toString() 
     });
     
     return function dcfa(node: ts.Node) {
@@ -24,7 +24,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         if (node === undefined) {
             throw new Error('no node at that position')
         }
-        console.info(`dcfa for: ${printNode(node)}`)
+        console.info(`dcfa for: ${printNodeAndPos(node)}`)
     
         return valueOf({
             func: abstractEval,
@@ -34,6 +34,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         // "eval"
         function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractValue>): AbstractValue {    
             const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
             if (isFunctionLikeDeclaration(node)) {
                 return nodeValue(node);
@@ -50,10 +51,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return fix_run(abstractEval, body);
                         }
                     } else if (isBuiltInConstructorShaped(op)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNode);
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos);
                         return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
-                        return unimplementedVal(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
+                        return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
                 });
             } else if (ts.isIdentifier(node)) {
@@ -63,7 +64,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 } else if (idIsBuiltIn(node)) {
                     return nodeValue(node);
                 } else {
-                    return unimplementedVal(`Could not find binding for ${printNode(node)} @ ${getPosText(node)}`)
+                    return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
             } else if (ts.isParenthesizedExpression(node)) {
                 return fix_run(abstractEval, node.expression);
@@ -85,14 +86,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                return getObjectProperty(node, fixed_eval, printNode);
+                return getObjectProperty(node, fixed_eval, printNodeAndPos);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return nodeLatticeJoinMap(expressionValue, cons => {
                     if (isAsyncKeyword(cons)) {
                         const sourceFunction = cons.parent;
                         if (!isFunctionLikeDeclaration(sourceFunction)) {
-                            return unimplementedVal(`Expected ${printNode(sourceFunction)} @ ${getPosText(sourceFunction)} to be the source of a promise value`);
+                            return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
                         }
                         return fix_run(abstractEval, sourceFunction.body);
                     } else {
@@ -110,7 +111,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                  */
                 return topValue;
             } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos });
                 return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
                 return nodeValue(node);
@@ -123,7 +124,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
                     return joinValue(lhsRes, rhsRes);
                 } else {
-                    return unimplementedVal(`Unimplemented binary expression ${printNode(node)} @ ${getPosText(node)}`);
+                    return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                 }
             } else if (ts.isTemplateExpression(node)) {
                 return nodeValue(node);
@@ -183,7 +184,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
             } else if (ts.isPropertyAccessExpression(parent)) {
                 if (node != parent.expression) {
-                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNode(node)} @ ${getPosText(node)} `)
+                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
                 }
 
                 return botValue;
@@ -199,19 +200,19 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             const destructedName = parameterName.elements.find(elem => 
                                 ts.isIdentifier(elem.name)
                                     ? elem.name.text === parent.name.text
-                                    : unimplemented(`Nested binding patterns unimplemented: ${printNode(elem)} @ ${getPosText(elem)}`, empty())
+                                    : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
                             )?.name;
                             if (destructedName === undefined) {
-                                return unimplemented(`Unable to find destructed identifier in ${printNode(parameterName)} @ ${getPosText(parameterName)}`, empty())
+                                return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
                             }
                             if (!ts.isIdentifier(destructedName)) {
-                                return unimplemented(`Expected a simple binding name ${printNode(destructedName)} @ ${getPosText(destructedName)}`, empty())
+                                return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
                             }
 
                             return getReferences(destructedName);
                         })
                     }
-                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNode(returnLocParent)} @ ${getPosText(returnLocParent)}`);
+                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
                 })
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
@@ -269,7 +270,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
             if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
                 if (!idIsBuiltIn(id)) {
-                    return unimplemented(`Expected ${printNode(id)} @ ${getPosText(id)} to be built in`, empty());
+                    return unimplemented(`Expected ${printNodeAndPos(id)} to be built in`, empty());
                 }
                 return empty();
             }
@@ -279,6 +280,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
         function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractValue>): NodeLattice {
             const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
@@ -293,7 +295,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
+                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -389,14 +391,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                                 return empty();
                             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNode);
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
                             const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
                             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
                                 ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode }]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos }]);
                         }) as NodeLattice;
                     }
                 );
@@ -408,7 +410,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         function getObjectsPropertyInitializers(objConstructors: NodeLattice, idName: string): NodeLattice {
             return nodeLatticeFlatMap(objConstructors, objConstructor => {
                 if (!ts.isObjectLiteralExpression(objConstructor)) {
-                    return unimplemented(`Destructuring non-object literals not yet implemented: ${printNode(objConstructor)} @ ${getPosText(objConstructor)}`, empty());
+                    return unimplemented(`Destructuring non-object literals not yet implemented: ${printNodeAndPos(objConstructor)}`, empty());
                 }
 
                 const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
@@ -418,6 +420,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     : empty<NodeLatticeElem>();
             });
         }
+    }
+
+    function printNodeAndPos(node: ts.Node): string {
+        return `${printNode(node)} @ ${getPosText(node)}`;
     }
     
     function printNode(node: ts.Node) {
