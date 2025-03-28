@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
 import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
-import { primopBinderGetters } from './primops';
+import { FixedEval, primopBinderGetters } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 
 export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractValue {
@@ -33,6 +33,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
         // "eval"
         function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractValue>): AbstractValue {    
+            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+
             if (isFunctionLikeDeclaration(node)) {
                 return nodeValue(node);
             } else if (ts.isCallExpression(node)) {
@@ -48,8 +50,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return fix_run(abstractEval, body);
                         }
                     } else if (isBuiltInConstructorShaped(op)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, node => fix_run(abstractEval, node), printNode);
-                        return resultOfCalling[builtInValue](node, { fixed_eval: node => fix_run(abstractEval, node) });
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNode);
+                        return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
                         return unimplementedVal(`Unknown kind of operator: ${printNode(op)} @ ${getPosText(op)}`);
                     }
@@ -57,7 +59,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             } else if (ts.isIdentifier(node)) {
                 const boundExprs = getBoundExprs(node, fix_run);
                 if (boundExprs.size() > 0) {
-                    return nodeLatticeJoinMap(boundExprs, boundExpr => fix_run(abstractEval, boundExpr));
+                    return nodeLatticeJoinMap(boundExprs, fixed_eval);
                 } else if (idIsBuiltIn(node)) {
                     return nodeValue(node);
                 } else {
@@ -83,7 +85,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                return getObjectProperty(node, node => fix_run(abstractEval, node), printNode);
+                return getObjectProperty(node, fixed_eval, printNode);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return nodeLatticeJoinMap(expressionValue, cons => {
@@ -108,7 +110,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                  */
                 return topValue;
             } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval: node => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
                 return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
                 return nodeValue(node);
@@ -276,6 +278,8 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         }
 
         function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractValue>): NodeLattice {
+            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
@@ -289,7 +293,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval: node => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
+                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -385,14 +389,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                                 return empty();
                             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, node => fix_run(abstractEval, node), printNode);
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNode);
                             const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
                             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
                                 ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval: (node) => fix_run(abstractEval, node), fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode }]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace: node => fix_run(getWhereValueReturned, node), printNodeAndPos: printNode }]);
                         }) as NodeLattice;
                     }
                 );
