@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractValue, botValue, isTop, joinValue, nodesValue, nodeValue, prettyFlatLattice, topValue, NodeLattice } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinValue, nodesValue, nodeValue, topValue, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { unimplementedRes } from './util';
 import { FixedEval } from './primops';
