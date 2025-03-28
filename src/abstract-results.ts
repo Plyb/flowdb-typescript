@@ -1,7 +1,6 @@
 import ts from 'typescript';
-import { AbstractValue, botValue, FlatLattice, isBottom, isTop, joinValue, FlatLatticeKey, literalValue, nodesValue, nodeValue, prettyFlatLattice, topValue, top, bot, NodeLattice } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinValue, nodesValue, nodeValue, prettyFlatLattice, topValue, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
-import { AtomicLiteral } from './ts-utils';
 import { unimplementedRes } from './util';
 import { FixedEval } from './primops';
 import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfPropertyAccess } from './value-constructors';
@@ -90,20 +89,7 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
 }
 
 export function pretty(abstractResult: AbstractResult, printNode: (node: ts.Node) => string): any[] {
-    return [
-        ...abstractResult.value.nodes.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem)),
-        ...prettyFlatLattice(abstractResult.value.strings, 'STRING'),
-        ...prettyFlatLattice(abstractResult.value.numbers, 'NUMBER'),
-        ...prettyFlatLattice(abstractResult.value.booleans, 'BOOLEAN'),
-        ...prettyFlatLattice(abstractResult.value.dates, 'DATE'),
-        ...prettyFlatLattice(abstractResult.value.regexps, 'REGEXP'),
-        ...prettyFlatLattice(abstractResult.value.objects, 'OBJECT'),
-        ...prettyFlatLattice(abstractResult.value.promises, 'PROMISE'),
-        ...prettyFlatLattice(abstractResult.value.arrays, 'ARRAY'),
-        ...prettyFlatLattice(abstractResult.value.maps, 'MAP'),
-        ...(abstractResult.value.null ? ['null'] : []),
-        ...(abstractResult.value.undefined ? ['undefined'] : []),
-      ]
+    return abstractResult.value.nodes.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem))
 }
 
 export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node) => AbstractResult): AbstractResult {
