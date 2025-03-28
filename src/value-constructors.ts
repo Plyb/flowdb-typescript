@@ -273,37 +273,30 @@ const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos })
     })
 }
 const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
-    if (!ts.isCallExpression(cons)) {
-        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
-    }
-    const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression);
-    const thisArrayConses = nodeLatticeJoinMap(funcs, cons => {
-        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Array#filter') {
-            return botValue;
-        }
-        return fixed_eval(cons.expression);
-    });
+    const thisArrayConses = getCallExpressionExpressionOfValue(cons, 'Array#filter', { fixed_eval, printNodeAndPos });
     return nodeLatticeJoinMap(thisArrayConses, cons => getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos }));
 }
 const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
-    if (!ts.isCallExpression(cons)) { // TODO: unify this with array filter
-        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
-    }
-    const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression);
-    const thisMapConses = nodeLatticeJoinMap(funcs, cons => {
-        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Map#keys') {
-            return botValue;
-        }
-        return fixed_eval(cons.expression);
-    });
+    const thisMapConses = getCallExpressionExpressionOfValue(cons, 'Map#keys', { fixed_eval, printNodeAndPos });
     const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
         getMapSetCalls(fixed_trace(mapCons), { fixed_eval, printNodeAndPos })
     );
     return nodeLatticeJoinMap(setSites, site => {
         const keyArg = (site as CallExpression).arguments[0];
         return fixed_eval(keyArg)
+    });
+}
+function getCallExpressionExpressionOfValue(cons: BuiltInConstructor, val: BuiltInValue, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter}) {
+    if (!ts.isCallExpression(cons)) {
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const funcExpression = cons.expression;
+    const funcs = fixed_eval(funcExpression);
+    return nodeLatticeJoinMap(funcs, cons => {
+        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== val) {
+            return botValue;
+        }
+        return fixed_eval(cons.expression);
     });
 }
 export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
