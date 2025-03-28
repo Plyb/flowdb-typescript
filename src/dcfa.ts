@@ -4,9 +4,8 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
-import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, topValue } from './abstract-values';
-import { getObjectProperty, nodeLatticeJoinMap, pretty } from './abstract-results';
-import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedVal } from './util';
+import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, getObjectProperty, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue } from './abstract-values';
+import { isBareSpecifier, unimplemented, unimplementedVal } from './util';
 import { primopBinderGetters } from './primops';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, resultOfCalling } from './value-constructors';
 

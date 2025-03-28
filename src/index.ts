@@ -1,8 +1,8 @@
 import ts from 'typescript';
 import * as path from 'path';
 import fs from 'fs';
-import { pretty } from './abstract-results';
 import { analyze } from './analysis';
+import { pretty } from './abstract-values';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number) {
   const rootFolder = path.resolve(__dirname, pathString)

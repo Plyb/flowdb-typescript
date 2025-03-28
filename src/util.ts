@@ -49,25 +49,3 @@ export function unimplemented<T>(message: string, returnVal: T): T {
 export function unimplementedVal(message: string): AbstractValue {
     return unimplemented(message, botValue);
 }
-
-export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
-    const conses = fixed_eval(node);
-    return nodeLatticeFlatMap(conses, cons => {
-        if (ts.isArrayLiteralExpression(cons)) {
-            const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
-            return nodeLatticeFlatMap(elements, element => {
-                if (ts.isSpreadElement(element)) {
-                    const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos });
-                    return subElements;
-                }
-
-                return singleton<NodeLatticeElem>(element);
-            })
-        } else if (isBuiltInConstructorShaped(cons)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos });
-        } else {
-            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
-        }
-    });
-}

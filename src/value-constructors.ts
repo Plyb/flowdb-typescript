@@ -3,10 +3,9 @@ import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
 import { isFunctionLikeDeclaration } from './ts-utils';
 import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isTop, nodeLatticeFlatMap, nodeValue, topValue } from './abstract-values';
+import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { nodeLatticeJoinMap } from './abstract-results';
-import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedVal } from './util';
+import { unimplemented, unimplementedVal } from './util';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 

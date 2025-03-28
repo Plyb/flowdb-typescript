@@ -26,3 +26,6 @@ export function empty<T>(comparator: Comparator<T> = structuralComparator) {
 export function setFlatMap<T, R>(set: SimpleSet<T>, f: (a: T) => SimpleSet<R>, rComparator: Comparator<R> = structuralComparator): SimpleSet<R> {
   return new SimpleSet(rComparator, ...set.elements.flatMap((elem) => f(elem).elements));
 }
+export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
+    return set.elements.some(predicate);
+}

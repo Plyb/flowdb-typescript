@@ -1,8 +1,6 @@
 import ts from 'typescript';
-import { nodeLatticeSome } from './abstract-results';
-import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeMap } from './abstract-values';
+import { AbstractValue, getElementNodesOfArrayValuedNode, NodeLattice, NodeLatticeElem, nodeLatticeMap, nodeLatticeSome } from './abstract-values';
 import { empty, setSift } from './setUtil';
-import { getElementNodesOfArrayValuedNode } from './util';
 import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, NodePrinter } from './value-constructors';
 
 export type FixedEval = (node: ts.Node) => AbstractValue;
