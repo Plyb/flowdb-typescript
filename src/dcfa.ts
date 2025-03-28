@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient } from './ts-utils';
-import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodesValue, nodeValue, topValue } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeMap, nodeValue, topValue } from './abstract-values';
 import { getObjectProperty, nodeLatticeJoinMap, pretty } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, isBareSpecifier, unimplemented, unimplementedVal } from './util';
 import { primopBinderGetters } from './primops';
@@ -38,7 +38,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                 return nodeValue(node);
             } else if (ts.isCallExpression(node)) {
                 const operator: ts.Node = node.expression;
-                const possibleOperators = fix_run(abstractEval, operator).nodes;
+                const possibleOperators = fix_run(abstractEval, operator);
 
                 return nodeLatticeJoinMap(possibleOperators, (op) => {
                     if (isFunctionLikeDeclaration(op)) {
@@ -90,7 +90,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
     
                 return getObjectProperty(node, node => fix_run(abstractEval, node), printNode);
             } else if (ts.isAwaitExpression(node)) {
-                const expressionValue = fix_run(abstractEval, node.expression).nodes;
+                const expressionValue = fix_run(abstractEval, node.expression);
                 return nodeLatticeJoinMap(expressionValue, cons => {
                     if (isAsyncKeyword(cons)) {
                         const sourceFunction = cons.parent;
@@ -142,12 +142,10 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         // "expr"
         function getWhereValueApplied(node: ts.Node, fix_run: FixRunFunc<Node, AbstractValue>): AbstractValue {
             const operatorSites = nodeLatticeFilter(
-                getWhereValueReturned(node, fix_run).nodes,
+                getWhereValueReturned(node, fix_run),
                 func => ts.isCallExpression(func.parent) && isOperatorOf(func, func.parent)
             );
-            return nodesValue(
-                nodeLatticeMap(operatorSites, op => op.parent)
-            )
+            return nodeLatticeMap(operatorSites, op => op.parent);
         }
     
         function getWhereValueReturned(node: ts.Node, fix_run: FixRunFunc<Node, AbstractValue>): AbstractValue {
@@ -167,7 +165,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     );
                 }
             } else if (isFunctionLikeDeclaration(parent)) {
-                const closedOverSites = fix_run(getWhereClosed, node).nodes;
+                const closedOverSites = fix_run(getWhereClosed, node);
                 return nodeLatticeJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
             } else if (ts.isParenthesizedExpression(parent)) {
                 return fix_run(getWhereValueReturned, parent);
@@ -194,7 +192,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
 
                 return botValue;
             } else if (ts.isShorthandPropertyAssignment(parent)) {
-                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent).nodes;
+                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
                 return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
                     const returnLocParent = returnLoc.parent;
                     if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
@@ -228,7 +226,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     abstractEval, parent.expression
                 );
 
-                const possibleFunctions = nodeLatticeFilter(possibleOperators.nodes, isFunctionLikeDeclaration);
+                const possibleFunctions = nodeLatticeFilter(possibleOperators, isFunctionLikeDeclaration);
                 const parameterReferences = nodeLatticeJoinMap(
                     possibleFunctions,
                     (func) => {
@@ -236,7 +234,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         const refs = getReferencesFromParameter(parameterName);
                         return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                     }
-                ).nodes;
+                );
                 return nodeLatticeJoinMap(parameterReferences, (parameterRef) => fix_run(getWhereValueReturned, parameterRef));
             }
         }
@@ -315,12 +313,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
                     }
     
-                    const objectConses = fix_run(abstractEval, initializer).nodes;
+                    const objectConses = fix_run(abstractEval, initializer);
                     return getObjectsPropertyInitializers(objectConses, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
                     const args = getArgumentsForParameter(bindingElementSource);
                     
-                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg)).nodes;
+                    const argsResults = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
 
                     return getObjectsPropertyInitializers(argsResults, symbol.name);
                 }
@@ -370,12 +368,12 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
         
                 const definingFunctionCallSites = fix_run(
                     getWhereClosed, definingFunctionBody
-                ).nodes;
+                );
                 const boundFromArgs =  setMap(definingFunctionCallSites, (callSite) => {
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
 
-                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction).nodes;
+                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
                 const boundFromPrimop = nodeLatticeFlatMap(
                     sitesWhereDeclaringFunctionReturned,
                     (node) => {
@@ -383,7 +381,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                         if (!ts.isCallExpression(callSiteWhereArg)) {
                             return empty<NodeLatticeElem>();
                         }
-                        const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression).nodes;
+                        const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression);
                         const consumerConses = setFilter(consumerValues, value => {
                             return !isTop(value);
                         }) as SimpleSet<ts.Node>;

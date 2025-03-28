@@ -1,13 +1,9 @@
 import ts from 'typescript'
 import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil'
-import { SimpleFunctionLikeDeclaration } from './ts-utils'
-import { PrimopApplication } from './primops'
 import { structuralComparator } from './comparators'
 
-export type AbstractValue = {
-    nodes: NodeLattice,
-}
+export type AbstractValue = NodeLattice;
 
 export type NodeLatticeElem = ts.Node | Top;
 export type NodeLattice = SimpleSet<NodeLatticeElem>;
@@ -16,28 +12,15 @@ export type Top = { __topBrand: true }
 
 export const top: Top = { __topBrand: true }
 
-export const botValue: AbstractValue = {
-    nodes: empty(),
-}
-export const topValue: AbstractValue = {
-    nodes: singleton<NodeLatticeElem>(top),
-}
+export const botValue: AbstractValue = empty();
+export const topValue: AbstractValue = singleton<NodeLatticeElem>(top);
 
 export function nodeValue(node: ts.Node): AbstractValue {
-    return {
-        nodes: singleton<NodeLatticeElem>(node),
-    }
-}
-export function nodesValue(nodes: NodeLattice): AbstractValue {
-    return {
-        nodes,
-    }
+    return singleton<NodeLatticeElem>(node);
 }
 
 export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
-    return {
-        nodes: union(a.nodes, b.nodes),
-    };
+    return union(a, b);
 }
 export function joinAllValues(...values: AbstractValue[]): AbstractValue {
     return values.reduce(joinValue, botValue);

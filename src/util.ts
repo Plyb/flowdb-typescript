@@ -51,7 +51,7 @@ export function unimplementedVal(message: string): AbstractValue {
 }
 
 export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
-    const conses = fixed_eval(node).nodes;
+    const conses = fixed_eval(node);
     return nodeLatticeFlatMap(conses, cons => {
         if (ts.isArrayLiteralExpression(cons)) {
             const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
@@ -65,7 +65,7 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fi
             })
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos }).nodes;
+            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos });
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }

@@ -3,7 +3,7 @@ import { FixedEval, FixedTrace, getMapSetCalls } from './primops';
 import { isFunctionLikeDeclaration } from './ts-utils';
 import { setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isTop, nodeLatticeFlatMap, nodesValue, nodeValue, topValue } from './abstract-values';
+import { AbstractValue, botValue, isTop, nodeLatticeFlatMap, nodeValue, topValue } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { nodeLatticeJoinMap } from './abstract-results';
 import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedVal } from './util';
@@ -98,7 +98,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
     function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
         const expressionResult = fixed_eval(call.expression)
         const builtInConstructorsForExpression = setFilter(
-            expressionResult.nodes,
+            expressionResult,
             node => !isTop(node) && isBuiltInConstructorShaped(node)
         ) as any as SimpleSet<BuiltInConstructor>; // TODO: deal with this as any
         if (builtInConstructorsForExpression.size() !== 1) {
@@ -259,7 +259,7 @@ const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos })
     if (!ts.isCallExpression(cons)) {
         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
-    const argFuncs = fixed_eval(cons.arguments[0]).nodes;
+    const argFuncs = fixed_eval(cons.arguments[0]);
     return nodeLatticeJoinMap(argFuncs, func => {
         if (!isFunctionLikeDeclaration(func)) {
             return unimplementedVal(`Expected ${printNodeAndPos(func)} to be a function`);
@@ -272,31 +272,29 @@ const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, pr
         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression).nodes;
+    const funcs = fixed_eval(funcExpression);
     const thisArrayConses = nodeLatticeJoinMap(funcs, cons => {
         if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Array#filter') {
             return botValue;
         }
         return fixed_eval(cons.expression);
-    }).nodes;
-    return nodeLatticeJoinMap(thisArrayConses, cons => nodesValue(
-        getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos })
-    ));
+    });
+    return nodeLatticeJoinMap(thisArrayConses, cons => getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos }));
 }
 const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
     if (!ts.isCallExpression(cons)) { // TODO: unify this with array filter
         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
-    const funcs = fixed_eval(funcExpression).nodes;
+    const funcs = fixed_eval(funcExpression);
     const thisMapConses = nodeLatticeJoinMap(funcs, cons => {
         if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Map#keys') {
             return botValue;
         }
         return fixed_eval(cons.expression);
-    }).nodes;
+    });
     const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
-        getMapSetCalls(fixed_trace(mapCons).nodes, { fixed_eval, printNodeAndPos })
+        getMapSetCalls(fixed_trace(mapCons), { fixed_eval, printNodeAndPos })
     );
     return nodeLatticeJoinMap(setSites, site => {
         const keyArg = (site as CallExpression).arguments[0];

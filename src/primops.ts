@@ -16,7 +16,7 @@ export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNode
             return false;
         }
         const accessResult = fixed_eval(access);
-        if (!nodeLatticeSome(accessResult.nodes, cons =>
+        if (!nodeLatticeSome(accessResult, cons =>
                 isBuiltInConstructorShaped(cons)
                 && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) === 'Map#set'
             )

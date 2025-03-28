@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { AbstractValue, botValue, isTop, joinValue, nodesValue, nodeValue, topValue, NodeLattice } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinValue, nodeValue, topValue, NodeLattice } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { unimplementedVal } from './util';
 import { FixedEval } from './primops';
@@ -17,7 +17,7 @@ export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
 export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractValue {
     const expressionResult = fixed_eval(access.expression);
     const property = access.name;
-    return nodeLatticeJoinMap(expressionResult.nodes, cons => {
+    return nodeLatticeJoinMap(expressionResult, cons => {
         if (ts.isObjectLiteralExpression(cons)) {
             for (const prop of cons.properties) {
                 if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
@@ -56,7 +56,7 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
 }
 
 export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) => string): any[] {
-    return abstractValue.nodes.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem))
+    return abstractValue.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem))
 }
 
 export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node) => AbstractValue): AbstractValue {

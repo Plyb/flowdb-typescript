@@ -71,7 +71,7 @@ function findAllFunctionsCalledInBody(node: NodeLatticeElem, dcfa: (node: ts.Nod
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
         dcfa(callExpression.expression)
     );
-    return nodeLatticeFilter(joinAllValues(...valuesOfCallExpressionOperators).nodes, isFunctionLikeDeclaration);
+    return nodeLatticeFilter(joinAllValues(...valuesOfCallExpressionOperators), isFunctionLikeDeclaration);
 }
 
 function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
