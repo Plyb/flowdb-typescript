@@ -3,10 +3,10 @@ import { FixedEval, PrimopApplication, PrimopId, primops} from './primops';
 import { AtomicLiteral, isAsync, isBooleaniteral, isFunctionLikeDeclaration, isLiteral } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isTop, nodeLatticeFlatMap, top } from './abstract-values';
+import { botValue, isTop, nodeLatticeFlatMap, top } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, topResult } from './abstract-results';
-import { unimplemented, unimplementedRes } from './util';
+import { AbstractResult, botResult, nodeLatticeJoinMap, nodeResult, nodesResult, topResult } from './abstract-results';
+import { getElementNodesOfArrayValuedNode, unimplemented, unimplementedRes } from './util';
 
 type ValueConstructor =
 | AtomicLiteral
@@ -446,10 +446,26 @@ const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos })
         return fixed_eval(func.body);
     })
 }
+const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
+    if (!ts.isCallExpression(cons)) {
+        return unimplementedRes(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const funcExpression = cons.expression;
+    const funcs = fixed_eval(funcExpression).value.nodes;
+    const thisArrayConses = nodeLatticeJoinMap(funcs, cons => {
+        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== 'Array#filter') {
+            return botResult;
+        }
+        return fixed_eval(cons.expression);
+    }).value.nodes;
+    return nodeLatticeJoinMap(thisArrayConses, cons => nodesResult(
+        getElementNodesOfArrayValuedNode(cons, fixed_eval, printNodeAndPos)
+    ));
+}
 export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
     'Array': inaccessibleElement,
     'Array#filter': inaccessibleElement,
-    'Array#filter()': inaccessibleElement, // TODO,
+    'Array#filter()': arrayFilterEAG,
     'Array#find': inaccessibleElement,
     'Array#includes': inaccessibleElement,
     'Array#includes()': inaccessibleElement,
