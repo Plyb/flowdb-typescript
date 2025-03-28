@@ -2,11 +2,11 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, NodePrinter } from './ts-utils';
 import { empty, setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, getElementNodesOfArrayValuedNode, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
-import { getMapSetCalls } from './primops';
+import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 

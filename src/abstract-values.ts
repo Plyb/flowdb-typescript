@@ -3,9 +3,6 @@ import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
 import { structuralComparator } from './comparators'
 import { unimplemented } from './util';
-import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
-import { NodePrinter } from './ts-utils';
-import { FixedEval, FixedTrace } from './dcfa';
 
 export type AbstractValue = NodeLattice;
 
@@ -59,69 +56,6 @@ export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node)
 
 export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) => string): any[] {
     return abstractValue.elements.map(elem => isTop(elem) ? 'ANY NODE' : printNode(elem))
-}
-
-export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractValue {
-    const expressionConses = fixed_eval(access.expression);
-    const property = access.name;
-    return nodeLatticeJoinMap(expressionConses, cons => {
-        if (ts.isObjectLiteralExpression(cons)) {
-            for (const prop of cons.properties) {
-                if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
-                    console.warn(`Expected identifier for property`);
-                    continue;
-                }
-
-                if (prop.name.text !== property.text) {
-                    continue;
-                }
-
-                if (ts.isPropertyAssignment(prop)) {
-                    return fixed_eval(prop.initializer);
-                } else if (ts.isShorthandPropertyAssignment(prop)) {
-                    return fixed_eval(prop.name)
-                } else {
-                    console.warn(`Unknown object property assignment`)
-                }
-            }
-            return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
-        } else if (isBuiltInConstructorShaped(cons)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
-            return resultOfPropertyAccess[builtInValue](access);
-        } else {
-            const proto = getProtoOf(cons, printNodeAndPos);
-            if (proto === null) {
-                return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
-            }
-            const method = getBuiltInMethod(proto, property.text);
-            if (method === undefined) {
-                return unimplementedVal(`${property.text} is not a property of ${printNodeAndPos(cons)}`);
-            }
-            return nodeValue(access);
-        }
-    })
-}
-
-export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
-    const conses = fixed_eval(node);
-    return nodeLatticeFlatMap(conses, cons => {
-        if (ts.isArrayLiteralExpression(cons)) {
-            const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
-            return nodeLatticeFlatMap(elements, element => {
-                if (ts.isSpreadElement(element)) {
-                    const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos });
-                    return subElements;
-                }
-
-                return singleton<NodeLatticeElem>(element);
-            })
-        } else if (isBuiltInConstructorShaped(cons)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos });
-        } else {
-            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
-        }
-    });
 }
 
 export function unimplementedVal(message: string): AbstractValue {
