@@ -12,7 +12,7 @@ import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
 
-export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) => AbstractValue {
+export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration): (node: ts.Node) => AbstractValue {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
     const printer = ts.createPrinter();
@@ -54,13 +54,22 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                             return fix_run(abstractEval, body);
                         }
                     } else if (isBuiltInConstructorShaped(op)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos);
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
                         return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
                         return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
                 });
             } else if (ts.isIdentifier(node)) {
+                if (ts.isParameter(node.parent)) {
+                    // I believe we will only get here if the node is the parameter of the target function,
+                    // but let's do a sanity check just to make sure.
+                    if (node.parent.parent !== targetFunction) {
+                        return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                    }
+                    return nodeValue(node);
+                }
+
                 const boundExprs = getBoundExprs(node, fix_run);
                 if (boundExprs.size() > 0) {
                     return nodeLatticeJoinMap(boundExprs, fixed_eval);
@@ -89,7 +98,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                     return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                return getObjectProperty(node, fixed_eval, printNodeAndPos);
+                return getObjectProperty(node, fixed_eval, printNodeAndPos, targetFunction);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return nodeLatticeJoinMap(expressionValue, cons => {
@@ -114,7 +123,7 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                  */
                 return topValue;
             } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos });
+                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                 return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
                 return nodeValue(node);
@@ -292,13 +301,17 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
             }
 
             if (ts.isParameter(declaration)) {
+                if (declaration.parent === targetFunction) {
+                    return singleton<NodeLatticeElem>(declaration.name);
+                }
+
                 return getArgumentsForParameter(declaration);
             } else if (ts.isVariableDeclaration(declaration)) {
                 if (ts.isForOfStatement(declaration.parent.parent)) {
                     const forOfStatement = declaration.parent.parent;
                     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos });
+                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
@@ -394,14 +407,14 @@ export function makeDcfaComputer(service: ts.LanguageService): (node: ts.Node) =
                                 return empty();
                             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
                             const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
                             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
                                 ? callSiteWhereArg.expression.expression
                                 : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos }]);
+                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }]);
                         }) as NodeLattice;
                     }
                 );

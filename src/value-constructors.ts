@@ -1,5 +1,5 @@
 import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
-import { isFunctionLikeDeclaration, NodePrinter } from './ts-utils';
+import { isFunctionLikeDeclaration, NodePrinter, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { AbstractValue, botValue, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, Top, topValue, unimplementedVal } from './abstract-values';
@@ -57,6 +57,7 @@ const builtInValuesObject = {
     'String#match()': true,
     'fetch': true,
     'undefined': true,
+    '%ParameterSourced': true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
@@ -73,7 +74,11 @@ type BuiltInProto = keyof typeof builtInProtosObject;
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  * Note that this assumes there are no methods that share a name.
  */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, fixed_eval: FixedEval, printNodeAndPos: NodePrinter): BuiltInValue {
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
+    if (isParamSourced(builtInConstructor, fixed_eval, targetFunction)) {
+        return '%ParameterSourced';
+    }
+
     if (ts.isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
         const builtInValue = builtInValues.elements.find(val =>
@@ -104,7 +109,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
         const expressionConstructor = builtInConstructorsForExpression.elements[0];
-        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos);
+        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos, targetFunction);
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
@@ -117,7 +122,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
 /**
  * If a node is shaped like a built in constructor and is a value, it is a built in constructor
  */
-export function isBuiltInConstructorShaped(node: ts.Node | Top): node is BuiltInConstructor {
+export function isBuiltInConstructorShaped(node: NodeLatticeElem): node is BuiltInConstructor {
     if (isTop(node)) {
         return false;
     }
@@ -177,6 +182,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'String#trim()': uncallable('String#trim()'),
     'fetch': () => topValue,
     'undefined': uncallable('undefined'),
+    '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
@@ -255,9 +261,10 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'String#trim()': builtInProtoMethod('String'),
     'fetch': inaccessibleProperty('fetch'),
     'undefined': inaccessibleProperty('undefined'),
+    '%ParameterSourced': nodeValue,
 }
 
-type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractValue
+type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue
 const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
     unimplementedVal(`Unable to get element of ${printNodeAndPos(cons)}`);
 const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
@@ -272,28 +279,28 @@ const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos })
         return fixed_eval(func.body);
     })
 }
-const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
-    const thisArrayConses = getCallExpressionExpressionOfValue(cons, 'Array#filter', { fixed_eval, printNodeAndPos });
-    return nodeLatticeJoinMap(thisArrayConses, cons => getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos }));
+const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }) => {
+    const thisArrayConses = getCallExpressionExpressionOfValue(cons, 'Array#filter', { fixed_eval, printNodeAndPos, targetFunction });
+    return nodeLatticeJoinMap(thisArrayConses, cons => getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }));
 }
-const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos }) => {
-    const thisMapConses = getCallExpressionExpressionOfValue(cons, 'Map#keys', { fixed_eval, printNodeAndPos });
+const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }) => {
+    const thisMapConses = getCallExpressionExpressionOfValue(cons, 'Map#keys', { fixed_eval, printNodeAndPos, targetFunction });
     const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
-        getMapSetCalls(fixed_trace(mapCons), { fixed_eval, printNodeAndPos })
+        getMapSetCalls(fixed_trace(mapCons), { fixed_eval, printNodeAndPos, targetFunction })
     );
     return nodeLatticeJoinMap(setSites, site => {
         const keyArg = (site as CallExpression).arguments[0];
         return fixed_eval(keyArg)
     });
 }
-function getCallExpressionExpressionOfValue(cons: BuiltInConstructor, val: BuiltInValue, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter}) {
+function getCallExpressionExpressionOfValue(cons: BuiltInConstructor, val: BuiltInValue, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) {
     if (!ts.isCallExpression(cons)) {
         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
     const funcs = fixed_eval(funcExpression);
     return nodeLatticeJoinMap(funcs, cons => {
-        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) !== val) {
+        if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction) !== val) {
             return botValue;
         }
         return fixed_eval(cons.expression);
@@ -346,6 +353,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#trim()': inaccessibleElement,
     'fetch': inaccessibleElement,
     'undefined': inaccessibleElement,
+    '%ParameterSourced': inaccessibleElement, // TODO
 }
 
 /**
@@ -375,7 +383,7 @@ export function getBuiltInMethod(proto: BuiltInProto, methodName: string) {
 }
 
 
-type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) => AbstractValue;
+type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue;
 type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
 const getBot = () => botValue;
 const notSupported = (name: BuiltInValue) => () => unimplementedVal(`Unimplemented function arg param binder getter for ${name}`);
@@ -426,8 +434,9 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'String#trim()': notSupported('String#trim()'),
     'fetch': notSupported('fetch'),
     'undefined': notSupported('undefined'),
+    '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
 }
-function arrayMapABG(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }) {
+function arrayMapABG(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) {
     if (this === undefined) {
         throw new Error();
     }
@@ -435,5 +444,20 @@ function arrayMapABG(this: ts.Expression | undefined, primopArgIndex: number, ar
     if (primopArgIndex != 0 || argParameterIndex != 0) {
         return empty<NodeLatticeElem>();
     }
-    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos });
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+}
+
+function isParamSourced(node: BuiltInConstructor, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
+    if (ts.isIdentifier(node)) {
+        return ts.isParameter(node.parent) && node.parent.parent === targetFunction;
+    } else {
+        const expressionConses = fixed_eval(node.expression);
+        const builtInExpressionConses = setFilter(expressionConses, cons => isBuiltInConstructorShaped(cons));
+        if (builtInExpressionConses.size() === 0) {
+            return false;
+        } else if (builtInExpressionConses.size() > 1) {
+            return unimplemented(`Currently only handling single built in cons here`, false);
+        }
+        return isParamSourced(builtInExpressionConses.elements[0], fixed_eval, targetFunction);
+    }
 }

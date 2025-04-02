@@ -6,10 +6,10 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { NodePrinter } from './ts-utils';
+import { NodePrinter, SimpleFunctionLikeDeclaration } from './ts-utils';
 
 
-export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: (node: ts.Node) => string): AbstractValue {
+export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): AbstractValue {
     const expressionConses = fixed_eval(access.expression);
     const property = access.name;
     return nodeLatticeJoinMap(expressionConses, cons => {
@@ -34,7 +34,7 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
             }
             return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
         } else if (isBuiltInConstructorShaped(cons)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos);
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
             return resultOfPropertyAccess[builtInValue](access);
         } else {
             const proto = getProtoOf(cons, printNodeAndPos);
@@ -50,29 +50,29 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
     })
 }
 
-export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter }): NodeLattice {
+export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
     const conses = fixed_eval(node);
     return nodeLatticeFlatMap(conses, cons => {
         if (ts.isArrayLiteralExpression(cons)) {
             const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
             return nodeLatticeFlatMap(elements, element => {
                 if (ts.isSpreadElement(element)) {
-                    const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos });
+                    const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                     return subElements;
                 }
 
                 return singleton<NodeLatticeElem>(element);
             })
         } else if (isBuiltInConstructorShaped(cons)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos)
-            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos });
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction)
+            return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
     });
 }
 
-export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter }): NodeLattice {
+export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
         const access = site.parent;
         if (!(ts.isPropertyAccessExpression(access))) {
@@ -81,7 +81,7 @@ export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNode
         const accessConses = fixed_eval(access);
         if (!nodeLatticeSome(accessConses, cons =>
                 isBuiltInConstructorShaped(cons)
-                && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos) === 'Map#set'
+                && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction) === 'Map#set'
             )
         ) {
             return false;

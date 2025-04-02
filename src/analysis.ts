@@ -2,7 +2,6 @@ import ts from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { makeDcfaComputer } from './dcfa';
-import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, union } from './setUtil';
 import { AbstractValue, isTop, joinAllValues, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
 
@@ -22,10 +21,10 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error('expected function declaration');
     }
 
-    const dcfa = makeDcfaComputer(service);
+    const dcfa = makeDcfaComputer(service, node);
 
     const reachableFunctionsWithTops = getReachableFunctions(node, dcfa);
-    const reachableFunctions = setFilter(reachableFunctionsWithTops, elem => !isTop(elem)) as SimpleSet<ts.Node>;
+    const reachableFunctions = setFilter(reachableFunctionsWithTops, elem => !isTop(elem));
     const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions((func as SimpleFunctionLikeDeclaration).body));
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
