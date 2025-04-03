@@ -148,4 +148,8 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
     }
 }
 
+export function isPrismaQuery(node: ts.Node): boolean {
+    return !!getPrismaQuery(node);
+}
+
 export const Ambient = 2**25;
