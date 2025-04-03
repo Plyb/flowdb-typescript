@@ -30,7 +30,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         console.info(`dcfa for: ${printNodeAndPos(node)}`)
 
-        if (isPrismaQuery(node.parent)) {
+        if (isPrismaQuery(node.parent) && (node.parent as CallExpression).expression === node) {
             console.info('Short cicuiting because this is a prisma query');
             return empty<NodeLatticeElem>();
         }
