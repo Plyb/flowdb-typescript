@@ -72,7 +72,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   return results;
 }
 
-analyzeInboxZeroClean()
+analyzeInboxZero()
 
 function analyzePlayground() {
   console.log((runAnalysis('../../examples/playground', './test.ts', 3, 6)).elements)
@@ -80,4 +80,8 @@ function analyzePlayground() {
 
 function analyzeInboxZeroClean() {
   console.log(runAnalysis('../../examples/inbox-zero-clean', './test.ts', 86010, 6).elements)
+}
+
+function analyzeInboxZero() {
+  console.log(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6).elements)
 }
