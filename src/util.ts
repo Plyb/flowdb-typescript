@@ -14,6 +14,7 @@ function isRelativeSpecifier(moduleSpecifier: string) {
     return moduleSpecifier.startsWith('/')
         || moduleSpecifier.startsWith('./')
         || moduleSpecifier.startsWith('../')
+        || moduleSpecifier.startsWith('@/');
 }
 
 function isUrl(str: string) {

@@ -8,6 +8,7 @@ import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, 
 import { isBareSpecifier, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-value-utils';
+import { last } from 'lodash';
 
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
@@ -359,12 +360,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
 
                 const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
-                const trueDeclaration = aliasedSymbol.valueDeclaration ?? aliasedSymbol.declarations?.[0];
-                if (trueDeclaration === undefined) {
-                    return unimplemented('unable to follow import statement through', empty());
-                }
-
-                return singleton<NodeLatticeElem>(trueDeclaration);
+                return getBoundExprsOfSymbol(aliasedSymbol, fix_run);
             } else if (ts.isShorthandPropertyAssignment(declaration)) {
                 const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
                 if (shorthandValueSymbol === undefined) {
@@ -448,8 +444,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     }
 
     function getPosText(node: ts.Node) {
-        const { line, character } = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.pos);
-        return line + ':' + character
+        const sf = node.getSourceFile();
+        const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
+        return `${line}:${character}:${last(sf.fileName.split('/'))}`
     }
 }
     
