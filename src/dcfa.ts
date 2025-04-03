@@ -386,7 +386,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const definingFunctionCallSites = fix_run(
                     getWhereClosed, definingFunctionBody
                 );
-                const boundFromArgs =  setMap(definingFunctionCallSites, (callSite) => {
+                const boundFromArgs =  nodeLatticeMap(definingFunctionCallSites, (callSite) => {
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
 
