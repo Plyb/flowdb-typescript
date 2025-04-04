@@ -11,6 +11,10 @@ export type NodePrinter = (node: ts.Node) => string
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
+        if (position === node.getStart(sourceFile)) {
+            return node;
+        }
+
         if (position >= node.getStart(sourceFile) && position < node.getEnd()) {
             return ts.forEachChild(node, find) || node;
         }
