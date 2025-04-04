@@ -120,7 +120,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isArrayLiteralExpression(node)) {
                 return nodeValue(node);
             } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+                const elementExpressions = getElementNodesOfArrayValuedNode(node.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                 return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
                 return nodeValue(node);
