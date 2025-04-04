@@ -53,7 +53,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return nodeLatticeJoinMap(possibleOperators, (op) => {
                     if (isFunctionLikeDeclaration(op)) {
                         if (isAsync(op)) {
-                            return nodeValue(op.modifiers[0])
+                            return nodeValue(op.modifiers!.find(isAsyncKeyword)!)
                         } else {
                             const body: ts.Node = op.body;
                             return fix_run(abstractEval, body);

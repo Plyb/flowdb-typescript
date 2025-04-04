@@ -85,10 +85,7 @@ export function isAsyncKeyword(node: ts.Node | undefined): node is AsyncKeyword 
     return node?.kind === SyntaxKind.AsyncKeyword;
 }
 export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunctionLikeDeclarationAsync {
-    if (node.modifiers?.slice(1).some(isAsyncKeyword)) {
-        console.warn('Async keyword found in non-0 position')
-    }
-    return isAsyncKeyword(node.modifiers?.[0]) ?? false;
+    return node.modifiers?.some(isAsyncKeyword) ?? false;
 }
 export function isNullLiteral(node: ts.Node): node is NullLiteral {
     return node.kind === SyntaxKind.NullKeyword;
