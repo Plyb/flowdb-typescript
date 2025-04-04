@@ -31,5 +31,8 @@ export function setFlatMap<T, R>(set: SimpleSet<T>, f: (a: T) => SimpleSet<R>, r
   return new SimpleSet(rComparator, ...set.elements.flatMap((elem) => f(elem).elements));
 }
 export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
-    return set.elements.some(predicate);
+  return set.elements.some(predicate);
+}
+export function setMinus<T>(a: SimpleSet<T>, b: SimpleSet<T>, comparator: Comparator<T> = structuralComparator): SimpleSet<T> {
+  return new SimpleSet(comparator, ...a.elements.filter(elem => !b.has(elem)));
 }
