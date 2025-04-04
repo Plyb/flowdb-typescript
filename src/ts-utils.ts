@@ -4,6 +4,7 @@ import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
 import { pretty } from './abstract-values';
+import { last } from 'lodash';
 
 
 export type NodePrinter = (node: ts.Node) => string
@@ -158,7 +159,7 @@ export function isPrismaQuery(node: ts.Node): boolean {
 export const Ambient = 2**25;
 
 
-export function getServiceAndPrettyShow(rootFolder: string) {
+export function getService(rootFolder: string) {
     const configFile = ts.readConfigFile(path.join(rootFolder, 'tsconfig.json'), ts.sys.readFile);
     const { options, fileNames } = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootFolder);
 
@@ -185,19 +186,20 @@ export function getServiceAndPrettyShow(rootFolder: string) {
         getDirectories: ts.sys.getDirectories,
     };
     const service = ts.createLanguageService(servicesHost, ts.createDocumentRegistry());
-    const printer = ts.createPrinter();
-    function printNode(node: ts.Node) {
-        const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-        return printer.printNode(ts.EmitHint.Unspecified, node, sf);
-    }
 
-    function prettyPrint(item) {
-        if (typeof item === 'object') {
-            console.log(pretty(item, printNode));
-        } else {
-            console.log(item);
-        }
-    }
+    return service
+}
 
-    return { service, prettyPrint }
+const printer = ts.createPrinter();    
+export function printNodeAndPos(node: ts.Node): string {
+    return `${printNode(node)} @ ${getPosText(node)}`;
+}
+function printNode(node: ts.Node) {
+    const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+    return printer.printNode(ts.EmitHint.Unspecified, node, sf);
+}
+export function getPosText(node: ts.Node) {
+    const sf = node.getSourceFile();
+    const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
+    return `${line}:${character}:${last(sf.fileName.split('/'))}`
 }

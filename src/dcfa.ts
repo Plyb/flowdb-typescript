@@ -3,12 +3,11 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery } from './ts-utils';
+import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText } from './ts-utils';
 import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-value-utils';
-import { last } from 'lodash';
 
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
@@ -439,20 +438,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     }
 
-    function printNodeAndPos(node: ts.Node): string {
-        return `${printNode(node)} @ ${getPosText(node)}`;
-    }
     
-    function printNode(node: ts.Node) {
-        const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-        return printer.printNode(ts.EmitHint.Unspecified, node, sf);
-    }
-
-    function getPosText(node: ts.Node) {
-        const sf = node.getSourceFile();
-        const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
-        return `${line}:${character}:${last(sf.fileName.split('/'))}`
-    }
 }
     
 function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, idName: string): ts.Node | undefined {

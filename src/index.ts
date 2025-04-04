@@ -1,11 +1,11 @@
 import path from 'path';
 import { analyze } from './analysis';
-import { getServiceAndPrettyShow } from './ts-utils';
+import { getService } from './ts-utils';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number) {
   const rootFolder = path.resolve(__dirname, pathString);
   const file = path.resolve(rootFolder, fileString);
-  const { service, prettyPrint } = getServiceAndPrettyShow(rootFolder);
+  const service = getService(rootFolder);
 
   function justCompute(item: string) {
     if (!item.startsWith('compute')) {
@@ -15,7 +15,6 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   }
 
   // console.info = () => undefined
-  console.info = prettyPrint
   // console.info = justCompute
 
   const results = analyze(service, file, line, column);
