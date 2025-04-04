@@ -9,9 +9,9 @@ import { last } from 'lodash';
 
 export type NodePrinter = (node: ts.Node) => string
 
-export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
+export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
-        if (position === node.getStart(sourceFile)) {
+        if (position === node.getStart(sourceFile) && (length === undefined || node.end - node.pos === length)) {
             return node;
         }
 

@@ -273,7 +273,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             const refNodes = refs.map(ref => getNodeAtPosition(
                 program.getSourceFile(ref.fileName)!,
-                ref.textSpan?.start!
+                ref.textSpan!.start,
+                ref.textSpan!.length,
             )!);
             return new SimpleSet<NodeLatticeElem>(structuralComparator, ...refNodes);
         }
