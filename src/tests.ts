@@ -1,8 +1,6 @@
 /**
  * Things to do:
- * - Eval for every supported node type
- * - Trace for every supported node type
- *  - call with standard param and destructured param
+ * - bind because that's complicated
  * - Prisma queries
  */
 
@@ -71,6 +69,15 @@ export function runTests() {
         testRes(43, 26), // template expression
         testRes(44, 33), // conditional expr then branch
         testRes(44, 40), // conditional expr else branch
+        // GetWhereValueReturned tests
+        testRes(45, 35), // call expression
+        testRes(46, 52), // body of function
+        testRes(47, 37), // parenthesized expression
+        librRes(16, 14), // variable declaration
+        testRes(49, 29), // function declaration
+                         // for of (test shouldn't come up with anything)
+        testRes(51, 48), // property access
+        testRes(52, 60), // shorthand property assignment (for calls)
     );
 
     const missingResults = setMinus(expectedResults, results);
