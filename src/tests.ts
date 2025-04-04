@@ -1,9 +1,3 @@
-/**
- * Things to do:
- * - bind because that's complicated
- * - Prisma queries
- */
-
 import path from 'path';
 import { getNodeAtPosition, getService, printNodeAndPos } from './ts-utils';
 import { analyze } from './analysis';
@@ -35,7 +29,7 @@ export function runTests() {
     }
 
     const expectedResults = new SimpleSet<NodeLatticeElem>(structuralComparator,
-        // AbstractEval tests
+        // abstractEval tests
         testRes(14, 26), // num
         testRes(15, 26), // arrow func
         testRes(16, 26), // function expr
@@ -69,7 +63,7 @@ export function runTests() {
         testRes(43, 26), // template expression
         testRes(44, 33), // conditional expr then branch
         testRes(44, 40), // conditional expr else branch
-        // GetWhereValueReturned tests
+        // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
         testRes(47, 37), // parenthesized expression
@@ -78,6 +72,7 @@ export function runTests() {
                          // for of (test shouldn't come up with anything)
         testRes(51, 48), // property access
         testRes(52, 60), // shorthand property assignment (for calls)
+        // getBoundExprs tests
     );
 
     const missingResults = setMinus(expectedResults, results);
