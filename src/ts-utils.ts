@@ -1,6 +1,9 @@
 import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
+import path from 'path';
+import fs from 'fs';
+import { pretty } from './abstract-values';
 
 
 export type NodePrinter = (node: ts.Node) => string
@@ -153,3 +156,48 @@ export function isPrismaQuery(node: ts.Node): boolean {
 }
 
 export const Ambient = 2**25;
+
+
+export function getServiceAndPrettyShow(rootFolder: string) {
+    const configFile = ts.readConfigFile(path.join(rootFolder, 'tsconfig.json'), ts.sys.readFile);
+    const { options, fileNames } = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootFolder);
+
+    const files: ts.MapLike<{version: number}> = Object
+        .fromEntries(fileNames.map(fileName => [fileName, { version: 0 }]));
+    const servicesHost: ts.LanguageServiceHost = {
+        getScriptFileNames: () => fileNames,
+        getScriptVersion: fileName =>
+            files[fileName] && files[fileName].version.toString(),
+        getScriptSnapshot: fileName => {
+            if (!fs.existsSync(fileName)) {
+                return undefined;
+            }
+
+            return ts.ScriptSnapshot.fromString(fs.readFileSync(fileName).toString());
+        },
+        getCurrentDirectory: () => process.cwd(),
+        getCompilationSettings: () => ({...options, types: []}),
+        getDefaultLibFileName: options => ts.getDefaultLibFilePath(options),
+        fileExists: ts.sys.fileExists,
+        readFile: ts.sys.readFile,
+        readDirectory: ts.sys.readDirectory,
+        directoryExists: ts.sys.directoryExists,
+        getDirectories: ts.sys.getDirectories,
+    };
+    const service = ts.createLanguageService(servicesHost, ts.createDocumentRegistry());
+    const printer = ts.createPrinter();
+    function printNode(node: ts.Node) {
+        const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+        return printer.printNode(ts.EmitHint.Unspecified, node, sf);
+    }
+
+    function prettyShow(item) {
+        if (typeof item === 'object') {
+            console.log(pretty(item, printNode));
+        } else {
+            console.log(item);
+        }
+    }
+
+    return { service, prettyShow }
+}
