@@ -5,7 +5,7 @@ import { getServiceAndPrettyShow } from './ts-utils';
 function runAnalysis(pathString: string, fileString: string, line: number, column: number) {
   const rootFolder = path.resolve(__dirname, pathString);
   const file = path.resolve(rootFolder, fileString);
-  const { service, prettyShow } = getServiceAndPrettyShow(rootFolder);
+  const { service, prettyPrint } = getServiceAndPrettyShow(rootFolder);
 
   function justCompute(item: string) {
     if (!item.startsWith('compute')) {
@@ -15,7 +15,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   }
 
   // console.info = () => undefined
-  console.info = prettyShow
+  console.info = prettyPrint
   // console.info = justCompute
 
   const results = analyze(service, file, line, column);

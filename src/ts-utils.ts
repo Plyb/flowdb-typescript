@@ -191,7 +191,7 @@ export function getServiceAndPrettyShow(rootFolder: string) {
         return printer.printNode(ts.EmitHint.Unspecified, node, sf);
     }
 
-    function prettyShow(item) {
+    function prettyPrint(item) {
         if (typeof item === 'object') {
             console.log(pretty(item, printNode));
         } else {
@@ -199,5 +199,5 @@ export function getServiceAndPrettyShow(rootFolder: string) {
         }
     }
 
-    return { service, prettyShow }
+    return { service, prettyPrint }
 }
