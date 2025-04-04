@@ -145,7 +145,7 @@ function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No resu
 type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => AbstractValue
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
-    'Array#filter': nodeValue,
+    'Array#filter': uncallable('Array#filter'), // TODO
     'Array#filter()': uncallable('Array#filter()'),
     'Array#find': uncallable('Array#find'), // TODO
     'Array#includes': nodeValue,

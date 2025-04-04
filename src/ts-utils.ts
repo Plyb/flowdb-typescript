@@ -199,8 +199,7 @@ export function printNodeAndPos(node: NodeLatticeElem): string {
     return `${printNode(node)} @ ${getPosText(node)}`;
 }
 function printNode(node: ts.Node) {
-    const sf = ts.createSourceFile('temp.ts', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-    return printer.printNode(ts.EmitHint.Unspecified, node, sf);
+    return printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
 }
 export function getPosText(node: ts.Node) {
     const sf = node.getSourceFile();
