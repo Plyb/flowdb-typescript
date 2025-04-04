@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter } from './ts-utils';
-import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, top, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-value-utils';
@@ -119,14 +119,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 })
             } else if (ts.isArrayLiteralExpression(node)) {
                 return nodeValue(node);
-            } else if (ts.isImportClause(node) || ts.isImportSpecifier(node)) {
-                /**
-                 * I believe we should only get here if we're trying to eval something that
-                 * depends on an imported package that uses a bare specifier (or the client
-                 * has directly requested the value of an import statement). In that case,
-                 * for simplicity's sake for now, we're just going to say it could be anything.
-                 */
-                return topValue;
             } else if (ts.isElementAccessExpression(node)) {
                 const elementExpressions = getElementNodesOfArrayValuedNode(node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                 return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
@@ -354,14 +346,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
     
                 if (isBareSpecifier(moduleSpecifier.text)) {
-                    /**
-                     * This is a little bit of a hack. Here we're saying "bare specified modules
-                     * (those that are imported as packages) are 'bound' by themselves", which
-                     * abstractEval will interpret as `topValue`, so that we don't need to dig
-                     * into a bunch of package internals. Maybe I'll come up with a better way
-                     * later, but this is good enough for now.
-                     */
-                    return singleton<NodeLatticeElem>(declaration);
+                    return singleton<NodeLatticeElem>(top);
                 }
 
                 const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
