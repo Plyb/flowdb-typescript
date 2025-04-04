@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { makeDcfaComputer } from './dcfa';
-import { empty, setFilter, setFlatMap, setMap, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { AbstractValue, isTop, joinAllValues, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
@@ -45,7 +45,7 @@ function getReachableFunctions(node: SimpleFunctionLikeDeclaration, dcfa: (node:
             directlyCalledFunctions,
             (func) => fix_run(compute, func)
         )
-        return union(directlyCalledFunctions, functionsCalledInDirectlyCalledFunctions);
+        return union(singleton<NodeLatticeElem>(node), functionsCalledInDirectlyCalledFunctions);
     }
     
     function getFuncName(func: NodeLatticeElem) {
