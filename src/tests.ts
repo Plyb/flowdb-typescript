@@ -27,13 +27,13 @@ export function runTests() {
     const service = getService(rootFolder);
 
     const oldConsoleInfo = console.info;
-    // console.info = () => undefined;
+    console.info = () => undefined;
 
     const results = setFlatMap(analyze(service, file, 8, 0), res => res.argument);
 
     const testFile = service.getProgram()!.getSourceFile(file)!;
     const expectedResults = new SimpleSet<NodeLatticeElem>(structuralComparator,
-        getNodeAtPosition(testFile, ts.getPositionOfLineAndCharacter(testFile, 9, 24))!, // 42
+        getNodeAtPosition(testFile, ts.getPositionOfLineAndCharacter(testFile, 14, 15))!, // 42
     );
 
     const missingResults = setMinus(expectedResults, results);
@@ -45,6 +45,7 @@ export function runTests() {
     for (const res of extraResults) {
         console.warn(`Got extra result ${printNodeAndPos(res)}`)
     }
+    console.log('finished')
 
     console.info = oldConsoleInfo;
 }

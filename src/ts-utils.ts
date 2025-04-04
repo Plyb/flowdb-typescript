@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { pretty } from './abstract-values';
+import { isTop, NodeLatticeElem, pretty } from './abstract-values';
 import { last } from 'lodash';
 
 
@@ -191,7 +191,11 @@ export function getService(rootFolder: string) {
 }
 
 const printer = ts.createPrinter();    
-export function printNodeAndPos(node: ts.Node): string {
+export function printNodeAndPos(node: NodeLatticeElem): string {
+    if (isTop(node)) {
+        return `EXTERNAL`;
+    }
+
     return `${printNode(node)} @ ${getPosText(node)}`;
 }
 function printNode(node: ts.Node) {
