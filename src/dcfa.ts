@@ -103,7 +103,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
                 }
     
-                return getObjectProperty(node, fixed_eval, printNodeAndPos, targetFunction);
+                return getObjectProperty(node, fixed_eval, targetFunction);
             } else if (ts.isAwaitExpression(node)) {
                 const expressionValue = fix_run(abstractEval, node.expression);
                 return nodeLatticeJoinMap(expressionValue, cons => {

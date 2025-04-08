@@ -6,10 +6,10 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { NodePrinter, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 
 
-export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): AbstractValue {
+export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): AbstractValue {
     const expressionConses = fixed_eval(access.expression);
     const property = access.name;
     return nodeLatticeJoinMap(expressionConses, cons => {
