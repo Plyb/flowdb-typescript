@@ -1,7 +1,7 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeLatticeSome, nodeValue, unimplementedVal } from './abstract-values';
-import { getBuiltInMethod, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
+import { getPropertyOfProto, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setSift, singleton } from './setUtil';
@@ -35,17 +35,13 @@ export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eva
             return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
         } else if (isBuiltInConstructorShaped(cons)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
-            return resultOfPropertyAccess[builtInValue](access);
+            return resultOfPropertyAccess[builtInValue](access, { fixed_eval });
         } else {
             const proto = getProtoOf(cons, printNodeAndPos);
             if (proto === null) {
                 return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
             }
-            const method = getBuiltInMethod(proto, property.text);
-            if (method === undefined) {
-                return unimplementedVal(`${property.text} is not a property of ${printNodeAndPos(cons)}`);
-            }
-            return nodeValue(access);
+            return getPropertyOfProto(proto, property.text, cons, access, fixed_eval);
         }
     })
 }

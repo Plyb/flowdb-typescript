@@ -1,8 +1,8 @@
 import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
-import { isFunctionLikeDeclaration, NodePrinter, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { empty, setFilter } from './setUtil';
+import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isTop, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeValue, Top, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, Top, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
@@ -75,10 +75,11 @@ const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...O
 
 const builtInProtosObject = {
     'Array': true,
+    'Error': true,
     'Map': true,
+    'Object': true,
     'RegExp': true,
     'String': true,
-    'Object': true,
 }
 type BuiltInProto = keyof typeof builtInProtosObject;
 
@@ -212,29 +213,32 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
     return builtInValues.elements.some(val => val === id.text);
 }
 
-type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression) => AbstractValue;
+type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression, args: { fixed_eval: FixedEval }) => AbstractValue;
 function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
     return (pa) => unimplementedVal(`Unable to get property ${name}.${pa.name.text}`) 
 }
 function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
     const [typeName, methodName] = name.split('.');
-    return (pa) => pa.name.text === methodName
+    return (pa, { fixed_eval}) => pa.name.text === methodName
         ? nodeValue(pa)
-        : inaccessibleProperty(typeName as BuiltInValue)(pa);
+        : inaccessibleProperty(typeName as BuiltInValue)(pa, { fixed_eval });
 }
 function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
     const [typeName] = names[0].split('.');
     const methodNames = names.map(name => name.split('.')[1]);
-    return (pa) => methodNames.some(methodName => pa.name.text === methodName)
+    return (pa, { fixed_eval }) => methodNames.some(methodName => pa.name.text === methodName)
         ? nodeValue(pa)
-        : inaccessibleProperty(typeName as BuiltInValue)(pa);
+        : inaccessibleProperty(typeName as BuiltInValue)(pa, { fixed_eval });
 }
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
-    return (pa) => {
-        const isBuiltInProtoMethod = getBuiltInMethod(typeName, pa.name.text)
+    return (pa, { fixed_eval }) => {
+        const expressionConses = fixed_eval(pa.expression);
+        const isBuiltInProtoMethod = expressionConses.elements.some(cons =>
+            !isTop(cons) && getPropertyOfProto(typeName, pa.name.text, cons, pa, fixed_eval).size() > 0
+        )
         return isBuiltInProtoMethod
             ? nodeValue(pa)
-            : inaccessibleProperty(typeName)(pa);
+            : inaccessibleProperty(typeName)(pa, { fixed_eval });
     }
 }
 export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
@@ -412,18 +416,35 @@ export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltIn
     } else if (ts.isArrayLiteralExpression(cons)) {
         return 'Array';
     } else if (ts.isNewExpression(cons)) {
-        return ts.isIdentifier(cons.expression) && cons.expression.text === 'Map'
-            ? 'Map'
-            : 'Object'
+        if (ts.isIdentifier(cons.expression)) {
+            if (cons.expression.text === 'Map') {
+                return 'Map';
+            } else if (cons.expression.text === 'Error') {
+                return 'Error';
+            }
+        }
+        return 'Object';
     }
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }
 
-export function getBuiltInMethod(proto: BuiltInProto, methodName: string) {
-    return builtInValues.elements.find(val => {
+export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionCons: ts.Node, accessNode: ts.PropertyAccessExpression, fixed_eval: FixedEval): NodeLattice {
+    if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
+        if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
+            return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
+        }
+        if (expressionCons.arguments.length > 0) {
+            return fixed_eval(expressionCons.arguments[0]);
+        }
+        return empty();
+    }
+    const builtInValueExists = builtInValues.elements.some(val => {
         const [valType, valMethod] = val.split('#');
-        return proto === valType && valMethod === methodName;
+        return proto === valType && valMethod === propertyName;
     });
+    return builtInValueExists
+        ? singleton<NodeLatticeElem>(accessNode)
+        : empty();
 }
 
 

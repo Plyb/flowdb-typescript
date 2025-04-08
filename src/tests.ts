@@ -66,6 +66,8 @@ export function runTests() {
         testRes(53, 27), // as expression
         testRes(54, 26), // new expression on custom class
         testRes(55, 26), // Promise.allSettled
+        testRes(56, 36), // error message
+        testRes(57, 26), // error message includes (mixed proto accesses)
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
