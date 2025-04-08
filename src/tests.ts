@@ -65,6 +65,7 @@ export function runTests() {
         testRes(44, 40), // conditional expr else branch
         testRes(53, 27), // as expression
         testRes(54, 26), // new expression on custom class
+        testRes(55, 26), // Promise.allSettled
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
