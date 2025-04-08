@@ -64,6 +64,7 @@ export function runTests() {
         testRes(44, 33), // conditional expr then branch
         testRes(44, 40), // conditional expr else branch
         testRes(53, 27), // as expression
+        testRes(54, 26), // new expression on custom class
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
