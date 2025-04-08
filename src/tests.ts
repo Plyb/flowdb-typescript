@@ -63,6 +63,7 @@ export function runTests() {
         testRes(43, 26), // template expression
         testRes(44, 33), // conditional expr then branch
         testRes(44, 40), // conditional expr else branch
+        testRes(53, 27), // as expression
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
