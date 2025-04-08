@@ -75,6 +75,7 @@ const builtInProtosObject = {
     'Map': true,
     'RegExp': true,
     'String': true,
+    'Object': true,
 }
 type BuiltInProto = keyof typeof builtInProtosObject;
 
@@ -399,10 +400,9 @@ export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltIn
     } else if (ts.isArrayLiteralExpression(cons)) {
         return 'Array';
     } else if (ts.isNewExpression(cons)) {
-        if (!(ts.isIdentifier(cons.expression) && cons.expression.text === 'Map')) {
-            return unimplemented(`New expression not yet implemented for ${printNodeAndPos(cons.expression)}`, null);
-        }
-        return 'Map';
+        return ts.isIdentifier(cons.expression) && cons.expression.text === 'Map'
+            ? 'Map'
+            : 'Object'
     }
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }
