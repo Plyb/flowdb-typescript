@@ -8,7 +8,7 @@ import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattic
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigSet, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -74,17 +74,17 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
                 });
-            } else if (ts.isIdentifier(node)) {
-                if (ts.isParameter(node.parent)) {
-                    // I believe we will only get here if the node is the parameter of the target function,
-                    // but let's do a sanity check just to make sure.
-                    if (node.parent.parent !== targetFunction) {
-                        return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
-                    }
-                    return configValue(config);
-                }
+            } else if (isIdentifierConfig(config)) {
+                // if (ts.isParameter(node.parent)) {
+                //     // I believe we will only get here if the node is the parameter of the target function,
+                //     // but let's do a sanity check just to make sure.
+                //     if (node.parent.parent !== targetFunction) {
+                //         return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                //     }
+                //     return configValue(config);
+                // }
 
-                const boundExprs = getBoundExprs(config as Config<ts.Identifier>, fix_run); // TODO mcfa deal with as
+                const boundExprs = getBoundExprs(config, fix_run);
                 if (boundExprs.size() > 0) {
                     return configSetJoinMap(boundExprs, fixed_eval);
                 // } else if (idIsBuiltIn(node)) {

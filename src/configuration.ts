@@ -1,8 +1,8 @@
-import ts from 'typescript'
 import { Extern, isExtern } from './abstract-values'
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, printNodeAndPos } from './ts-utils';
 import { emptyList, List, toList } from './util';
+import ts from 'typescript';
 
 export type ConfigSet = StructuralSet<Config>;
 
@@ -73,4 +73,8 @@ function isQuestion(context: Context): context is Question {
 
 function isLimit(context: Context): context is LimitSentinel {
     return context === limit;
+}
+
+export function isIdentifierConfig(config: Config): config is Config<ts.Identifier> {
+    return !isExtern(config.node) && ts.isIdentifier(config.node);
 }
