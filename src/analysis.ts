@@ -1,9 +1,8 @@
 import ts from 'typescript';
-import { findAll, findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { FixRunFunc, makeFixpointComputer } from './fixpoint';
-import { FixedEval, makeDcfaComputer } from './dcfa';
-import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { AbstractValue, isTop, joinAllValues, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
+import { findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { makeDcfaComputer } from './dcfa';
+import { setFilter, setFlatMap, setMap } from './setUtil';
+import { isTop } from './abstract-values';
 import { getReachableFunctions } from './control-flow';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
