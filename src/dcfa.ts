@@ -12,10 +12,9 @@ import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfN
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
 
-export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration): (node: ts.Node) => AbstractValue {
+export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration): FixedEval {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
-    const printer = ts.createPrinter();
 
     const valueOf = makeFixpointComputer(botValue, {
         printArgs: printNodeAndPos as NodePrinter,

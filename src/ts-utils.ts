@@ -214,3 +214,7 @@ export function getPosText(node: ts.Node) {
     const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
     return `${line}:${character}:${last(sf.fileName.split('/'))}`
 }
+
+export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
+    return findAll(node, ts.isCallExpression) as Iterable<ts.CallExpression>;
+}
