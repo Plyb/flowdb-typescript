@@ -93,14 +93,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
             } else if (ts.isParenthesizedExpression(node)) {
-                return fix_run(abstractEval, withZeroContext(node.expression));
+                return fix_run(abstractEval, { node: node.expression, env });
             } else if (ts.isBlock(node)) {
                 const returnStatements = [...getReturnStatements(node)];
                 const returnStatementValues = returnStatements.map(returnStatement => {
                     if (returnStatement.expression === undefined) {
                         return empty<Config>();
                     }
-                    return fix_run(abstractEval, withZeroContext(returnStatement.expression));
+                    return fix_run(abstractEval, { node: returnStatement.expression, env });
                 });
                 return joinAllValues(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
