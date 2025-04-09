@@ -4,6 +4,7 @@ import { makeDcfaComputer } from './dcfa';
 import { setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { isExtern } from './abstract-values';
 import { getReachableFunctions } from './control-flow';
+import { withZeroContext } from './configuration';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
     const program = service.getProgram()!;
@@ -29,6 +30,6 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
         method: qExp.method,
-        argument: fixed_eval(qExp.argument)
+        argument: fixed_eval(withZeroContext(qExp.argument))
     }))
 }

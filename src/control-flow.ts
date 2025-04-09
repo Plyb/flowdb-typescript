@@ -5,6 +5,7 @@ import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { StructuralSet } from './structural-set';
+import { withZeroContext } from './configuration';
 
 export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
     const valueOf = makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: printNodeAndPos as (node: ts.Block | ts.Expression) => string, printRet: set => setMap(set, getFuncName).toString() });
@@ -34,10 +35,11 @@ export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval
 
 function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
     const callExpressions = [...findAllCalls(node)];
-    const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
-        fixed_eval(callExpression.expression)
+    const configsOfCallExpressionOperators = callExpressions.map(callExpression =>
+        fixed_eval(withZeroContext(callExpression.expression))
     );
-    return setFilter(joinAllValues(...valuesOfCallExpressionOperators), isFunctionLikeDeclaration);
+    const operators = setMap(joinAllValues(...configsOfCallExpressionOperators), config => config.node);
+    return setFilter(operators, isFunctionLikeDeclaration);
 }
 
 export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): StructuralSet<ts.Block> {

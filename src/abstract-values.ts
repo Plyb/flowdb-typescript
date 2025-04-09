@@ -4,6 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from 
 import { structuralComparator } from './comparators'
 import { unimplemented } from './util';
 import { StructuralSet } from './structural-set';
+import { Config, ConfigNoExtern, ConfigSet, ConfigSetNoExtern, printConfig, withZeroContext } from './configuration';
 
 export type AbstractValue = NodeLattice;
 
@@ -14,53 +15,53 @@ export type Extern = { __externBrand: true }
 
 export const extern: Extern = { __externBrand: true }
 
-export const botValue: AbstractValue = empty();
-export const topValue: AbstractValue = singleton<NodeLatticeElem>(extern);
+export const botValue: AbstractValue = empty(); // TODO mcfa: don't really need this
+export const externValue: ConfigSet = singleton<Config>(withZeroContext(extern));
 
-export function nodeValue(node: ts.Node): AbstractValue {
-    return singleton<NodeLatticeElem>(node);
+export function configValue(config: Config): ConfigSet {
+    return singleton(config);
 }
 
-export function joinValue(a: AbstractValue, b: AbstractValue): AbstractValue {
+export function joinValue(a: ConfigSet, b: ConfigSet): ConfigSet {
     return union(a, b);
 }
-export function joinAllValues(...values: AbstractValue[]): AbstractValue {
-    return values.reduce(joinValue, botValue);
+export function joinAllValues(...values: ConfigSet[]): ConfigSet {
+    return values.reduce(joinValue, empty());
 }
 
 export function isExtern(lattice: any): lattice is Extern {
     return lattice === extern;
 }
 
-export function setJoinMap<T>(set: SimpleSet<T>, f: (item: T) => AbstractValue) {
-    return set.elements.map(f).reduce(joinValue, botValue);
+export function setJoinMap<T>(set: StructuralSet<T>, f: (item: T) => ConfigSet) {
+    return set.elements.map(f).reduce(joinValue, empty());
 }
 
-export function nodeLatticeFilter<R extends ts.Node>(nodeLattice: NodeLattice, predicate: (node: ts.Node) => node is R): StructuralSet<R | Extern>
-export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice
-export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice {
-    return setFilter(nodeLattice, elem => isExtern(elem) || predicate(elem));
+export function nodeLatticeFilter<R extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is R): StructuralSet<R | Extern>
+export function nodeLatticeFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet
+export function nodeLatticeFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
+    return setFilter(set, elem => isExtern(elem.node) || predicate(elem as ConfigNoExtern)); // TODO mcfa deal with as
 }
-export function nodeLatticeMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => R): StructuralSet<R | Extern> {
-    return setMap(nodeLattice, elem => isExtern(elem) ? elem : convert(elem));
+export function nodeLatticeMap<R>(set: ConfigSet, convert: (node: ts.Node) => R): StructuralSet<R | Extern> {
+    return setMap(set, elem => isExtern(elem.node) ? elem.node : convert(elem.node));
 }
 export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => StructuralSet<R | Extern>, rComparator: Comparator<R | Extern> = structuralComparator): StructuralSet<R | Extern> {
     return setFlatMap(nodeLattice, elem => isExtern(elem) ? new SimpleSet<R | Extern>(rComparator, elem) : convert(elem));
 }
-export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node) => AbstractValue): AbstractValue {
-    if (lattice.elements.some(isExtern)) {
-        return topValue;
+export function configSetJoinMap(set: ConfigSet, convert: (config: ConfigNoExtern) => ConfigSet): ConfigSet { // TODO mcfa: could we merge this with flatMap?
+    if (set.elements.some(isExtern)) {
+        return externValue;
     }
-    return setJoinMap(lattice as SimpleSet<ts.Node>, convert);
+    return setJoinMap(set as ConfigSetNoExtern, convert);
 }
 export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node) => boolean): boolean {
     return setSome(lattice, (elem) => !isExtern(elem) && predicate(elem));
 }
 
-export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) => string): any[] {
-    return abstractValue.elements.map(elem => isExtern(elem) ? 'EXTERNAL NODE' : printNode(elem))
+export function pretty(set: ConfigSet): string[] {
+    return set.elements.map(printConfig)
 }
 
-export function unimplementedVal(message: string): AbstractValue {
-    return unimplemented(message, botValue);
+export function unimplementedVal(message: string): ConfigSet {
+    return unimplemented(message, empty());
 }
