@@ -1,16 +1,16 @@
 import ts from 'typescript';
-import { isTop, joinAllValues, NodeLattice, NodeLatticeElem, nodeLatticeFilter } from './abstract-values';
+import { isTop, joinAllValues } from './abstract-values';
 import { FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { SimpleSet } from 'typescript-super-set';
+import { StructuralSet } from './structural-set';
 
-export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval: FixedEval): SimpleSet<SimpleFunctionLikeDeclaration> {
+export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
     const valueOf = makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: printNodeAndPos as (node: ts.Block | ts.Expression) => string, printRet: set => setMap(set, getFuncName).toString() });
     return valueOf({ func: compute, args: node });
     
-    function compute(node: ts.Block | ts.Expression, fix_run: FixRunFunc<ts.Block | ts.Expression, SimpleSet<SimpleFunctionLikeDeclaration>>): SimpleSet<SimpleFunctionLikeDeclaration> {
+    function compute(node: ts.Block | ts.Expression, fix_run: FixRunFunc<ts.Block | ts.Expression, StructuralSet<SimpleFunctionLikeDeclaration>>): StructuralSet<SimpleFunctionLikeDeclaration> {
         const directlyCalledFunctions = findAllFunctionsCalledIn(node, fixed_eval);
         const functionsCalledInDirectlyCalledFunctions = setFlatMap(
             directlyCalledFunctions,
@@ -32,7 +32,7 @@ export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval
     }
 }
 
-function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: FixedEval): SimpleSet<SimpleFunctionLikeDeclaration> {
+function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
     const callExpressions = [...findAllCalls(node)];
     const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
         fixed_eval(callExpression.expression)
@@ -40,7 +40,7 @@ function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: Fi
     return setFilter(joinAllValues(...valuesOfCallExpressionOperators), isFunctionLikeDeclaration);
 }
 
-export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): SimpleSet<ts.Block> {
+export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): StructuralSet<ts.Block> {
     const reachableFuncs = getReachableFunctions(block, fixed_eval);
     const bodies = setMap(reachableFuncs, func => func.body);
     return union(singleton(block), setFilter(bodies, ts.isBlock));

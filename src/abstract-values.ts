@@ -3,11 +3,12 @@ import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
 import { structuralComparator } from './comparators'
 import { unimplemented } from './util';
+import { StructuralSet } from './structural-set';
 
 export type AbstractValue = NodeLattice;
 
 export type NodeLatticeElem = ts.Node | Top;
-export type NodeLattice = SimpleSet<NodeLatticeElem>;
+export type NodeLattice = StructuralSet<NodeLatticeElem>;
 
 export type Top = { __topBrand: true }
 
@@ -35,15 +36,15 @@ export function setJoinMap<T>(set: SimpleSet<T>, f: (item: T) => AbstractValue) 
     return set.elements.map(f).reduce(joinValue, botValue);
 }
 
-export function nodeLatticeFilter<R extends ts.Node>(nodeLattice: NodeLattice, predicate: (node: ts.Node) => node is R): SimpleSet<R | Top>
+export function nodeLatticeFilter<R extends ts.Node>(nodeLattice: NodeLattice, predicate: (node: ts.Node) => node is R): StructuralSet<R | Top>
 export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice
 export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice {
     return setFilter(nodeLattice, elem => isTop(elem) || predicate(elem));
 }
-export function nodeLatticeMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => R): SimpleSet<R | Top> {
+export function nodeLatticeMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => R): StructuralSet<R | Top> {
     return setMap(nodeLattice, elem => isTop(elem) ? elem : convert(elem));
 }
-export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => SimpleSet<R | Top>, rComparator: Comparator<R | Top> = structuralComparator): SimpleSet<R | Top> {
+export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => StructuralSet<R | Top>, rComparator: Comparator<R | Top> = structuralComparator): StructuralSet<R | Top> {
     return setFlatMap(nodeLattice, elem => isTop(elem) ? new SimpleSet<R | Top>(rComparator, elem) : convert(elem));
 }
 export function nodeLatticeJoinMap(lattice: NodeLattice, convert: (node: ts.Node) => AbstractValue): AbstractValue {
@@ -62,8 +63,4 @@ export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) 
 
 export function unimplementedVal(message: string): AbstractValue {
     return unimplemented(message, botValue);
-}
-
-export function asNodeLattice<T extends ts.Node>(set: SimpleSet<T>): NodeLattice {
-    return set as any as NodeLattice;
 }
