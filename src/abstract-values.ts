@@ -35,6 +35,8 @@ export function setJoinMap<T>(set: SimpleSet<T>, f: (item: T) => AbstractValue) 
     return set.elements.map(f).reduce(joinValue, botValue);
 }
 
+export function nodeLatticeFilter<R extends ts.Node>(nodeLattice: NodeLattice, predicate: (node: ts.Node) => node is R): SimpleSet<R | Top>
+export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice
 export function nodeLatticeFilter(nodeLattice: NodeLattice, predicate: (node: ts.Node) => boolean): NodeLattice {
     return setFilter(nodeLattice, elem => isTop(elem) || predicate(elem));
 }

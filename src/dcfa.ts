@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter } from './ts-utils';
-import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, top, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, setJoinMap, top, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
@@ -222,7 +222,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     abstractEval, parent.expression
                 );
 
-                const possibleFunctions = nodeLatticeFilter(possibleOperators, isFunctionLikeDeclaration);
+                const possibleFunctions = nodeLatticeFilter(possibleOperators, isFunctionLikeDeclaration as (node: ts.Node) => boolean);
                 const parameterReferences = nodeLatticeJoinMap(
                     possibleFunctions,
                     (func) => {
@@ -302,7 +302,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
-                        return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
+                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
         
                     return singleton<NodeLatticeElem>(declaration.initializer);
@@ -314,7 +314,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (ts.isVariableDeclaration(bindingElementSource)) {
                     const initializer = bindingElementSource.initializer;
                     if (initializer === undefined) {
-                        return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
+                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
 
                     // special case for Promise.allSettled
@@ -365,12 +365,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
                 return getBoundExprsOfSymbol(shorthandValueSymbol, fix_run);
             }
-            return unimplemented(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty());
+            return unimplementedVal(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
             function getArgumentsForParameter(declaration: ParameterDeclaration): NodeLattice {
                 const declaringFunction = declaration.parent;
                 if (!isFunctionLikeDeclaration(declaringFunction)) {
-                    return unimplemented('not yet implemented', empty());
+                    return unimplementedVal('not yet implemented');
                 }
                 const parameterIndex = declaringFunction.parameters.indexOf(declaration);
                 const definingFunctionBody = declaringFunction.body

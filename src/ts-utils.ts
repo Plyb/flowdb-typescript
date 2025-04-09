@@ -64,7 +64,11 @@ export type SimpleFunctionLikeDeclaration =
     & { body: ts.Node }
 type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
     & { modifiers: [AsyncKeyword]}
-export function isFunctionLikeDeclaration(node: ts.Node): node is SimpleFunctionLikeDeclaration {
+export function isFunctionLikeDeclaration(node: NodeLatticeElem): node is SimpleFunctionLikeDeclaration {
+    if (isTop(node)) {
+        return false;
+    }
+
     if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
         if (node.body === undefined) {
             throw new Error('should not have undefined function body');
