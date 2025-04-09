@@ -41,7 +41,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "eval"
         function abstractEval(node: ts.Node, fix_run: FixRunFunc<ts.Node, AbstractValue>): AbstractValue {    
             const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
-            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+            // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
             if (isFunctionLikeDeclaration(node)) {
                 return nodeValue(node);
@@ -57,9 +57,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             const body: ts.Node = op.body;
                             return fix_run(abstractEval, body);
                         }
-                    } else if (isBuiltInConstructorShaped(op)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
-                        return resultOfCalling[builtInValue](node, { fixed_eval });
+                    // } else if (isBuiltInConstructorShaped(op)) {
+                    //     const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
+                    //     return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
                         return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
@@ -77,8 +77,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const boundExprs = getBoundExprs(node, fix_run);
                 if (boundExprs.size() > 0) {
                     return nodeLatticeJoinMap(boundExprs, fixed_eval);
-                } else if (idIsBuiltIn(node)) {
-                    return nodeValue(node);
+                // } else if (idIsBuiltIn(node)) {
+                //     return nodeValue(node);
                 } else {
                     return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
@@ -95,42 +95,42 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return joinAllValues(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
                 return nodeValue(node);
-            } else if (ts.isObjectLiteralExpression(node)) {
-                return nodeValue(node);
-            } else if (ts.isPropertyAccessExpression(node)) {
-                if (!ts.isIdentifier(node.name)) {
-                    return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
-                }
+            // } else if (ts.isObjectLiteralExpression(node)) {
+            //     return nodeValue(node);
+            // } else if (ts.isPropertyAccessExpression(node)) {
+            //     if (!ts.isIdentifier(node.name)) {
+            //         return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
+            //     }
     
-                return getObjectProperty(node, fixed_eval, targetFunction);
-            } else if (ts.isAwaitExpression(node)) {
-                return resolvePromisesOfNode(node.expression, fixed_eval);
-            } else if (ts.isArrayLiteralExpression(node)) {
-                return nodeValue(node);
-            } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(node.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-                return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
-            } else if (ts.isNewExpression(node)) {
-                return nodeValue(node);
-            } else if (isNullLiteral(node)) {
-                return nodeValue(node);
-            } else if (ts.isBinaryExpression(node)) {
-                const lhsRes = fix_run(abstractEval, node.left);
-                const rhsRes = fix_run(abstractEval, node.right);
-                const primopId = node.operatorToken.kind;
-                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
-                    return joinValue(lhsRes, rhsRes);
-                } else {
-                    return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
-                }
-            } else if (ts.isTemplateExpression(node)) {
-                return nodeValue(node);
-            } else if (ts.isConditionalExpression(node)) {
-                const thenValue = fix_run(abstractEval, node.whenTrue);
-                const elseValue = fix_run(abstractEval, node.whenFalse);
-                return joinValue(thenValue, elseValue)
-            } else if (ts.isAsExpression(node)) {
-                return fix_run(abstractEval, node.expression);
+            //     return getObjectProperty(node, fixed_eval, targetFunction);
+            // } else if (ts.isAwaitExpression(node)) {
+            //     return resolvePromisesOfNode(node.expression, fixed_eval);
+            // } else if (ts.isArrayLiteralExpression(node)) {
+            //     return nodeValue(node);
+            // } else if (ts.isElementAccessExpression(node)) {
+            //     const elementExpressions = getElementNodesOfArrayValuedNode(node.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+            //     return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
+            // } else if (ts.isNewExpression(node)) {
+            //     return nodeValue(node);
+            // } else if (isNullLiteral(node)) {
+            //     return nodeValue(node);
+            // } else if (ts.isBinaryExpression(node)) {
+            //     const lhsRes = fix_run(abstractEval, node.left);
+            //     const rhsRes = fix_run(abstractEval, node.right);
+            //     const primopId = node.operatorToken.kind;
+            //     if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+            //         return joinValue(lhsRes, rhsRes);
+            //     } else {
+            //         return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
+            //     }
+            // } else if (ts.isTemplateExpression(node)) {
+            //     return nodeValue(node);
+            // } else if (ts.isConditionalExpression(node)) {
+            //     const thenValue = fix_run(abstractEval, node.whenTrue);
+            //     const elseValue = fix_run(abstractEval, node.whenFalse);
+            //     return joinValue(thenValue, elseValue)
+            // } else if (ts.isAsExpression(node)) {
+            //     return fix_run(abstractEval, node.expression);
             }
             return unimplementedVal(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }
@@ -179,40 +179,40 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 const refs = getReferences(node.name);
                 return nodeLatticeJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-            } else if (ts.isForOfStatement(parent) && parent.expression === node) {
-                return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
-            } else if (ts.isPropertyAccessExpression(parent)) {
-                if (node != parent.expression) {
-                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
-                }
+            // } else if (ts.isForOfStatement(parent) && parent.expression === node) {
+            //     return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
+            // } else if (ts.isPropertyAccessExpression(parent)) {
+            //     if (node != parent.expression) {
+            //         return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
+            //     }
 
-                return botValue;
-            } else if (ts.isShorthandPropertyAssignment(parent)) {
-                const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
-                return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
-                    const returnLocParent = returnLoc.parent;
-                    if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
-                        return getWhereReturnedInsideFunction(returnLocParent, returnLoc, (parameterName) => {
-                            if (!ts.isObjectBindingPattern(parameterName)) {
-                                return empty();
-                            }
-                            const destructedName = parameterName.elements.find(elem => 
-                                ts.isIdentifier(elem.name)
-                                    ? elem.name.text === parent.name.text
-                                    : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
-                            )?.name;
-                            if (destructedName === undefined) {
-                                return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
-                            }
-                            if (!ts.isIdentifier(destructedName)) {
-                                return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
-                            }
+            //     return botValue;
+            // } else if (ts.isShorthandPropertyAssignment(parent)) {
+            //     const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
+            //     return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
+            //         const returnLocParent = returnLoc.parent;
+            //         if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
+            //             return getWhereReturnedInsideFunction(returnLocParent, returnLoc, (parameterName) => {
+            //                 if (!ts.isObjectBindingPattern(parameterName)) {
+            //                     return empty();
+            //                 }
+            //                 const destructedName = parameterName.elements.find(elem => 
+            //                     ts.isIdentifier(elem.name)
+            //                         ? elem.name.text === parent.name.text
+            //                         : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
+            //                 )?.name;
+            //                 if (destructedName === undefined) {
+            //                     return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
+            //                 }
+            //                 if (!ts.isIdentifier(destructedName)) {
+            //                     return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
+            //                 }
 
-                            return getReferences(destructedName);
-                        })
-                    }
-                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
-                })
+            //                 return getReferences(destructedName);
+            //             })
+            //         }
+            //         return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
+            //     })
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
@@ -279,8 +279,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
 
         function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<ts.Node, AbstractValue>): NodeLattice {
-            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
-            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+            // const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
@@ -295,81 +295,81 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 return getArgumentsForParameter(declaration);
             } else if (ts.isVariableDeclaration(declaration)) {
-                if (ts.isForOfStatement(declaration.parent.parent)) {
-                    const forOfStatement = declaration.parent.parent;
-                    const expression = forOfStatement.expression;
+                // if (ts.isForOfStatement(declaration.parent.parent)) {
+                //     const forOfStatement = declaration.parent.parent;
+                //     const expression = forOfStatement.expression;
     
-                    return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-                // } else if (ts.isCatchClause(declaration.parent)) {
-                //     const tryBlock = declaration.parent.parent.tryBlock;
-                //     const reachableBlocks = getReachableBlocks(tryBlock, fixed_eval);
-                //     const throwStatements = setFlatMap(reachableBlocks, setOf(getThrowStatements));
-                //     const thrownNodes = setMap(throwStatements, statement => statement.expression);
-                //     return asNodeLattice(thrownNodes);
-                } else { // it's a standard variable delcaration
+                //     return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+                // // } else if (ts.isCatchClause(declaration.parent)) {
+                // //     const tryBlock = declaration.parent.parent.tryBlock;
+                // //     const reachableBlocks = getReachableBlocks(tryBlock, fixed_eval);
+                // //     const throwStatements = setFlatMap(reachableBlocks, setOf(getThrowStatements));
+                // //     const thrownNodes = setMap(throwStatements, statement => statement.expression);
+                // //     return asNodeLattice(thrownNodes);
+                // } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
         
                     return singleton<NodeLatticeElem>(declaration.initializer);
-                }
+                // }
             } else if (ts.isFunctionDeclaration(declaration)) {
                 return singleton<NodeLatticeElem>(declaration);
-            } else if (ts.isBindingElement(declaration)) {
-                const bindingElementSource = declaration.parent.parent;
-                if (ts.isVariableDeclaration(bindingElementSource)) {
-                    const initializer = bindingElementSource.initializer;
-                    if (initializer === undefined) {
-                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
-                    }
+            // } else if (ts.isBindingElement(declaration)) {
+            //     const bindingElementSource = declaration.parent.parent;
+            //     if (ts.isVariableDeclaration(bindingElementSource)) {
+            //         const initializer = bindingElementSource.initializer;
+            //         if (initializer === undefined) {
+            //             return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+            //         }
 
-                    // special case for Promise.allSettled
-                    if (ts.isArrayBindingPattern(declaration.parent)
-                        && ts.isAwaitExpression(initializer)
-                        && ts.isCallExpression(initializer.expression)
-                        && ts.isPropertyAccessExpression(initializer.expression.expression)
-                        && ts.isIdentifier(initializer.expression.expression.expression)
-                        && initializer.expression.expression.expression.text === 'Promise'
-                        && initializer.expression.expression.name.text === 'allSettled'
-                        && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
-                    ) {
-                        const index = declaration.parent.elements.indexOf(declaration);
-                        const arrayNode = initializer.expression.arguments[0];
-                        const arg = arrayNode.elements[index];
-                        // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
-                        return resolvePromisesOfNode(arg, fixed_eval);
-                    }
+            //         // special case for Promise.allSettled
+            //         if (ts.isArrayBindingPattern(declaration.parent)
+            //             && ts.isAwaitExpression(initializer)
+            //             && ts.isCallExpression(initializer.expression)
+            //             && ts.isPropertyAccessExpression(initializer.expression.expression)
+            //             && ts.isIdentifier(initializer.expression.expression.expression)
+            //             && initializer.expression.expression.expression.text === 'Promise'
+            //             && initializer.expression.expression.name.text === 'allSettled'
+            //             && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
+            //         ) {
+            //             const index = declaration.parent.elements.indexOf(declaration);
+            //             const arrayNode = initializer.expression.arguments[0];
+            //             const arg = arrayNode.elements[index];
+            //             // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
+            //             return resolvePromisesOfNode(arg, fixed_eval);
+            //         }
     
-                    const objectConses = fix_run(abstractEval, initializer);
-                    return getObjectsPropertyInitializers(objectConses, symbol.name);
-                } else if (ts.isParameter(bindingElementSource)) {
-                    const args = getArgumentsForParameter(bindingElementSource);
+            //         const objectConses = fix_run(abstractEval, initializer);
+            //         return getObjectsPropertyInitializers(objectConses, symbol.name);
+            //     } else if (ts.isParameter(bindingElementSource)) {
+            //         const args = getArgumentsForParameter(bindingElementSource);
                     
-                    const argsValues = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
+            //         const argsValues = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
 
-                    return getObjectsPropertyInitializers(argsValues, symbol.name);
-                }
-            } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
-                const moduleSpecifier = ts.isImportClause(declaration)
-                    ? declaration.parent.moduleSpecifier
-                    : declaration.parent.parent.parent.moduleSpecifier;
+            //         return getObjectsPropertyInitializers(argsValues, symbol.name);
+            //     }
+            // } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+            //     const moduleSpecifier = ts.isImportClause(declaration)
+            //         ? declaration.parent.moduleSpecifier
+            //         : declaration.parent.parent.parent.moduleSpecifier;
     
-                if (!ts.isStringLiteral(moduleSpecifier)) {
-                    throw new Error('Module specifier must be a string literal');
-                }
+            //     if (!ts.isStringLiteral(moduleSpecifier)) {
+            //         throw new Error('Module specifier must be a string literal');
+            //     }
     
-                if (isBareSpecifier(moduleSpecifier.text)) {
-                    return singleton<NodeLatticeElem>(top);
-                }
+            //     if (isBareSpecifier(moduleSpecifier.text)) {
+            //         return singleton<NodeLatticeElem>(top);
+            //     }
 
-                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
-                return getBoundExprsOfSymbol(aliasedSymbol, fix_run);
-            } else if (ts.isShorthandPropertyAssignment(declaration)) {
-                const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
-                if (shorthandValueSymbol === undefined) {
-                    throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
-                }
-                return getBoundExprsOfSymbol(shorthandValueSymbol, fix_run);
+            //     const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
+            //     return getBoundExprsOfSymbol(aliasedSymbol, fix_run);
+            // } else if (ts.isShorthandPropertyAssignment(declaration)) {
+            //     const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+            //     if (shorthandValueSymbol === undefined) {
+            //         throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
+            //     }
+            //     return getBoundExprsOfSymbol(shorthandValueSymbol, fix_run);
             }
             return unimplementedVal(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
@@ -388,37 +388,38 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return (callSite as CallExpression).arguments[parameterIndex] as Node;
                 }) as NodeLattice;
 
-                const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
-                const boundFromPrimop = nodeLatticeFlatMap(
-                    sitesWhereDeclaringFunctionReturned,
-                    (node) => {
-                        const callSiteWhereArg = node.parent;
-                        if (!ts.isCallExpression(callSiteWhereArg)) {
-                            return empty<NodeLatticeElem>();
-                        }
-                        const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression);
-                        const consumerConses = setFilter(consumerValues, value => {
-                            return !isTop(value);
-                        }) as SimpleSet<ts.Node>;
+                // const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
+                // const boundFromPrimop = nodeLatticeFlatMap(
+                //     sitesWhereDeclaringFunctionReturned,
+                //     (node) => {
+                //         const callSiteWhereArg = node.parent;
+                //         if (!ts.isCallExpression(callSiteWhereArg)) {
+                //             return empty<NodeLatticeElem>();
+                //         }
+                //         const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression);
+                //         const consumerConses = setFilter(consumerValues, value => {
+                //             return !isTop(value);
+                //         }) as SimpleSet<ts.Node>;
 
-                        return setFlatMap(consumerConses, (cons) => {
-                            if (!isBuiltInConstructorShaped(cons)) {
-                                return empty();
-                            }
+                //         return setFlatMap(consumerConses, (cons) => {
+                //             if (!isBuiltInConstructorShaped(cons)) {
+                //                 return empty();
+                //             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
-                            const binderGetter = primopBinderGetters[builtInValue];
-                            const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
-                            const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
-                            const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
-                                ? callSiteWhereArg.expression.expression
-                                : undefined;
-                            return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }]);
-                        }) as NodeLattice;
-                    }
-                );
+                //             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
+                //             const binderGetter = primopBinderGetters[builtInValue];
+                //             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
+                //             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
+                //             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+                //                 ? callSiteWhereArg.expression.expression
+                //                 : undefined;
+                //             return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }]);
+                //         }) as NodeLattice;
+                //     }
+                // );
 
-                return union(boundFromArgs, boundFromPrimop);
+                // return union(boundFromArgs, boundFromPrimop);
+                return boundFromArgs;
             }
         }
     
