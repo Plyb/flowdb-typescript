@@ -15,7 +15,7 @@ type Context =
 | LimitSentinel
 | Question
 | {
-    head: ts.CallExpression[],
+    head: ts.CallExpression,
     tail: Context
 };
 type LimitSentinel = { __limitSentinelBrand: true }
@@ -43,3 +43,33 @@ export function withZeroContext(node: Cursor): Config {
 export function printConfig(config: Config) {
     return printNodeAndPos(config.node) // TODO mcfa
 } 
+
+export function pushContext(call: ts.CallExpression, env: Environment, m: number) {
+    const innermostContext = env[0];
+    return truncate({ head: call, tail: innermostContext }, m);
+
+}
+
+function truncate(context: Context, m: number): Context {
+    if (m === 0) {
+        return limit;
+    } else if (isQuestion(context)) {
+        return context;
+    } else {
+        if (isLimit(context)) {
+            throw new Error(`Expected context not to be a limit`);
+        }
+        return {
+            head: context.head,
+            tail: truncate(context.tail, m - 1),
+        }
+    }
+}
+
+function isQuestion(context: Context): context is Question {
+    return '__questionBrand' in context;
+}
+
+function isLimit(context: Context): context is LimitSentinel {
+    return context === limit;
+}

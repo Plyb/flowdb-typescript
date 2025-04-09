@@ -8,10 +8,12 @@ import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattic
 import { isBareSpecifier, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, printConfig, withZeroContext } from './configuration';
+import { Config, ConfigSet, printConfig, pushContext, withZeroContext } from './configuration';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
+
+const m = 0;
 
 export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration): FixedEval {
     const program = service.getProgram()!;
@@ -46,7 +48,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {    
             const fixed_eval: FixedEval = config => fix_run(abstractEval, config);
             // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
-            const node = config.node;
+            const { node, env } = config;
 
             if (isExtern(node)) {
                 return configValue(config);
@@ -54,17 +56,17 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return configValue(config);
             } else if (ts.isCallExpression(node)) {
                 const operator: ts.Node = node.expression;
-                const possibleOperators = fix_run(abstractEval, withZeroContext(operator));
+                const possibleOperators = fix_run(abstractEval, { node: operator, env });
 
                 return configSetJoinMap(possibleOperators, (opConfig) => {
                     const op = opConfig.node;
                     if (isFunctionLikeDeclaration(op)) {
-                        if (isAsync(op)) {
-                            return configValue(withZeroContext(op.modifiers!.find(isAsyncKeyword)!))
-                        } else {
+                        // if (isAsync(op)) {
+                        //     return configValue(withZeroContext(op.modifiers!.find(isAsyncKeyword)!))
+                        // } else {
                             const body: ts.Node = op.body;
-                            return fix_run(abstractEval, withZeroContext(body));
-                        }
+                            return fix_run(abstractEval, { node: body, env: [pushContext(node, env, m), ...opConfig.env]});
+                        // }
                     // } else if (isBuiltInConstructorShaped(op)) {
                     //     const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
                     //     return resultOfCalling[builtInValue](node, { fixed_eval });
@@ -309,9 +311,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
 
             if (ts.isParameter(declaration)) {
-                if (declaration.parent === targetFunction) {
-                    return singleton<Config>(withZeroContext(declaration.name));
-                }
+                // if (declaration.parent === targetFunction) {
+                //     return singleton<Config>(withZeroContext(declaration.name));
+                // }
 
                 return getArgumentsForParameter(declaration);
             } else if (ts.isVariableDeclaration(declaration)) {
