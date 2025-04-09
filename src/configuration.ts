@@ -1,7 +1,7 @@
 import ts from 'typescript'
-import { Extern } from './abstract-values'
+import { Extern, isExtern } from './abstract-values'
 import { StructuralSet } from './structural-set';
-import { printNodeAndPos } from './ts-utils';
+import { findAllParameterBinders, printNodeAndPos } from './ts-utils';
 
 export type ConfigSet = StructuralSet<Config>;
 
@@ -15,7 +15,7 @@ type Context =
 | LimitSentinel
 | Question
 | {
-    head: ts.CallExpression,
+    head: ts.CallExpression[],
     tail: Context
 };
 type LimitSentinel = { __limitSentinelBrand: true }
@@ -27,9 +27,16 @@ export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
 
 export function withZeroContext(node: Cursor): Config {
+    if (isExtern(node)) {
+        return {
+            node,
+            env: []
+        };
+    }
+
     return {
         node,
-        env: [], // TODO mcfa this doesn't make sense.
+        env: findAllParameterBinders(node).map(() => limit),
     }
 }
 

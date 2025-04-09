@@ -280,7 +280,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
         }
         
-        // bind
+        // "bind"
         function getBoundExprs(idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             const id = idConfig.node;
             const symbol = typeChecker.getSymbolAtLocation(id);
