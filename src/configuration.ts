@@ -1,5 +1,8 @@
 import ts from 'typescript'
 import { Extern } from './abstract-values'
+import { StructuralSet } from './structural-set';
+
+export type ConfigSet = StructuralSet<Config>;
 
 export type Config = {
     cursor: Cursor,
