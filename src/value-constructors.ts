@@ -2,7 +2,7 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isTop, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, Top, topValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isExtern, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, Extern, topValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
@@ -136,7 +136,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInC
  * If a node is shaped like a built in constructor and is a value, it is a built in constructor
  */
 export function isBuiltInConstructorShaped(node: NodeLatticeElem): node is BuiltInConstructor {
-    if (isTop(node)) {
+    if (isExtern(node)) {
         return false;
     }
 
@@ -234,7 +234,7 @@ function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pa, { fixed_eval }) => {
         const expressionConses = fixed_eval(pa.expression);
         const isBuiltInProtoMethod = expressionConses.elements.some(cons =>
-            !isTop(cons) && getPropertyOfProto(typeName, pa.name.text, cons, pa, fixed_eval).size() > 0
+            !isExtern(cons) && getPropertyOfProto(typeName, pa.name.text, cons, pa, fixed_eval).size() > 0
         )
         return isBuiltInProtoMethod
             ? nodeValue(pa)

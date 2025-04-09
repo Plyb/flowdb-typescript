@@ -4,7 +4,7 @@ import { analyze } from './analysis';
 import ts from 'typescript';
 import { setFlatMap, setMinus } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { NodeLatticeElem, top } from './abstract-values';
+import { NodeLatticeElem, extern } from './abstract-values';
 import { structuralComparator } from './comparators';
 
 export function runTests() {
@@ -53,7 +53,7 @@ export function runTests() {
         librRes( 5, 11), // await non-async call
         librRes( 9, 11), // await async call
         testRes(36, 26), // array literal
-        top            , // import from library
+        extern         , // import from library
         testRes(38, 28), // element access basic
         testRes(39, 41), // element access built in constructor
         testRes(40, 26), // new expression

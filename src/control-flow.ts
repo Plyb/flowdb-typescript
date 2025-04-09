@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { isTop, joinAllValues } from './abstract-values';
+import { isExtern, joinAllValues } from './abstract-values';
 import { FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
@@ -20,7 +20,7 @@ export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval
     }
     
     function getFuncName(func: SimpleFunctionLikeDeclaration) {
-        if (isTop(func)) {
+        if (isExtern(func)) {
             return 'ANY FUNCTION';
         }
 

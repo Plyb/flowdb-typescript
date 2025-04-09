@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { makeDcfaComputer } from './dcfa';
 import { setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { isTop } from './abstract-values';
+import { isExtern } from './abstract-values';
 import { getReachableFunctions } from './control-flow';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
@@ -23,8 +23,8 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
 
     const fixed_eval = makeDcfaComputer(service, node);
 
-    const reachableFunctionsWithTops = union(singleton(node), getReachableFunctions(node.body, fixed_eval));
-    const reachableFunctions = setFilter(reachableFunctionsWithTops, elem => !isTop(elem));
+    const reachableFunctionsWithExterns = union(singleton(node), getReachableFunctions(node.body, fixed_eval));
+    const reachableFunctions = setFilter(reachableFunctionsWithExterns, elem => !isExtern(elem));
     const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions((func as SimpleFunctionLikeDeclaration).body));
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
