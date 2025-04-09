@@ -5,7 +5,7 @@ import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal } from './abstract-values';
-import { isBareSpecifier, unimplemented } from './util';
+import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, printConfig, pushContext, withZeroContext } from './configuration';
@@ -65,7 +65,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         //     return configValue(withZeroContext(op.modifiers!.find(isAsyncKeyword)!))
                         // } else {
                             const body: ts.Node = op.body;
-                            return fix_run(abstractEval, { node: body, env: [pushContext(node, env, m), ...opConfig.env]});
+                            return fix_run(abstractEval, { node: body, env: consList(pushContext(node, env, m), opConfig.env) });
                         // }
                     // } else if (isBuiltInConstructorShaped(op)) {
                     //     const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);

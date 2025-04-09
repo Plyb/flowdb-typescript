@@ -2,6 +2,7 @@ import ts from 'typescript'
 import { Extern, isExtern } from './abstract-values'
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, printNodeAndPos } from './ts-utils';
+import { emptyList, List, toList } from './util';
 
 export type ConfigSet = StructuralSet<Config>;
 
@@ -10,7 +11,7 @@ export type Config<N extends Cursor = Cursor> = {
     env: Environment,
 }
 export type Cursor = ts.Node | Extern;
-export type Environment = Context[];
+export type Environment = List<Context>;
 type Context =
 | LimitSentinel
 | Question
@@ -30,13 +31,13 @@ export function withZeroContext(node: Cursor): Config {
     if (isExtern(node)) {
         return {
             node,
-            env: []
+            env: emptyList
         };
     }
 
     return {
         node,
-        env: findAllParameterBinders(node).map(() => limit),
+        env: toList(findAllParameterBinders(node).map(() => limit)),
     }
 }
 
