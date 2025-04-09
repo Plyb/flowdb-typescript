@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { isTop, NodeLatticeElem, pretty } from './abstract-values';
+import { isTop, NodeLatticeElem } from './abstract-values';
 import { last } from 'lodash';
 
 
@@ -22,35 +22,42 @@ export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, l
     return find(sourceFile);
 }
 
-export function* getReturnStmts(node: ts.Node): Iterable<ts.ReturnStatement> {
-    if (ts.isReturnStatement(node)) {
+export function getReturnStatements(node: ts.Node): Iterable<ts.ReturnStatement> {
+    return getStatements(node, ts.isReturnStatement);
+}
+
+export function getThrowStatements(node: ts.Node): Iterable<ts.ThrowStatement> {
+    return getStatements(node, ts.isThrowStatement);
+}
+
+export function* getStatements<T extends ts.Node>(node: ts.Node, predicate: (node: ts.Node) => node is T): Iterable<T> {
+    if (predicate(node)) {
         yield node;
     } else if (ts.isBlock(node) || ts.isCaseClause(node) || ts.isDefaultClause(node)) {
         for (const stmt of node.statements) {
-            yield* getReturnStmts(stmt);
+            yield* getStatements(stmt, predicate);
         }
     } else if (ts.isIfStatement(node)) {
-        yield* getReturnStmts(node.thenStatement);
+        yield* getStatements(node.thenStatement, predicate);
         if (node.elseStatement) {
-            yield* getReturnStmts(node.elseStatement);
+            yield* getStatements(node.elseStatement, predicate);
         }
     } else if (ts.isIterationStatement(node, true)) {
-        yield* getReturnStmts(node.statement);
+        yield* getStatements(node.statement, predicate);
     } else if (ts.isSwitchStatement(node)) {
         for (const clause of node.caseBlock.clauses) {
-            yield* getReturnStmts(clause);
+            yield* getStatements(clause, predicate);
         }
     } else if (ts.isTryStatement(node)) {
-        yield* getReturnStmts(node.tryBlock);
+        yield* getStatements(node.tryBlock, predicate);
         if (node.catchClause) {
-            yield* getReturnStmts(node.catchClause.block);
+            yield* getStatements(node.catchClause.block, predicate);
         }
         if (node.finallyBlock) {
-            yield* getReturnStmts(node.finallyBlock);
+            yield* getStatements(node.finallyBlock, predicate);
         }
     }
 }
-
 
 export type SimpleFunctionLikeDeclaration =
     (FunctionDeclaration | FunctionExpression | ArrowFunction)
