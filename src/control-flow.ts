@@ -39,3 +39,9 @@ function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: Fi
     );
     return setFilter(joinAllValues(...valuesOfCallExpressionOperators), isFunctionLikeDeclaration);
 }
+
+export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): SimpleSet<ts.Block> {
+    const reachableFuncs = getReachableFunctions(block, fixed_eval);
+    const bodies = setMap(reachableFuncs, func => func.body);
+    return union(singleton(block), setFilter(bodies, ts.isBlock));
+}

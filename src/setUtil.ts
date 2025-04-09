@@ -36,3 +36,7 @@ export function setSome<T>(set: SimpleSet<T>, predicate: (item: T) => boolean) {
 export function setMinus<T>(a: SimpleSet<T>, b: SimpleSet<T>, comparator: Comparator<T> = structuralComparator): SimpleSet<T> {
   return new SimpleSet(comparator, ...a.elements.filter(elem => !b.has(elem)));
 }
+
+export function setOf<T, R>(f: (arg: T) => Iterable<R>): (arg: T) => SimpleSet<R> {
+  return (arg) => new SimpleSet(structuralComparator, ...f(arg));
+}

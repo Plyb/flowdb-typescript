@@ -63,3 +63,7 @@ export function pretty(abstractValue: AbstractValue, printNode: (node: ts.Node) 
 export function unimplementedVal(message: string): AbstractValue {
     return unimplemented(message, botValue);
 }
+
+export function asNodeLattice<T extends ts.Node>(set: SimpleSet<T>): NodeLattice {
+    return set as any as NodeLattice;
+}
