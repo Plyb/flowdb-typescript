@@ -104,7 +104,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 return getObjectProperty(node, fixed_eval, targetFunction);
             } else if (ts.isAwaitExpression(node)) {
-                return resolvePromisesOfNode(node, fixed_eval);
+                return resolvePromisesOfNode(node.expression, fixed_eval);
             } else if (ts.isArrayLiteralExpression(node)) {
                 return nodeValue(node);
             } else if (ts.isElementAccessExpression(node)) {
