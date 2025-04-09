@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStmts, isFunctionLikeDeclaration, isLiteral
 import { AbstractValue, botValue, isTop, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, nodeLatticeJoinMap, nodeLatticeMap, nodeValue, pretty, top, topValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getElementNodesOfArrayValuedNode, getObjectProperty } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 
 export type FixedEval = (node: ts.Node) => AbstractValue;
 export type FixedTrace = (node: ts.Node) => AbstractValue;
@@ -105,18 +105,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 return getObjectProperty(node, fixed_eval, targetFunction);
             } else if (ts.isAwaitExpression(node)) {
-                const expressionValue = fix_run(abstractEval, node.expression);
-                return nodeLatticeJoinMap(expressionValue, cons => {
-                    if (isAsyncKeyword(cons)) {
-                        const sourceFunction = cons.parent;
-                        if (!isFunctionLikeDeclaration(sourceFunction)) {
-                            return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
-                        }
-                        return fix_run(abstractEval, sourceFunction.body);
-                    } else {
-                        return nodeValue(cons);
-                    }
-                })
+                return resolvePromisesOfNode(node, fixed_eval);
             } else if (ts.isArrayLiteralExpression(node)) {
                 return nodeValue(node);
             } else if (ts.isElementAccessExpression(node)) {
@@ -327,6 +316,23 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const initializer = bindingElementSource.initializer;
                     if (initializer === undefined) {
                         return unimplemented(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`, empty())
+                    }
+
+                    // special case for Promise.allSettled
+                    if (ts.isArrayBindingPattern(declaration.parent)
+                        && ts.isAwaitExpression(initializer)
+                        && ts.isCallExpression(initializer.expression)
+                        && ts.isPropertyAccessExpression(initializer.expression.expression)
+                        && ts.isIdentifier(initializer.expression.expression.expression)
+                        && initializer.expression.expression.expression.text === 'Promise'
+                        && initializer.expression.expression.name.text === 'allSettled'
+                        && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
+                    ) {
+                        const index = declaration.parent.elements.indexOf(declaration);
+                        const arrayNode = initializer.expression.arguments[0];
+                        const arg = arrayNode.elements[index];
+                        // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
+                        return resolvePromisesOfNode(arg, fixed_eval);
                     }
     
                     const objectConses = fix_run(abstractEval, initializer);

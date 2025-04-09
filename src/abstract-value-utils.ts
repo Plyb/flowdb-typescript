@@ -6,7 +6,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 
 
 export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): AbstractValue {
@@ -66,6 +66,21 @@ export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fi
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
     });
+}
+
+export function resolvePromisesOfNode(node: ts.Node, fixed_eval: FixedEval): NodeLattice {
+    const conses = fixed_eval(node);
+    return nodeLatticeFlatMap(conses, cons => {
+        if (isAsyncKeyword(cons)) { // i.e. it's a return value of an async function
+            const sourceFunction = cons.parent;
+            if (!isFunctionLikeDeclaration(sourceFunction)) {
+                return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
+            }
+            return fixed_eval(sourceFunction.body);
+        } else {
+            return nodeValue(cons);
+        }
+    })
 }
 
 export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
