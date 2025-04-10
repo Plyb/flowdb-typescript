@@ -234,3 +234,35 @@ function* getParentChain(node: ts.Node) {
         node = node.parent;
     }
 }
+
+type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile;
+function getDeclaringScope(id: ts.Identifier, typeChecker: ts.TypeChecker): Scope {
+    const symbol = typeChecker.getSymbolAtLocation(id);
+    const declaration = symbol?.valueDeclaration!;
+    if (declaration === undefined) {
+        throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
+    }
+    if (ts.isParameter(declaration)) {
+        if (!isFunctionLikeDeclaration(declaration.parent)) {
+            throw new Error(`Unknown kind of signature declaration: ${printNodeAndPos(declaration.parent)}`)
+        }
+        return declaration.parent;
+    } else if (ts.isVariableDeclaration(declaration)
+        && ts.isVariableDeclarationList(declaration.parent)
+        && ts.isVariableStatement(declaration.parent.parent)
+    ) {
+        const variableStatementParent = declaration.parent.parent.parent;
+        if (!(ts.isBlock(variableStatementParent) || ts.isSourceFile(variableStatementParent))) {
+            throw new Error(`Expected a statement to be in a block or sf: ${printNodeAndPos(variableStatementParent)}`);
+        }
+        return variableStatementParent;
+    } else if (ts.isFunctionDeclaration(declaration)) {
+        const declarationParent = declaration.parent;
+        if (!(ts.isBlock(declarationParent) || ts.isSourceFile(declarationParent))) {
+            throw new Error(`Expected a function declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
+        }
+        return declarationParent;
+    } else {
+        throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
+    }
+}
