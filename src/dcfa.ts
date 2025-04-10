@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
@@ -9,6 +9,8 @@ import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isFunctionLikeDeclarationConfig, isIdentifierConfig, newQuestion, printConfig, pushContext, withZeroContext } from './configuration';
+import { getReachableQueries } from './reachability';
+import { isEqual } from 'lodash';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -38,6 +40,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             console.info('Short cicuiting because this is a prisma query');
             return empty<Config>();
         }
+
+        const reachableQueries = getReachableQueries({ method: 'abstractEval', config });
     
         return valueOf({
             func: abstractEval,
@@ -253,16 +257,30 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         
         // "call"
         function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet { // TODO mcfa make a DcfaFixRunFunc type
-            const node = config.node;
+            const { node, env } = config;
             if (isExtern(node)) {
                 return empty(); // TODO mcfa I'm not sure this is the right thing to do
             }
             
-            if (!isFunctionLikeDeclaration(node.parent)) {
+            if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
                 return unimplementedVal(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
             }
+
+            if (reachableQueries.hasNot({ method: 'getWhereClosed', config })) {
+                return empty();
+            }
+
+            const applicationSites = fix_run(getWhereValueApplied, { node: node.parent, env: env.tail });
     
-            return fix_run(getWhereValueApplied, withZeroContext(node.parent))
+            return configSetFilter(applicationSites, siteConfig => {
+                const site = siteConfig.node;
+                if (!ts.isCallExpression(site)) {
+                    return unimplemented(`Got non-callsite from getWhereValueApplied: ${printNodeAndPos(site)}`, false);
+                }
+
+                const contextFromCallSite = pushContext(site, siteConfig.env, m);
+                return isEqual(contextFromCallSite, env.head);
+            });
         }
         
         // "find"

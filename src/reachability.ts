@@ -12,7 +12,7 @@ type Query = {
 }
 type QueryMethod = 'abstractEval' | 'getWhereValueApplied' | 'getWhereClosed';
 
-function getReachableQueries(topLevelQuery: Query): StructuralSet<Query> {
+export function getReachableQueries(topLevelQuery: Query): StructuralSet<Query> {
     const valueOf = makeFixpointComputer(empty<Query>(), { printArgs: printQuery, printRet: set => setMap(set, printQuery).toString() });
     return valueOf({ func: compute, args: topLevelQuery });
 

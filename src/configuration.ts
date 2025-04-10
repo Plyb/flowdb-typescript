@@ -91,6 +91,7 @@ export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) =
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
 }
 export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): StructuralSet<ConfigExtern | T>
+export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
     return setFilter(set, config => !isConfigNoExtern(config) || predicate(config));
 }
