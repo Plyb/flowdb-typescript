@@ -29,7 +29,7 @@ type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
 
-export function withZeroContext(node: Cursor): Config {
+export function withZeroContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {
         return {
             node,

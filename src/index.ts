@@ -18,7 +18,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   // console.info = () => undefined
   // console.info = justCompute
 
-  const results = analyze(service, file, line, column);
+  const results = analyze(service, file, line, column, 0);
   return results;
 }
 
