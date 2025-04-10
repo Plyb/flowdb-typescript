@@ -1,7 +1,7 @@
 import { Extern, isExtern } from './abstract-values'
-import { setMap } from './setUtil';
+import { setFilter, setMap } from './setUtil';
 import { StructuralSet } from './structural-set';
-import { findAllParameterBinders, printNodeAndPos } from './ts-utils';
+import { findAllParameterBinders, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { emptyList, List, toList } from './util';
 import ts from 'typescript';
 
@@ -25,6 +25,7 @@ type Question = { __questionBrand: true, param: ts.Identifier }
 
 export const limit: LimitSentinel = { __limitSentinelBrand: true };
 
+type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
 
@@ -76,14 +77,20 @@ function isLimit(context: Context): context is LimitSentinel {
     return context === limit;
 }
 
+export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
+    return !isExtern(config.node);
+}
 export function isIdentifierConfig(config: Config): config is Config<ts.Identifier> {
     return !isExtern(config.node) && ts.isIdentifier(config.node);
+}
+export function isFunctionLikeDeclarationConfig(config: Config): config is Config<SimpleFunctionLikeDeclaration> {
+    return isConfigNoExtern(config) && isFunctionLikeDeclaration(config.node);
 }
 
 export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) => Config): ConfigSet {
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
 }
-
-export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
-    return !isExtern(config.node);
+export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): StructuralSet<ConfigExtern | T>
+export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
+    return setFilter(set, config => !isConfigNoExtern(config) || predicate(config));
 }

@@ -4,11 +4,11 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements } from './ts-utils';
-import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal } from './abstract-values';
+import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetMap, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, isFunctionLikeDeclarationConfig, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -159,7 +159,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            const node = config.node;
+            const { node, env } = config;
             if (isExtern(node)) {
                 return empty(); // TODO mcfa not sure if this is the right thing
             }
@@ -169,7 +169,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (isOperatorOf(node, parent)) {
                     return empty(); // If we're the operator, our value doesn't get propogated anywhere
                 } else {
-                    return getWhereReturnedInsideFunction(parent, node, (parameterName) =>
+                    return getWhereReturnedInsideFunction({ node: parent, env }, node, (parameterName) =>
                         ts.isIdentifier(parameterName) 
                             ? getReferences(parameterName)
                             : empty() // If it's not an identifier, it's being destructured, so the value doesn't continue on
@@ -231,17 +231,18 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
-            function getWhereReturnedInsideFunction(parent: ts.CallExpression, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName) => ConfigSet) {
+            function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName) => ConfigSet) {
+                const parent = parentConfig.node;
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
-                    abstractEval, withZeroContext(parent.expression)
+                    abstractEval, { node: parent.expression, env: parentConfig.env }
                 );
 
-                const possibleFunctions = nodeLatticeFilter(possibleOperators, config => isFunctionLikeDeclaration(config.node));
+                const possibleFunctions = configSetFilter(possibleOperators, isFunctionLikeDeclarationConfig);
                 const parameterReferences = configSetJoinMap(
                     possibleFunctions,
                     (funcConfig) => {
-                        const parameterName = (funcConfig.node as SimpleFunctionLikeDeclaration).parameters[argIndex].name; // TODO mcfa deal with as
+                        const parameterName = funcConfig.node.parameters[argIndex].name;
                         const refs = getReferencesFromParameter(parameterName);
                         return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                     }
