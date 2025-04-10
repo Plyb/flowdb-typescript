@@ -22,7 +22,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error('expected function declaration');
     }
 
-    const fixed_eval = makeDcfaComputer(service, node);
+    const fixed_eval = makeDcfaComputer(service, node, m);
 
     const reachableCallConfigsWithExterns = getReachableCallConfigs(withZeroContext(node.body), m, fixed_eval)
     const reachableCallConfigs = setFilter(reachableCallConfigsWithExterns, elem => isConfigNoExtern(elem));

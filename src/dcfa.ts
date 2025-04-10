@@ -14,9 +14,7 @@ import { isEqual } from 'lodash';
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
 
-const m = 0;
-
-export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration): FixedEval {
+export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): FixedEval {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
 
