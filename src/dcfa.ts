@@ -8,7 +8,7 @@ import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattic
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isFunctionLikeDeclarationConfig, isIdentifierConfig, newQuestion, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isFunctionLikeDeclarationConfig, isIdentifierConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
 
 export type FixedEval = (config: Config) => ConfigSet;
@@ -343,13 +343,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return unimplemented(`could not find declaration: ${symbol.name}`, empty());
             }
             const declaringScope = getDeclaringScope(declaration);
+            const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
             if (ts.isParameter(declaration)) {
                 // if (declaration.parent === targetFunction) {
                 //     return singleton<Config>(withZeroContext(declaration.name));
                 // }
 
-                return getArgumentsForParameter(declaration);
+                return getArgumentsForParameter(declaration, envAtDeclaringScope);
             } else if (ts.isVariableDeclaration(declaration)) {
                 // if (ts.isForOfStatement(declaration.parent.parent)) {
                 //     const forOfStatement = declaration.parent.parent;
@@ -369,13 +370,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         
                     return singleton<Config>({
                         node: declaration.initializer,
-                        env: shortenEnvironmentToScope(idConfig, declaringScope),
+                        env: envAtDeclaringScope,
                     });
                 // }
             } else if (ts.isFunctionDeclaration(declaration)) {
                 return singleton<Config>({
                     node: declaration,
-                    env: shortenEnvironmentToScope(idConfig, declaringScope),
+                    env: envAtDeclaringScope,
                 });
             // } else if (ts.isBindingElement(declaration)) {
             //     const bindingElementSource = declaration.parent.parent;
@@ -435,20 +436,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             return unimplementedVal(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
-            function getArgumentsForParameter(declaration: ParameterDeclaration): ConfigSet {
+            function getArgumentsForParameter(declaration: ParameterDeclaration, envAtDeclaredScope: Environment): ConfigSet {
                 const declaringFunction = declaration.parent;
                 if (!isFunctionLikeDeclaration(declaringFunction)) {
                     return unimplementedVal('not yet implemented');
                 }
                 const parameterIndex = declaringFunction.parameters.indexOf(declaration);
-                const definingFunctionBody = declaringFunction.body
+                const declaringFunctionBody = declaringFunction.body
         
                 const definingFunctionCallSites = fix_run(
-                    getWhereClosed, withZeroContext(definingFunctionBody)
+                    getWhereClosed, { node: declaringFunctionBody, env: envAtDeclaredScope }
                 );
-                const boundFromArgs =  nodeLatticeMap(definingFunctionCallSites, (callSite) => {
-                    return (callSite as CallExpression).arguments[parameterIndex] as Node;
-                });
+                const boundFromArgs =  configSetMap(definingFunctionCallSites, (callSite) => ({
+                    node: (callSite.node as CallExpression).arguments[parameterIndex] as Node,
+                    env: callSite.env,
+                }));
 
                 // const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
                 // const boundFromPrimop = nodeLatticeFlatMap(
@@ -481,7 +483,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 // );
 
                 // return union(boundFromArgs, boundFromPrimop);
-                return setMap(boundFromArgs, withZeroContext);
+                return boundFromArgs;
             }
         }
     

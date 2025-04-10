@@ -30,6 +30,6 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
     return setMap(prismaQueryExpressions, qExp => ({
         table: qExp.table,
         method: qExp.method,
-        argument: fixed_eval(withZeroContext(qExp.argument))
+        argument: fixed_eval(withZeroContext(qExp.argument)) // TODO mcfa
     }))
 }
