@@ -9,7 +9,6 @@ import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isFunctionLikeDeclarationConfig, isIdentifierConfig, newQuestion, printConfig, pushContext, withZeroContext } from './configuration';
-import { getReachableQueries } from './reachability';
 import { isEqual } from 'lodash';
 
 export type FixedEval = (config: Config) => ConfigSet;
@@ -40,8 +39,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             console.info('Short cicuiting because this is a prisma query');
             return empty<Config>();
         }
-
-        const reachableQueries = getReachableQueries({ method: 'abstractEval', config });
     
         return valueOf({
             func: abstractEval,
@@ -264,10 +261,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             
             if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
                 return unimplementedVal(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
-            }
-
-            if (reachableQueries.hasNot({ method: 'getWhereClosed', config })) {
-                return empty();
             }
 
             const applicationSites = fix_run(getWhereValueApplied, { node: node.parent, env: env.tail });
