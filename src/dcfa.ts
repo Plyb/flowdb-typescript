@@ -179,7 +179,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const closedOverSites = fix_run(getWhereClosed, config);
                 return configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
             } else if (ts.isParenthesizedExpression(parent)) {
-                return fix_run(getWhereValueReturned, withZeroContext(parent));
+                return fix_run(getWhereValueReturned, { node: parent, env });
             } else if (ts.isVariableDeclaration(parent)) {
                 if (!ts.isIdentifier(parent.name)) {
                     return empty(); // if it's not an identifier, we're destructuring it, which will return different values
