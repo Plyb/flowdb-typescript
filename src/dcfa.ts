@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -279,7 +279,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "find"
         function getReferences(idConfig: Config<ts.Identifier>): ConfigSet {
             const { node: id, env: idEnv } = idConfig;
-            const scope = getDeclaringScope(id, typeChecker);
+            const symbol = typeChecker.getSymbolAtLocation(id); // TODO mcfa: merge this with the declaration getting in bind
+            const declaration = symbol?.valueDeclaration!;
+            if (declaration === undefined) {
+                throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
+            }
+            const scope = getDeclaringScope(declaration);
 
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
@@ -312,7 +317,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         
         // "bind"
         function getBoundExprs(idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            const id = idConfig.node;
+            const { node: id } = idConfig;
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
@@ -325,10 +330,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             //     return empty();
             // }
     
-            return getBoundExprsOfSymbol(symbol, fix_run);
+            return getBoundExprsOfSymbol(symbol, idConfig, fix_run);
         }
 
-        function getBoundExprsOfSymbol(symbol: ts.Symbol, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+        function getBoundExprsOfSymbol(symbol: ts.Symbol, idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             // const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
             // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
@@ -337,6 +342,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             if (declaration === undefined) {
                 return unimplemented(`could not find declaration: ${symbol.name}`, empty());
             }
+            const declaringScope = getDeclaringScope(declaration);
 
             if (ts.isParameter(declaration)) {
                 // if (declaration.parent === targetFunction) {
@@ -361,10 +367,16 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
         
-                    return singleton<Config>(withZeroContext(declaration.initializer));
+                    return singleton<Config>({
+                        node: declaration.initializer,
+                        env: shortenEnvironmentToScope(idConfig, declaringScope),
+                    });
                 // }
             } else if (ts.isFunctionDeclaration(declaration)) {
-                return singleton<Config>(withZeroContext(declaration));
+                return singleton<Config>({
+                    node: declaration,
+                    env: shortenEnvironmentToScope(idConfig, declaringScope),
+                });
             // } else if (ts.isBindingElement(declaration)) {
             //     const bindingElementSource = declaration.parent.parent;
             //     if (ts.isVariableDeclaration(bindingElementSource)) {

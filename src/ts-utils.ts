@@ -1,10 +1,12 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
 import { isExtern, NodeLatticeElem } from './abstract-values';
 import { last } from 'lodash';
+import { Config, Environment, newQuestion } from './configuration';
+import { consList, unimplemented } from './util';
 
 
 export type NodePrinter = (node: ts.Node) => string
@@ -236,12 +238,7 @@ export function* getParentChain(node: ts.Node) {
 }
 
 type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile;
-export function getDeclaringScope(id: ts.Identifier, typeChecker: ts.TypeChecker): Scope {
-    const symbol = typeChecker.getSymbolAtLocation(id);
-    const declaration = symbol?.valueDeclaration!;
-    if (declaration === undefined) {
-        throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
-    }
+export function getDeclaringScope(declaration: Declaration): Scope {
     if (ts.isParameter(declaration)) {
         if (!isFunctionLikeDeclaration(declaration.parent)) {
             throw new Error(`Unknown kind of signature declaration: ${printNodeAndPos(declaration.parent)}`)
@@ -265,4 +262,19 @@ export function getDeclaringScope(id: ts.Identifier, typeChecker: ts.TypeChecker
     } else {
         throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
     }
+}
+
+export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: Scope): Environment {
+    const parents = getParentChain(config.node);
+    let env = config.env;
+    for (const parent of parents) {
+        if (parent === scope) {
+            return env;
+        }
+
+        if (isFunctionLikeDeclaration(parent)) {
+            env = env.tail;
+        }
+    }
+    throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
 }
