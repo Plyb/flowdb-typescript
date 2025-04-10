@@ -175,7 +175,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             : empty() // If it's not an identifier, it's being destructured, so the value doesn't continue on
                     );
                 }
-            } else if (isFunctionLikeDeclaration(parent)) {
+            } else if (isFunctionLikeDeclaration(parent) && isBodyOf(node, parent)) {
                 const closedOverSites = fix_run(getWhereClosed, config);
                 return configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
             } else if (ts.isParenthesizedExpression(parent)) {
@@ -493,4 +493,8 @@ function isOperatorOf(op: ts.Node, call: ts.CallExpression) {
 
 function getArgumentIndex(call: ts.CallExpression, arg: ts.Node) {
     return call.arguments.indexOf(arg as Expression);
+}
+
+function isBodyOf(node: ts.Node, func: SimpleFunctionLikeDeclaration) {
+    return node === func.body;
 }

@@ -49,7 +49,7 @@ export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: 
     return setFlatMap(nodeLattice, elem => isExtern(elem) ? new SimpleSet<R | Extern>(rComparator, elem) : convert(elem));
 }
 export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet { // TODO mcfa: could we merge this with flatMap?
-    return setJoinMap(set as ConfigSetNoExtern, config => !isConfigNoExtern(config) ? convert(config) : externValue);
+    return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : externValue);
 }
 export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node) => boolean): boolean {
     return setSome(lattice, (elem) => !isExtern(elem) && predicate(elem));
