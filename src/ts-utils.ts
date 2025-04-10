@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
@@ -61,7 +61,7 @@ export function* getStatements<T extends ts.Node>(node: ts.Node, predicate: (nod
 
 export type SimpleFunctionLikeDeclaration =
     (FunctionDeclaration | FunctionExpression | ArrowFunction)
-    & { body: ts.Node }
+    & { body: ConciseBody }
 type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
     & { modifiers: [AsyncKeyword]}
 export function isFunctionLikeDeclaration(node: NodeLatticeElem): node is SimpleFunctionLikeDeclaration {
