@@ -1,4 +1,5 @@
 import { Extern, isExtern } from './abstract-values'
+import { setMap } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, printNodeAndPos } from './ts-utils';
 import { emptyList, List, toList } from './util';
@@ -77,4 +78,12 @@ function isLimit(context: Context): context is LimitSentinel {
 
 export function isIdentifierConfig(config: Config): config is Config<ts.Identifier> {
     return !isExtern(config.node) && ts.isIdentifier(config.node);
+}
+
+export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) => Config): ConfigSet {
+    return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
+}
+
+export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
+    return !isExtern(config.node);
 }

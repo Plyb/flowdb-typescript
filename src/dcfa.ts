@@ -8,7 +8,7 @@ import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattic
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigSet, configSetMap, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -151,7 +151,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 getWhereValueReturned(config, fix_run),
                 funcConfig => ts.isCallExpression(funcConfig.node.parent) && isOperatorOf(funcConfig.node, funcConfig.node.parent)
             );
-            return setMap(nodeLatticeMap(operatorSites, op => op.parent), withZeroContext);
+            return configSetMap(operatorSites, config => ({ node: config.node.parent, env: config.env }));
         }
     
         function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
