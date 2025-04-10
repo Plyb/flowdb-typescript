@@ -228,7 +228,7 @@ export function findAllParameterBinders(node: ts.Node) { // TODO mcfa we may wan
     return parentChain.filter(node => isFunctionLikeDeclaration);
 }
 
-function* getParentChain(node: ts.Node) {
+export function* getParentChain(node: ts.Node) {
     while (node !== undefined) {
         yield node;
         node = node.parent;
@@ -236,7 +236,7 @@ function* getParentChain(node: ts.Node) {
 }
 
 type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile;
-function getDeclaringScope(id: ts.Identifier, typeChecker: ts.TypeChecker): Scope {
+export function getDeclaringScope(id: ts.Identifier, typeChecker: ts.TypeChecker): Scope {
     const symbol = typeChecker.getSymbolAtLocation(id);
     const declaration = symbol?.valueDeclaration!;
     if (declaration === undefined) {

@@ -3,12 +3,12 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
 // import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, isFunctionLikeDeclarationConfig, isIdentifierConfig, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isFunctionLikeDeclarationConfig, isIdentifierConfig, newQuestion, printConfig, pushContext, withZeroContext } from './configuration';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -169,9 +169,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (isOperatorOf(node, parent)) {
                     return empty(); // If we're the operator, our value doesn't get propogated anywhere
                 } else {
-                    return getWhereReturnedInsideFunction({ node: parent, env }, node, (parameterName) =>
+                    return getWhereReturnedInsideFunction({ node: parent, env }, node, (parameterName, opEnv) =>
                         ts.isIdentifier(parameterName) 
-                            ? getReferences(parameterName)
+                            ? getReferences({ node: parameterName, env: consList(pushContext(parent, env, m), opEnv) })
                             : empty() // If it's not an identifier, it's being destructured, so the value doesn't continue on
                     );
                 }
@@ -185,14 +185,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return empty(); // if it's not an identifier, we're destructuring it, which will return different values
                 }
     
-                const refs = getReferences(parent.name)
+                const refs = getReferences({ node: parent.name, env })
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
                     return unimplementedVal('function declaration should have name')
                 }
     
-                const refs = getReferences(node.name);
+                const refs = getReferences({ node: node.name, env });
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             // } else if (ts.isForOfStatement(parent) && parent.expression === node) {
             //     return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
@@ -231,7 +231,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
-            function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName) => ConfigSet) {
+            function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
                 const parent = parentConfig.node;
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
@@ -243,7 +243,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     possibleFunctions,
                     (funcConfig) => {
                         const parameterName = funcConfig.node.parameters[argIndex].name;
-                        const refs = getReferencesFromParameter(parameterName);
+                        const refs = getReferencesFromParameter(parameterName, funcConfig.env);
                         return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
                     }
                 );
@@ -266,7 +266,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "find"
-        function getReferences(id: ts.Identifier): ConfigSet {
+        function getReferences(idConfig: Config<ts.Identifier>): ConfigSet {
+            const { node: id, env: idEnv } = idConfig;
+            const scope = getDeclaringScope(id, typeChecker);
+
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
                 ?.flatMap(ref => ref.references)
@@ -279,7 +282,20 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 ref.textSpan!.start,
                 ref.textSpan!.length,
             )!);
-            const refNodeConfigs = refNodes.map(withZeroContext);
+            const refNodeConfigs: Config[] = refNodes.map(refNode => {
+                const parents = getParentChain(refNode);
+                let env = idEnv;
+                for (const parent of parents) {
+                    if (parent === scope) break;
+                    if (isFunctionLikeDeclaration(parent)) {
+                        env = consList(newQuestion(parent), env);
+                    }
+                }
+                return {
+                    node: refNode,
+                    env
+                }
+            });
             return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
         }
         

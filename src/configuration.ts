@@ -21,7 +21,7 @@ type Context =
     tail: Context
 };
 type LimitSentinel = { __limitSentinelBrand: true }
-type Question = { __questionBrand: true, param: ts.Identifier }
+type Question = { __questionBrand: true, func: SimpleFunctionLikeDeclaration }
 
 export const limit: LimitSentinel = { __limitSentinelBrand: true };
 
@@ -93,4 +93,11 @@ export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) =
 export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): StructuralSet<ConfigExtern | T>
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
     return setFilter(set, config => !isConfigNoExtern(config) || predicate(config));
+}
+
+export function newQuestion(func: SimpleFunctionLikeDeclaration): Question {
+    return {
+        __questionBrand: true,
+        func,
+    }
 }
