@@ -77,7 +77,7 @@ export function runTests() {
         librRes(16, 14), // variable declaration
         testRes(49, 29), // function declaration
                          // for of (test shouldn't come up with anything)
-        // testRes(51, 48), // property access
+        testRes(51, 48), // property access
         // testRes(52, 60), // shorthand property assignment (for calls)
         // getBoundExprs tests
     );

@@ -106,7 +106,7 @@ export function getMapSetCalls(returnSiteConfigs: ConfigSet, { fixed_eval, targe
         if (!(ts.isPropertyAccessExpression(access))) {
             return false;
         }
-        const accessConses = fixed_eval(siteConfig);
+        const accessConses = fixed_eval({ node: access, env: siteConfig.env });
         if (!configSetSome(accessConses, consConfig =>
                 isBuiltInConstructorShapedConfig(consConfig)
                 && getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction) === 'Map#set'
