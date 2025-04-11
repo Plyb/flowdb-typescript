@@ -7,44 +7,48 @@ import { structuralComparator } from './comparators';
 import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { Config, ConfigSet } from './configuration';
 
 
-// export function getObjectProperty(access: ts.PropertyAccessExpression, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): AbstractValue {
-//     const expressionConses = fixed_eval(access.expression);
-//     const property = access.name;
-//     return configSetJoinMap(expressionConses, cons => {
-//         if (ts.isObjectLiteralExpression(cons)) {
-//             for (const prop of cons.properties) {
-//                 if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
-//                     console.warn(`Expected identifier for property`);
-//                     continue;
-//                 }
+export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
+    const { node: access, env } = accessConfig;
+    const expressionConses = fixed_eval({ node: access.expression, env });
+    const property = access.name;
+    return configSetJoinMap(expressionConses, consConfig => {
+        const { node: cons, env: consEnv } = consConfig;
+        if (ts.isObjectLiteralExpression(cons)) {
+            for (const prop of cons.properties) {
+                if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
+                    console.warn(`Expected identifier for property`);
+                    continue;
+                }
 
-//                 if (prop.name.text !== property.text) {
-//                     continue;
-//                 }
+                if (prop.name.text !== property.text) {
+                    continue;
+                }
 
-//                 if (ts.isPropertyAssignment(prop)) {
-//                     return fixed_eval(prop.initializer);
-//                 } else if (ts.isShorthandPropertyAssignment(prop)) {
-//                     return fixed_eval(prop.name)
-//                 } else {
-//                     console.warn(`Unknown object property assignment`)
-//                 }
-//             }
-//             return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
-//         } else if (isBuiltInConstructorShaped(cons)) {
-//             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
-//             return resultOfPropertyAccess[builtInValue](access, { fixed_eval });
-//         } else {
-//             const proto = getProtoOf(cons, printNodeAndPos);
-//             if (proto === null) {
-//                 return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
-//             }
-//             return getPropertyOfProto(proto, property.text, cons, access, fixed_eval);
-//         }
-//     })
-// }
+                if (ts.isPropertyAssignment(prop)) {
+                    return fixed_eval({ node: prop.initializer, env: consEnv });
+                // } else if (ts.isShorthandPropertyAssignment(prop)) {
+                //     return fixed_eval(prop.name)
+                } else {
+                    console.warn(`Unknown object property assignment`)
+                }
+            }
+            return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
+        // } else if (isBuiltInConstructorShaped(cons)) {
+        //     const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
+        //     return resultOfPropertyAccess[builtInValue](access, { fixed_eval });
+        // } else {
+        //     const proto = getProtoOf(cons, printNodeAndPos);
+        //     if (proto === null) {
+        //         return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
+        //     }
+        //     return getPropertyOfProto(proto, property.text, cons, access, fixed_eval);
+        }
+        throw new Error(`not yet reimplemented getObjectProperty`)
+    })
+}
 
 // export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
 //     const conses = fixed_eval(node);

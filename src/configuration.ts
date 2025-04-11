@@ -86,6 +86,9 @@ export function isIdentifierConfig(config: Config): config is Config<ts.Identifi
 export function isFunctionLikeDeclarationConfig(config: Config): config is Config<SimpleFunctionLikeDeclaration> {
     return isConfigNoExtern(config) && isFunctionLikeDeclaration(config.node);
 }
+export function isPropertyAccessConfig(config: ConfigNoExtern): config is Config<ts.PropertyAccessExpression> {
+    return ts.isPropertyAccessExpression(config.node);
+}
 
 export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) => Config): ConfigSet {
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
