@@ -68,6 +68,7 @@ export function runTests() {
         // testRes(55, 26), // Promise.allSettled
         // testRes(56, 36), // error message
         // testRes(57, 26), // error message includes (mixed proto accesses)
+        testRes(70,  1), // promise from async function
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function

@@ -46,7 +46,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "eval"
         function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {    
             const fixed_eval: FixedEval = config => fix_run(abstractEval, config);
-            // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
             const { node, env } = config;
 
             if (isExtern(node)) {
@@ -60,12 +60,18 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return configSetJoinMap(possibleOperators, (opConfig) => {
                     const op = opConfig.node;
                     if (isFunctionLikeDeclaration(op)) {
-                        // if (isAsync(op)) {
-                        //     return configValue(withZeroContext(op.modifiers!.find(isAsyncKeyword)!))
-                        // } else {
+                        if (isAsync(op)) {
+                            return configValue({
+                                node: op.modifiers!.find(isAsyncKeyword)!,
+                                env: consList(pushContext(node, env, m), opConfig.env)
+                            })
+                        } else {
                             const body: ts.Node = op.body;
-                            return fix_run(abstractEval, { node: body, env: consList(pushContext(node, env, m), opConfig.env) });
-                        // }
+                            return fix_run(abstractEval, {
+                                node: body,
+                                env: consList(pushContext(node, env, m), opConfig.env) 
+                            });
+                        }
                     // } else if (isBuiltInConstructorShaped(op)) {
                     //     const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
                     //     return resultOfCalling[builtInValue](node, { fixed_eval });
