@@ -56,15 +56,15 @@ export function runTests() {
         // extern         , // import from library
         testRes(38, 28), // element access basic
         // testRes(39, 41), // element access built in constructor
-        // testRes(40, 26), // new expression
-        // testRes(41, 26), // null
+        testRes(40, 26), // new expression
+        testRes(41, 26), // null
         // testRes(42, 27), // binary expression lhs
         // testRes(42, 34), // binary expression rhs
         // testRes(43, 26), // template expression
         // testRes(44, 33), // conditional expr then branch
         // testRes(44, 40), // conditional expr else branch
         // testRes(53, 27), // as expression
-        // testRes(54, 26), // new expression on custom class
+        testRes(54, 26), // new expression on custom class
         // testRes(55, 26), // Promise.allSettled
         // testRes(56, 36), // error message
         // testRes(57, 26), // error message includes (mixed proto accesses)

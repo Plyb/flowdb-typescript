@@ -130,10 +130,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }
                 );
                 return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
-            // } else if (ts.isNewExpression(node)) {
-            //     return nodeValue(node);
-            // } else if (isNullLiteral(node)) {
-            //     return nodeValue(node);
+            } else if (ts.isNewExpression(node)) {
+                return configValue(config);
+            } else if (isNullLiteral(node)) {
+                return configValue(config);
             // } else if (ts.isBinaryExpression(node)) {
             //     const lhsRes = fix_run(abstractEval, node.left);
             //     const rhsRes = fix_run(abstractEval, node.right);
