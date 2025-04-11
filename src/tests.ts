@@ -46,7 +46,7 @@ export function runTests() {
         testRes(27, 26), // regex
         testRes(28, 26), // no sub template
         testRes(29, 26), // big int
-        // testRes(30, 26), // object
+        testRes(30, 26), // object
         // testRes(31, 34), // basic property access
         // testRes(32, 26), // built in property access
         // testRes(33, 26), // proto property access

@@ -110,8 +110,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return joinAllValues(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
                 return configValue(config);
-            // } else if (ts.isObjectLiteralExpression(node)) {
-            //     return nodeValue(node);
+            } else if (ts.isObjectLiteralExpression(node)) {
+                return configValue(config);
             // } else if (ts.isPropertyAccessExpression(node)) {
             //     if (!ts.isIdentifier(node.name)) {
             //         return unimplementedVal(`Expected simple identifier property access: ${node.name}`);
