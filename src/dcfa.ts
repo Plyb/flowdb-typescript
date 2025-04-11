@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLi
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getObjectProperty } from './abstract-value-utils';
+import { getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
 
@@ -120,8 +120,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
     
                 return getObjectProperty(config, fixed_eval, targetFunction);
-            // } else if (ts.isAwaitExpression(node)) {
-            //     return resolvePromisesOfNode(node.expression, fixed_eval);
+            } else if (ts.isAwaitExpression(node)) {
+                return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
             // } else if (ts.isArrayLiteralExpression(node)) {
             //     return nodeValue(node);
             // } else if (ts.isElementAccessExpression(node)) {

@@ -72,20 +72,21 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
 //     });
 // }
 
-// export function resolvePromisesOfNode(node: ts.Node, fixed_eval: FixedEval): NodeLattice {
-//     const conses = fixed_eval(node);
-//     return nodeLatticeFlatMap(conses, cons => {
-//         if (isAsyncKeyword(cons)) { // i.e. it's a return value of an async function
-//             const sourceFunction = cons.parent;
-//             if (!isFunctionLikeDeclaration(sourceFunction)) {
-//                 return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
-//             }
-//             return fixed_eval(sourceFunction.body);
-//         } else {
-//             return configValue(cons);
-//         }
-//     })
-// }
+export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): ConfigSet {
+    const conses = fixed_eval(config);
+    return configSetJoinMap(conses, consConfig => {
+        const { node: cons, env: consEnv } = consConfig
+        if (isAsyncKeyword(cons)) { // i.e. it's a return value of an async function
+            const sourceFunction = cons.parent;
+            if (!isFunctionLikeDeclaration(sourceFunction)) {
+                return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
+            }
+            return fixed_eval({ node: sourceFunction.body, env: consEnv });
+        } else {
+            return configValue(consConfig);
+        }
+    })
+}
 
 // export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
 //     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {

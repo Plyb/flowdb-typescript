@@ -36,7 +36,7 @@ export function runTests() {
         testRes(17, 26), // function decl
         // librRes( 5, 11), // call syntactic func
         // testRes(19, 26), // call built in func
-        testRes( 9, 32), // bound identifier
+        testRes( 9, 39), // bound identifier
         // testRes(21, 26), // built in identifier
         // testRes( 9, 42), // shadowed identifier
         testRes(23, 27), // parenthesized expr
@@ -50,8 +50,8 @@ export function runTests() {
         testRes(31, 34), // basic property access
         // testRes(32, 26), // built in property access
         // testRes(33, 26), // proto property access
-        // librRes( 5, 11), // await non-async call
-        // librRes( 9, 11), // await async call
+        librRes( 5, 11), // await non-async call
+        librRes( 9, 11), // await async call
         // testRes(36, 26), // array literal
         // extern         , // import from library
         // testRes(38, 28), // element access basic
