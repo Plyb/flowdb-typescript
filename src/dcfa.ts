@@ -143,14 +143,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 } else {
                     return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                 }
-            // } else if (ts.isTemplateExpression(node)) {
-            //     return nodeValue(node);
-            // } else if (ts.isConditionalExpression(node)) {
-            //     const thenValue = fix_run(abstractEval, node.whenTrue);
-            //     const elseValue = fix_run(abstractEval, node.whenFalse);
-            //     return joinValue(thenValue, elseValue)
-            // } else if (ts.isAsExpression(node)) {
-            //     return fix_run(abstractEval, node.expression);
+            } else if (ts.isTemplateExpression(node)) {
+                return configValue(config);
+            } else if (ts.isConditionalExpression(node)) {
+                const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
+                const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
+                return joinValue(thenValue, elseValue)
+            } else if (ts.isAsExpression(node)) {
+                return fix_run(abstractEval, { node: node.expression, env });
             }
             return unimplementedVal(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }

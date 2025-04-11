@@ -60,10 +60,10 @@ export function runTests() {
         testRes(41, 26), // null
         testRes(42, 27), // binary expression lhs
         testRes(42, 34), // binary expression rhs
-        // testRes(43, 26), // template expression
-        // testRes(44, 33), // conditional expr then branch
-        // testRes(44, 40), // conditional expr else branch
-        // testRes(53, 27), // as expression
+        testRes(43, 26), // template expression
+        testRes(44, 33), // conditional expr then branch
+        testRes(44, 40), // conditional expr else branch
+        testRes(53, 27), // as expression
         testRes(54, 26), // new expression on custom class
         // testRes(55, 26), // Promise.allSettled
         // testRes(56, 36), // error message
