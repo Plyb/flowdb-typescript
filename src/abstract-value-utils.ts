@@ -8,7 +8,7 @@ import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet } from './configuration';
-import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig, resultOfPropertyAccess } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfPropertyAccess } from './value-constructors';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
@@ -40,14 +40,13 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction);
             return resultOfPropertyAccess[builtInValue](accessConfig, { fixed_eval });
-        // } else {
-        //     const proto = getProtoOf(cons, printNodeAndPos);
-        //     if (proto === null) {
-        //         return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
-        //     }
-        //     return getPropertyOfProto(proto, property.text, cons, access, fixed_eval);
+        } else {
+            const proto = getProtoOf(cons, printNodeAndPos);
+            if (proto === null) {
+                return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
+            }
+            return getPropertyOfProto(proto, property.text, cons, accessConfig, fixed_eval);
         }
-        throw new Error(`not yet reimplemented getObjectProperty`)
     })
 }
 

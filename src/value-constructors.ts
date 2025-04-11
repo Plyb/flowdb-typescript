@@ -14,29 +14,29 @@ type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpr
 
 const builtInValuesObject = {
     'Array': true,
-//     'Array#filter': true,
-//     'Array#filter()': true,
-//     'Array#find': true,
-//     'Array#includes': true,
-//     'Array#includes()': true,
-//     'Array#indexOf': true,
-//     'Array#indexOf()': true,
-//     'Array#join': true,
-//     'Array#join()': true,
-//     'Array#map': true,
-//     'Array#map()': true,
-//     'Array#some': true,
-//     'Array#some()': true,
+    'Array#filter': true,
+    // 'Array#filter()': true,
+    'Array#find': true,
+    'Array#includes': true,
+    // 'Array#includes()': true,
+    'Array#indexOf': true,
+    // 'Array#indexOf()': true,
+    'Array#join': true,
+    // 'Array#join()': true,
+    'Array#map': true,
+    // 'Array#map()': true,
+    'Array#some': true,
+    // 'Array#some()': true,
     'Array.from': true,
     'Date': true,
     'Date.now': true,
 //     'Date.now()': true,
     'JSON': true,
     'JSON.parse': true,
-//     'Map#get': true,
-//     'Map#keys': true,
+    'Map#get': true,
+    'Map#keys': true,
 //     'Map#keys()': true,
-//     'Map#set': true,
+    'Map#set': true,
     'Math': true,
     'Math.floor': true,
 //     'Math.floor()': true,
@@ -47,19 +47,19 @@ const builtInValuesObject = {
     'Promise': true,
     'Promise.allSettled': true,
 //     'Promise.allSettled()': true,
-//     'RegExp#test': true,
+    'RegExp#test': true,
 //     'RegExp#test()': true,
-//     'String#includes': true,
+    'String#includes': true,
 //     'String#includes()': true,
-//     'String#split': true,
+    'String#split': true,
 //     'String#split()': true,
-//     'String#substring': true,
+    'String#substring': true,
 //     'String#substring()': true,
-//     'String#toLowerCase': true,
+    'String#toLowerCase': true,
 //     'String#toLowerCase()': true,
-//     'String#trim': true,
+    'String#trim': true,
 //     'String#trim()': true,
-//     'String#match': true,
+    'String#match': true,
 //     'String#match()': true,
     'console': true,
     'console.log': true,
@@ -159,32 +159,32 @@ function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No resu
 type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval }) => ConfigSet
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
-//     'Array#filter': uncallable('Array#filter'), // TODO
+    'Array#filter': uncallable('Array#filter'), // TODO
 //     'Array#filter()': uncallable('Array#filter()'),
-//     'Array#find': uncallable('Array#find'), // TODO
-//     'Array#includes': configValue,
+    'Array#find': uncallable('Array#find'), // TODO
+    'Array#includes': configValue,
 //     'Array#includes()': uncallable('Array#includes()'),
-//     'Array#indexOf': configValue,
+    'Array#indexOf': configValue,
 //     'Array#indexOf()': uncallable('Array#indexOf()'),
-//     'Array#join': configValue,
+    'Array#join': configValue,
 //     'Array#join()': uncallable('Array#join()'),
-//     'Array#map': configValue,
+    'Array#map': configValue,
 //     'Array#map()': uncallable('Array#map()'),
-//     'Array#some': configValue,
+    'Array#some': configValue,
 //     'Array#some()': uncallable('Array#some()'),
     'Array.from': (callConfig, { fixed_eval }) => fixed_eval({
         node: callConfig.node.arguments[0],
         env: callConfig.env,
-    }),
+    }), // TODO mcfa clean this up
     'Date': uncallable('Date'),
     'Date.now': configValue,
 //     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
     'JSON.parse': () => externValue,
-//     'Map#get': uncallable('Map#get'), // TODO
-//     'Map#keys': configValue,
+    'Map#get': uncallable('Map#get'), // TODO
+    'Map#keys': configValue,
 //     'Map#keys()': uncallable('Map#keys()'),
-//     'Map#set': uncallable('Map#set'), // TODO
+    'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
     'Math.floor': configValue,
 //     'Math.floor()': uncallable('Math.floor()'),
@@ -195,19 +195,19 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Promise': uncallable('Promise'),
     'Promise.allSettled': configValue,
 //     'Promise.allSettled()': uncallable('Promise.allSettled()'),
-//     'RegExp#test': configValue,
+    'RegExp#test': configValue,
 //     'RegExp#test()': uncallable('RegExp#test()'),
-//     'String#includes': configValue,
+    'String#includes': configValue,
 //     'String#includes()': uncallable('String#includes()'),
-//     'String#match': configValue,
+    'String#match': configValue,
 //     'String#match()': uncallable('String#match()'),
-//     'String#split': configValue,
+    'String#split': configValue,
 //     'String#split()': uncallable('String#split()'),
-//     'String#substring': configValue,
+    'String#substring': configValue,
 //     'String#substring()': uncallable('String#substring()'),
-//     'String#toLowerCase': configValue,
+    'String#toLowerCase': configValue,
 //     'String#toLowerCase()': uncallable('String#toLowerCase()'),
-//     'String#trim': configValue,
+    'String#trim': configValue,
 //     'String#trim()': uncallable('String#trim()'),
     'console': uncallable('console'),
     'console.log': configValue,
@@ -255,18 +255,18 @@ function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
 // }
 export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
     'Array': builtInStaticMethod('Array.from'),
-//     'Array#filter': inaccessibleProperty('Array#filter'),
+    'Array#filter': inaccessibleProperty('Array#filter'),
 //     'Array#filter()': builtInProtoMethod('Array'),
-//     'Array#find': inaccessibleProperty('Array#find'),
-//     'Array#includes': inaccessibleProperty('Array#includes'),
+    'Array#find': inaccessibleProperty('Array#find'),
+    'Array#includes': inaccessibleProperty('Array#includes'),
 //     'Array#includes()': inaccessibleProperty('Array#includes()'),
-//     'Array#indexOf': inaccessibleProperty('Array#indexOf'),
+    'Array#indexOf': inaccessibleProperty('Array#indexOf'),
 //     'Array#indexOf()': inaccessibleProperty('Array#indexOf()'),
-//     'Array#join': inaccessibleProperty('Array#join'),
+    'Array#join': inaccessibleProperty('Array#join'),
 //     'Array#join()': builtInProtoMethod('String'),
-//     'Array#map': inaccessibleProperty('Array#map'),
+    'Array#map': inaccessibleProperty('Array#map'),
 //     'Array#map()': builtInProtoMethod('Array'),
-//     'Array#some': inaccessibleProperty('Array#some'),
+    'Array#some': inaccessibleProperty('Array#some'),
 //     'Array#some()': inaccessibleProperty('Array#some()'),
     'Array.from': inaccessibleProperty('Array.from'),
     'Date': builtInStaticMethod('Date.now'),
@@ -274,10 +274,10 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
 //     'Date.now()': inaccessibleProperty('Date.now()'),
     'JSON': builtInStaticMethod('JSON.parse'),
     'JSON.parse': inaccessibleProperty('JSON.parse'),
-//     'Map#get': inaccessibleProperty('Map#get'),
-//     'Map#keys': inaccessibleProperty('Map#keys'),
+    'Map#get': inaccessibleProperty('Map#get'),
+    'Map#keys': inaccessibleProperty('Map#keys'),
 //     'Map#keys()': builtInProtoMethod('Array'),
-//     'Map#set': inaccessibleProperty('Map#set'),
+    'Map#set': inaccessibleProperty('Map#set'),
     'Math': builtInStaticMethod('Math.floor'),
     'Math.floor': inaccessibleProperty('Math.floor'),
 //     'Math.floor()': inaccessibleProperty('Math.floor()'),
@@ -288,19 +288,19 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Promise': builtInStaticMethod('Promise.allSettled'),
     'Promise.allSettled': inaccessibleProperty('Promise.allSettled'),
 //     'Promise.allSettled()': inaccessibleProperty('Promise.allSettled()'),
-//     'RegExp#test': inaccessibleProperty('RegExp#test'),
+    'RegExp#test': inaccessibleProperty('RegExp#test'),
 //     'RegExp#test()': inaccessibleProperty('RegExp#test()'),
-//     'String#includes': inaccessibleProperty('String#includes'),
+    'String#includes': inaccessibleProperty('String#includes'),
 //     'String#includes()': inaccessibleProperty('String#includes()'),
-//     'String#match': inaccessibleProperty('String#match'),
+    'String#match': inaccessibleProperty('String#match'),
 //     'String#match()': inaccessibleProperty('String#match()'),
-//     'String#split': inaccessibleProperty('String#split'),
+    'String#split': inaccessibleProperty('String#split'),
 //     'String#split()': builtInProtoMethod('Array'),
-//     'String#substring': inaccessibleProperty('String#substring'),
+    'String#substring': inaccessibleProperty('String#substring'),
 //     'String#substring()': builtInProtoMethod('String'),
-//     'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
+    'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
 //     'String#toLowerCase()': builtInProtoMethod('String'),
-//     'String#trim': inaccessibleProperty('String#trim'),
+    'String#trim': inaccessibleProperty('String#trim'),
 //     'String#trim()': builtInProtoMethod('String'),
     'console': builtInStaticMethods('console.log', 'console.error', 'console.warn'),
     'console.log': inaccessibleProperty('console.log'),
@@ -417,47 +417,47 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
 //     '%ParameterSourced': inaccessibleElement, // TODO
 // }
 
-// /**
-//  * @param cons here we're assuming a constructor that isn't "built in"
-//  */
-// export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltInProto | null {
-//     if (ts.isStringLiteral(cons) || ts.isTemplateLiteral(cons)) {
-//         return 'String';
-//     } else if (ts.isRegularExpressionLiteral(cons)) {
-//         return 'RegExp';
-//     } else if (ts.isArrayLiteralExpression(cons)) {
-//         return 'Array';
-//     } else if (ts.isNewExpression(cons)) {
-//         if (ts.isIdentifier(cons.expression)) {
-//             if (cons.expression.text === 'Map') {
-//                 return 'Map';
-//             } else if (cons.expression.text === 'Error') {
-//                 return 'Error';
-//             }
-//         }
-//         return 'Object';
-//     }
-//     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
-// }
+/**
+ * @param cons here we're assuming a constructor that isn't "built in"
+ */
+export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltInProto | null {
+    if (ts.isStringLiteral(cons) || ts.isTemplateLiteral(cons)) {
+        return 'String';
+    } else if (ts.isRegularExpressionLiteral(cons)) {
+        return 'RegExp';
+    } else if (ts.isArrayLiteralExpression(cons)) {
+        return 'Array';
+    } else if (ts.isNewExpression(cons)) {
+        if (ts.isIdentifier(cons.expression)) {
+            if (cons.expression.text === 'Map') {
+                return 'Map';
+            } else if (cons.expression.text === 'Error') {
+                return 'Error';
+            }
+        }
+        return 'Object';
+    }
+    return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
+}
 
-// export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionCons: ts.Node, accessNode: ts.PropertyAccessExpression, fixed_eval: FixedEval): NodeLattice {
-//     if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
-//         if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
-//             return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
-//         }
-//         if (expressionCons.arguments.length > 0) {
-//             return fixed_eval(expressionCons.arguments[0]);
-//         }
-//         return empty();
-//     }
-//     const builtInValueExists = builtInValues.elements.some(val => {
-//         const [valType, valMethod] = val.split('#');
-//         return proto === valType && valMethod === propertyName;
-//     });
-//     return builtInValueExists
-//         ? singleton<NodeLatticeElem>(accessNode)
-//         : empty();
-// }
+export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionCons: ts.Node, accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval): ConfigSet {
+    // if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
+    //     if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
+    //         return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
+    //     }
+    //     if (expressionCons.arguments.length > 0) {
+    //         return fixed_eval(expressionCons.arguments[0]);
+    //     }
+    //     return empty();
+    // }
+    const builtInValueExists = builtInValues.elements.some(val => {
+        const [valType, valMethod] = val.split('#');
+        return proto === valType && valMethod === propertyName;
+    });
+    return builtInValueExists
+        ? singleton(accessConfig)
+        : empty();
+}
 
 
 // type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue;

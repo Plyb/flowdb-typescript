@@ -49,7 +49,7 @@ export function runTests() {
         testRes(30, 26), // object
         testRes(31, 34), // basic property access
         testRes(32, 26), // built in property access
-        // testRes(33, 26), // proto property access
+        testRes(33, 26), // proto property access
         librRes( 5, 11), // await non-async call
         librRes( 9, 11), // await async call
         testRes(36, 26), // array literal
