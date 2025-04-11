@@ -134,15 +134,15 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return configValue(config);
             } else if (isNullLiteral(node)) {
                 return configValue(config);
-            // } else if (ts.isBinaryExpression(node)) {
-            //     const lhsRes = fix_run(abstractEval, node.left);
-            //     const rhsRes = fix_run(abstractEval, node.right);
-            //     const primopId = node.operatorToken.kind;
-            //     if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
-            //         return joinValue(lhsRes, rhsRes);
-            //     } else {
-            //         return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
-            //     }
+            } else if (ts.isBinaryExpression(node)) {
+                const lhsRes = fix_run(abstractEval, { node: node.left, env });
+                const rhsRes = fix_run(abstractEval, { node: node.right, env });
+                const primopId = node.operatorToken.kind;
+                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                    return joinValue(lhsRes, rhsRes);
+                } else {
+                    return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
+                }
             // } else if (ts.isTemplateExpression(node)) {
             //     return nodeValue(node);
             // } else if (ts.isConditionalExpression(node)) {
