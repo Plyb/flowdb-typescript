@@ -16,30 +16,33 @@ export type Environment = List<Context>;
 type Context =
 | LimitSentinel
 | Question
+| StackBottom
 | {
     head: ts.CallExpression,
     tail: Context
 };
 type LimitSentinel = { __limitSentinelBrand: true }
 type Question = { __questionBrand: true, func: SimpleFunctionLikeDeclaration }
+type StackBottom = { __stackBottomBrand: true }
 
 export const limit: LimitSentinel = { __limitSentinelBrand: true };
+export const stackBottom: StackBottom = { __stackBottomBrand: true };
 
 type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
 
-export function withZeroContext<T extends Cursor>(node: T): Config<T> {
+export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {
         return {
             node,
-            env: emptyList
+            env: toList([stackBottom])
         };
     }
 
     return {
         node,
-        env: toList(findAllParameterBinders(node).map(() => limit)),
+        env: toList([...findAllParameterBinders(node).map((func) => newQuestion(func)), stackBottom]),
     }
 }
 
@@ -51,7 +54,9 @@ function printContext(context: Context) {
         return '□';
     } else if (isQuestion(context)) {
         return `?_${context.func.pos}`
-    } else {
+    } else if (isStackBottom(context)) {
+        return '()'
+    }  else {
         return `${context.head.pos}::${printContext(context.tail)}`
     }
 }
@@ -67,6 +72,8 @@ function truncate(context: Context, m: number): Context {
         return limit;
     } else if (isQuestion(context)) {
         return context;
+    } else if (isStackBottom(context)) {
+        return context;
     } else {
         if (isLimit(context)) {
             throw new Error(`Expected context not to be a limit`);
@@ -81,9 +88,11 @@ function truncate(context: Context, m: number): Context {
 function isQuestion(context: Context): context is Question {
     return '__questionBrand' in context;
 }
-
 function isLimit(context: Context): context is LimitSentinel {
     return context === limit;
+}
+function isStackBottom(context: Context): context is StackBottom {
+    return '__stackBottomBrand' in context;
 }
 
 export function isConfigNoExtern(config: Config): config is ConfigNoExtern {

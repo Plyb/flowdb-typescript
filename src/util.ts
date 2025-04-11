@@ -47,7 +47,7 @@ export type List<T> = {
 export const emptyList = undefined as any as List<any>;
 
 export function toList<T>(arr: T[]): List<T> {
-    return arr.reduce((acc, curr) => consList(curr, acc), emptyList);
+    return arr.reverse().reduce((acc, curr) => consList(curr, acc), emptyList);
 }
 export function consList<T>(item: T, list: List<T>) {
     return { head: item, tail: list };

@@ -5,8 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { isExtern, NodeLatticeElem } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Environment, newQuestion } from './configuration';
-import { consList, emptyList, unimplemented } from './util';
+import { Config, Environment, newQuestion, stackBottom } from './configuration';
+import { consList, emptyList, toList, unimplemented } from './util';
 
 
 export type NodePrinter = (node: ts.Node) => string
@@ -227,7 +227,7 @@ export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
 
 export function findAllParameterBinders(node: ts.Node) {
     const parentChain = [...getParentChain(node)];
-    return parentChain.filter(node => isFunctionLikeDeclaration);
+    return parentChain.filter(isFunctionLikeDeclaration);
 }
 
 export function* getParentChain(node: ts.Node) {
@@ -296,5 +296,5 @@ export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: 
     if (!ts.isSourceFile(scope)) {
         throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
     }
-    return emptyList; // This can happen if the declaring scope is another file altogether
+    return toList([stackBottom]); // This can happen if the declaring scope is another file altogether
 }

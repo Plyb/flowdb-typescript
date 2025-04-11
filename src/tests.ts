@@ -15,7 +15,7 @@ export function runTests() {
     const service = getService(rootFolder);
 
     const oldConsoleInfo = console.info;
-    console.info = () => undefined;
+    // console.info = () => undefined;
 
     const results = setFlatMap(analyze(service, file, 8, 6, 1), res => setMap(res.argument, config => config.node));
 

@@ -4,7 +4,7 @@ import { makeDcfaComputer } from './dcfa';
 import { setFilter, setFlatMap, setMap, setSift, singleton, union } from './setUtil';
 import { isExtern } from './abstract-values';
 import { getReachableCallConfigs } from './control-flow';
-import { isConfigNoExtern, withZeroContext } from './configuration';
+import { isConfigNoExtern, withUnknownContext } from './configuration';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number, m: number) {
     const program = service.getProgram()!;
@@ -24,7 +24,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
 
     const fixed_eval = makeDcfaComputer(service, node, m);
 
-    const reachableCallConfigsWithExterns = getReachableCallConfigs(withZeroContext(node.body), m, fixed_eval)
+    const reachableCallConfigsWithExterns = getReachableCallConfigs(withUnknownContext(node.body), m, fixed_eval)
     const reachableCallConfigs = setFilter(reachableCallConfigsWithExterns, elem => isConfigNoExtern(elem));
     const prismaQueryExpressionsConfigs = setSift(setMap(reachableCallConfigs, callConfig => {
         const qExp = getPrismaQuery(callConfig.node);

@@ -2,9 +2,9 @@ import ts from 'typescript'
 import { Comparator, SimpleSet } from 'typescript-super-set'
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
 import { structuralComparator } from './comparators'
-import { unimplemented } from './util';
+import { emptyList, toList, unimplemented } from './util';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigNoExtern, ConfigSet, ConfigSetNoExtern, Cursor, isConfigNoExtern, printConfig, withZeroContext } from './configuration';
+import { Config, ConfigNoExtern, ConfigSet, ConfigSetNoExtern, Cursor, isConfigNoExtern, printConfig, stackBottom } from './configuration';
 
 export type AbstractValue = NodeLattice;
 
@@ -15,7 +15,7 @@ export type Extern = { __externBrand: true }
 
 export const extern: Extern = { __externBrand: true }
 
-export const externValue: ConfigSet = singleton<Config>(withZeroContext(extern));
+export const externValue: ConfigSet = singleton<Config>({ node: extern, env: toList([stackBottom]) });
 
 export function configValue(config: Config): ConfigSet {
     return singleton(config);
