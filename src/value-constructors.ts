@@ -157,6 +157,10 @@ export function isBuiltInConstructorShapedConfig(config: Config): config is Conf
 
 function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
 type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval }) => ConfigSet
+const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
+    node: callConfig.node.arguments[0],
+    env: callConfig.env,
+})
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
     'Array#filter': uncallable('Array#filter'), // TODO
@@ -172,10 +176,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array#map()': uncallable('Array#map()'),
     'Array#some': configValue,
     'Array#some()': uncallable('Array#some()'),
-    'Array.from': (callConfig, { fixed_eval }) => fixed_eval({
-        node: callConfig.node.arguments[0],
-        env: callConfig.env,
-    }), // TODO mcfa clean this up
+    'Array.from': arrayFromCallGetter,
     'Date': uncallable('Date'),
     'Date.now': configValue,
     'Date.now()': uncallable('Date.now()'),
