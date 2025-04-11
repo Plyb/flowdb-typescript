@@ -80,14 +80,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
                 });
             } else if (isIdentifierConfig(config)) {
-                // if (ts.isParameter(node.parent)) {
-                //     // I believe we will only get here if the node is the parameter of the target function,
-                //     // but let's do a sanity check just to make sure.
-                //     if (node.parent.parent !== targetFunction) {
-                //         return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
-                //     }
-                //     return configValue(config);
-                // }
+                if (ts.isParameter(node.parent)) {
+                    // I believe we will only get here if the node is the parameter of the target function,
+                    // but let's do a sanity check just to make sure.
+                    if (node.parent.parent !== targetFunction) {
+                        return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                    }
+                    return configValue(config);
+                }
 
                 const boundExprs = getBoundExprs(config, fix_run);
                 if (boundExprs.size() > 0) {
@@ -350,9 +350,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
             if (ts.isParameter(declaration)) {
-                // if (declaration.parent === targetFunction) {
-                //     return singleton<Config>(withZeroContext(declaration.name));
-                // }
+                if (declaration.parent === targetFunction) {
+                    return singleton<Config>({ node: declaration.name, env: envAtDeclaringScope });
+                }
 
                 return getArgumentsForParameter(declaration, envAtDeclaringScope);
             } else if (ts.isVariableDeclaration(declaration)) {
