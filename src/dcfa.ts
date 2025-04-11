@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
-import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, resultOfCalling } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
@@ -97,8 +97,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const boundExprs = getBoundExprs(config, fix_run);
                 if (boundExprs.size() > 0) {
                     return configSetJoinMap(boundExprs, fixed_eval);
-                // } else if (idIsBuiltIn(node)) {
-                //     return nodeValue(node);
+                } else if (idIsBuiltIn(config.node)) {
+                    return configValue(config);
                 } else {
                     return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
@@ -335,12 +335,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
             }
 
-            // if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
-            //     if (!idIsBuiltIn(id)) {
-            //         return unimplemented(`Expected ${printNodeAndPos(id)} to be built in`, empty());
-            //     }
-            //     return empty();
-            // }
+            if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
+                if (!idIsBuiltIn(id)) {
+                    return unimplemented(`Expected ${printNodeAndPos(id)} to be built in`, empty());
+                }
+                return empty();
+            }
     
             return getBoundExprsOfSymbol(symbol, idConfig, fix_run);
         }

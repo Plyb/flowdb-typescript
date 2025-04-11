@@ -28,23 +28,23 @@ const builtInValuesObject = {
 //     'Array#some': true,
 //     'Array#some()': true,
 //     'Array.from': true,
-//     'Date': true,
+    'Date': true,
 //     'Date.now': true,
 //     'Date.now()': true,
-//     'JSON': true,
+    'JSON': true,
 //     'JSON.parse': true,
 //     'Map#get': true,
 //     'Map#keys': true,
 //     'Map#keys()': true,
 //     'Map#set': true,
-//     'Math': true,
+    'Math': true,
 //     'Math.floor': true,
 //     'Math.floor()': true,
-//     'Object': true,
+    'Object': true,
 //     'Object.assign': true,
 //     'Object.freeze': true,
 //     'Object.keys': true,
-//     'Promise': true,
+    'Promise': true,
 //     'Promise.allSettled': true,
 //     'Promise.allSettled()': true,
 //     'RegExp#test': true,
@@ -61,15 +61,15 @@ const builtInValuesObject = {
 //     'String#trim()': true,
 //     'String#match': true,
 //     'String#match()': true,
-//     'console': true,
+    'console': true,
 //     'console.log': true,
 //     'console.log()': true,
 //     'console.error': true,
 //     'console.error()': true,
 //     'console.warn': true,
 //     'console.warn()': true,
-//     'fetch': true,
-//     'undefined': true,
+    'fetch': true,
+    'undefined': true,
     '%ParameterSourced': true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
@@ -173,23 +173,23 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
 //     'Array#some': configValue,
 //     'Array#some()': uncallable('Array#some()'),
 //     'Array.from': (call, { fixed_eval }) => fixed_eval(call.arguments[0]),
-//     'Date': uncallable('Date'),
+    'Date': uncallable('Date'),
 //     'Date.now': configValue,
 //     'Date.now()': uncallable('Date.now()'),
-//     'JSON': uncallable('JSON'),
+    'JSON': uncallable('JSON'),
 //     'JSON.parse': () => externValue,
 //     'Map#get': uncallable('Map#get'), // TODO
 //     'Map#keys': configValue,
 //     'Map#keys()': uncallable('Map#keys()'),
 //     'Map#set': uncallable('Map#set'), // TODO
-//     'Math': uncallable('Math'),
+    'Math': uncallable('Math'),
 //     'Math.floor': configValue,
 //     'Math.floor()': uncallable('Math.floor()'),
-//     'Object': uncallable('Object'),
+    'Object': uncallable('Object'),
 //     'Object.assign': uncallable('Object.assign'), // TODO
 //     'Object.freeze': uncallable('Object.freeze'), // TODO
 //     'Object.keys': configValue,
-//     'Promise': uncallable('Promise'),
+    'Promise': uncallable('Promise'),
 //     'Promise.allSettled': configValue,
 //     'Promise.allSettled()': uncallable('Promise.allSettled()'),
 //     'RegExp#test': configValue,
@@ -206,21 +206,21 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
 //     'String#toLowerCase()': uncallable('String#toLowerCase()'),
 //     'String#trim': configValue,
 //     'String#trim()': uncallable('String#trim()'),
-//     'console': uncallable('console'),
+    'console': uncallable('console'),
 //     'console.log': configValue,
 //     'console.log()': uncallable('console.log()'),
 //     'console.error': configValue,
 //     'console.error()': uncallable('console.error()'),
 //     'console.warn': configValue,
 //     'console.warn()': uncallable('console.warn()'),
-//     'fetch': () => externValue,
-//     'undefined': uncallable('undefined'),
+    'fetch': () => externValue,
+    'undefined': uncallable('undefined'),
     '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
 }
 
-// export function idIsBuiltIn(id: ts.Identifier): boolean {
-//     return builtInValues.elements.some(val => val === id.text);
-// }
+export function idIsBuiltIn(id: ts.Identifier): boolean {
+    return builtInValues.elements.some(val => val === id.text);
+}
 
 // type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression, args: { fixed_eval: FixedEval }) => AbstractValue;
 // function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
