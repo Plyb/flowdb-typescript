@@ -2,7 +2,7 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AbstractValue, botValue, isExtern, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, Extern, externValue, unimplementedVal } from './abstract-values';
+import { isExtern, configSetJoinMap, configValue, externValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';

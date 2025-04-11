@@ -15,7 +15,6 @@ export type Extern = { __externBrand: true }
 
 export const extern: Extern = { __externBrand: true }
 
-export const botValue: AbstractValue = empty(); // TODO mcfa: don't really need this
 export const externValue: ConfigSet = singleton<Config>(withZeroContext(extern));
 
 export function configValue(config: Config): ConfigSet {
