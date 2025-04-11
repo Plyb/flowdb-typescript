@@ -8,7 +8,7 @@ import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattic
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
 
 export type FixedEval = (config: Config) => ConfigSet;
@@ -55,8 +55,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             
             if (isFunctionLikeDeclaration(node)) {
                 return configValue(config);
-            } else if (ts.isCallExpression(node)) {
-                const operator: ts.Node = node.expression;
+            } else if (isCallConfig(config)) {
+                const call = config.node;
+                const operator: ts.Node = call.expression;
                 const possibleOperators = fix_run(abstractEval, { node: operator, env });
 
                 return configSetJoinMap(possibleOperators, (opConfig) => {
@@ -65,13 +66,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         if (isAsync(op)) {
                             return configValue({
                                 node: op.modifiers!.find(isAsyncKeyword)!,
-                                env: consList(pushContext(node, env, m), opConfig.env)
+                                env: consList(pushContext(call, env, m), opConfig.env)
                             })
                         } else {
                             const body: ts.Node = op.body;
                             return fix_run(abstractEval, {
                                 node: body,
-                                env: consList(pushContext(node, env, m), opConfig.env) 
+                                env: consList(pushContext(call, env, m), opConfig.env) 
                             });
                         }
                     } else if (isBuiltInConstructorShapedConfig(opConfig)) {
@@ -79,7 +80,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             opConfig,
                             fixed_eval, printNodeAndPos, targetFunction
                         );
-                        return resultOfCalling[builtInValue](node, { fixed_eval });
+                        return resultOfCalling[builtInValue](config, { fixed_eval });
                     } else {
                         return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }

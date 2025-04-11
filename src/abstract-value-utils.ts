@@ -8,6 +8,7 @@ import { empty, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet } from './configuration';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig, resultOfPropertyAccess } from './value-constructors';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
@@ -36,9 +37,9 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
                 }
             }
             return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
-        // } else if (isBuiltInConstructorShaped(cons)) {
-        //     const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
-        //     return resultOfPropertyAccess[builtInValue](access, { fixed_eval });
+        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction);
+            return resultOfPropertyAccess[builtInValue](accessConfig, { fixed_eval });
         // } else {
         //     const proto = getProtoOf(cons, printNodeAndPos);
         //     if (proto === null) {

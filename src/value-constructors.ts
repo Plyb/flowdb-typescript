@@ -27,25 +27,25 @@ const builtInValuesObject = {
 //     'Array#map()': true,
 //     'Array#some': true,
 //     'Array#some()': true,
-//     'Array.from': true,
+    'Array.from': true,
     'Date': true,
-//     'Date.now': true,
+    'Date.now': true,
 //     'Date.now()': true,
     'JSON': true,
-//     'JSON.parse': true,
+    'JSON.parse': true,
 //     'Map#get': true,
 //     'Map#keys': true,
 //     'Map#keys()': true,
 //     'Map#set': true,
     'Math': true,
-//     'Math.floor': true,
+    'Math.floor': true,
 //     'Math.floor()': true,
     'Object': true,
-//     'Object.assign': true,
-//     'Object.freeze': true,
-//     'Object.keys': true,
+    'Object.assign': true,
+    'Object.freeze': true,
+    'Object.keys': true,
     'Promise': true,
-//     'Promise.allSettled': true,
+    'Promise.allSettled': true,
 //     'Promise.allSettled()': true,
 //     'RegExp#test': true,
 //     'RegExp#test()': true,
@@ -62,11 +62,11 @@ const builtInValuesObject = {
 //     'String#match': true,
 //     'String#match()': true,
     'console': true,
-//     'console.log': true,
+    'console.log': true,
 //     'console.log()': true,
-//     'console.error': true,
+    'console.error': true,
 //     'console.error()': true,
-//     'console.warn': true,
+    'console.warn': true,
 //     'console.warn()': true,
     'fetch': true,
     'undefined': true,
@@ -75,15 +75,15 @@ const builtInValuesObject = {
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
 
-// const builtInProtosObject = {
-//     'Array': true,
-//     'Error': true,
-//     'Map': true,
-//     'Object': true,
-//     'RegExp': true,
-//     'String': true,
-// }
-// type BuiltInProto = keyof typeof builtInProtosObject;
+const builtInProtosObject = {
+    'Array': true,
+    'Error': true,
+    'Map': true,
+    'Object': true,
+    'RegExp': true,
+    'String': true,
+}
+type BuiltInProto = keyof typeof builtInProtosObject;
 
 /**
  * Given a node that we already know represents some built-in value, which built in value does it represent?
@@ -156,7 +156,7 @@ export function isBuiltInConstructorShapedConfig(config: Config): config is Conf
 }
 
 function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
-type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => ConfigSet
+type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval }) => ConfigSet
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
 //     'Array#filter': uncallable('Array#filter'), // TODO
@@ -172,25 +172,28 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
 //     'Array#map()': uncallable('Array#map()'),
 //     'Array#some': configValue,
 //     'Array#some()': uncallable('Array#some()'),
-//     'Array.from': (call, { fixed_eval }) => fixed_eval(call.arguments[0]),
+    'Array.from': (callConfig, { fixed_eval }) => fixed_eval({
+        node: callConfig.node.arguments[0],
+        env: callConfig.env,
+    }),
     'Date': uncallable('Date'),
-//     'Date.now': configValue,
+    'Date.now': configValue,
 //     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
-//     'JSON.parse': () => externValue,
+    'JSON.parse': () => externValue,
 //     'Map#get': uncallable('Map#get'), // TODO
 //     'Map#keys': configValue,
 //     'Map#keys()': uncallable('Map#keys()'),
 //     'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
-//     'Math.floor': configValue,
+    'Math.floor': configValue,
 //     'Math.floor()': uncallable('Math.floor()'),
     'Object': uncallable('Object'),
-//     'Object.assign': uncallable('Object.assign'), // TODO
-//     'Object.freeze': uncallable('Object.freeze'), // TODO
-//     'Object.keys': configValue,
+    'Object.assign': uncallable('Object.assign'), // TODO
+    'Object.freeze': uncallable('Object.freeze'), // TODO
+    'Object.keys': configValue,
     'Promise': uncallable('Promise'),
-//     'Promise.allSettled': configValue,
+    'Promise.allSettled': configValue,
 //     'Promise.allSettled()': uncallable('Promise.allSettled()'),
 //     'RegExp#test': configValue,
 //     'RegExp#test()': uncallable('RegExp#test()'),
@@ -207,11 +210,11 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
 //     'String#trim': configValue,
 //     'String#trim()': uncallable('String#trim()'),
     'console': uncallable('console'),
-//     'console.log': configValue,
+    'console.log': configValue,
 //     'console.log()': uncallable('console.log()'),
-//     'console.error': configValue,
+    'console.error': configValue,
 //     'console.error()': uncallable('console.error()'),
-//     'console.warn': configValue,
+    'console.warn': configValue,
 //     'console.warn()': uncallable('console.warn()'),
     'fetch': () => externValue,
     'undefined': uncallable('undefined'),
@@ -222,23 +225,23 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
     return builtInValues.elements.some(val => val === id.text);
 }
 
-// type PropertyAccessGetter = (propertyAccess: PropertyAccessExpression, args: { fixed_eval: FixedEval }) => AbstractValue;
-// function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
-//     return (pa) => unimplementedVal(`Unable to get property ${name}.${pa.name.text}`) 
-// }
-// function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
-//     const [typeName, methodName] = name.split('.');
-//     return (pa, { fixed_eval}) => pa.name.text === methodName
-//         ? configValue(pa)
-//         : inaccessibleProperty(typeName as BuiltInValue)(pa, { fixed_eval });
-// }
-// function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
-//     const [typeName] = names[0].split('.');
-//     const methodNames = names.map(name => name.split('.')[1]);
-//     return (pa, { fixed_eval }) => methodNames.some(methodName => pa.name.text === methodName)
-//         ? configValue(pa)
-//         : inaccessibleProperty(typeName as BuiltInValue)(pa, { fixed_eval });
-// }
+type PropertyAccessGetter = (propertyAccessConfig: Config<PropertyAccessExpression>, args: { fixed_eval: FixedEval }) => ConfigSet;
+function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
+    return ({ node: pa }) => unimplementedVal(`Unable to get property ${name}.${pa.name.text}`) 
+}
+function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
+    const [typeName, methodName] = name.split('.');
+    return (pac, { fixed_eval}) => pac.node.name.text === methodName
+        ? configValue(pac)
+        : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
+}
+function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
+    const [typeName] = names[0].split('.');
+    const methodNames = names.map(name => name.split('.')[1]);
+    return (pac, { fixed_eval }) => methodNames.some(methodName => pac.node.name.text === methodName)
+        ? configValue(pac)
+        : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
+}
 // function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
 //     return (pa, { fixed_eval }) => {
 //         const expressionConses = fixed_eval(pa.expression);
@@ -250,8 +253,8 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
 //             : inaccessibleProperty(typeName)(pa, { fixed_eval });
 //     }
 // }
-// export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
-//     'Array': builtInStaticMethod('Array.from'),
+export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
+    'Array': builtInStaticMethod('Array.from'),
 //     'Array#filter': inaccessibleProperty('Array#filter'),
 //     'Array#filter()': builtInProtoMethod('Array'),
 //     'Array#find': inaccessibleProperty('Array#find'),
@@ -265,25 +268,25 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
 //     'Array#map()': builtInProtoMethod('Array'),
 //     'Array#some': inaccessibleProperty('Array#some'),
 //     'Array#some()': inaccessibleProperty('Array#some()'),
-//     'Array.from': inaccessibleProperty('Array.from'),
-//     'Date': builtInStaticMethod('Date.now'),
-//     'Date.now': inaccessibleProperty('Date.now'),
+    'Array.from': inaccessibleProperty('Array.from'),
+    'Date': builtInStaticMethod('Date.now'),
+    'Date.now': inaccessibleProperty('Date.now'),
 //     'Date.now()': inaccessibleProperty('Date.now()'),
-//     'JSON': builtInStaticMethod('JSON.parse'),
-//     'JSON.parse': inaccessibleProperty('JSON.parse'),
+    'JSON': builtInStaticMethod('JSON.parse'),
+    'JSON.parse': inaccessibleProperty('JSON.parse'),
 //     'Map#get': inaccessibleProperty('Map#get'),
 //     'Map#keys': inaccessibleProperty('Map#keys'),
 //     'Map#keys()': builtInProtoMethod('Array'),
 //     'Map#set': inaccessibleProperty('Map#set'),
-//     'Math': builtInStaticMethod('Math.floor'),
-//     'Math.floor': inaccessibleProperty('Math.floor'),
+    'Math': builtInStaticMethod('Math.floor'),
+    'Math.floor': inaccessibleProperty('Math.floor'),
 //     'Math.floor()': inaccessibleProperty('Math.floor()'),
-//     'Object': builtInStaticMethods('Object.assign', 'Object.freeze', 'Object.keys'),
-//     'Object.assign': inaccessibleProperty('Object.assign'),
-//     'Object.freeze': inaccessibleProperty('Object.freeze'),
-//     'Object.keys': inaccessibleProperty('Object.keys'),
-//     'Promise': builtInStaticMethod('Promise.allSettled'),
-//     'Promise.allSettled': inaccessibleProperty('Promise.allSettled'),
+    'Object': builtInStaticMethods('Object.assign', 'Object.freeze', 'Object.keys'),
+    'Object.assign': inaccessibleProperty('Object.assign'),
+    'Object.freeze': inaccessibleProperty('Object.freeze'),
+    'Object.keys': inaccessibleProperty('Object.keys'),
+    'Promise': builtInStaticMethod('Promise.allSettled'),
+    'Promise.allSettled': inaccessibleProperty('Promise.allSettled'),
 //     'Promise.allSettled()': inaccessibleProperty('Promise.allSettled()'),
 //     'RegExp#test': inaccessibleProperty('RegExp#test'),
 //     'RegExp#test()': inaccessibleProperty('RegExp#test()'),
@@ -299,17 +302,17 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
 //     'String#toLowerCase()': builtInProtoMethod('String'),
 //     'String#trim': inaccessibleProperty('String#trim'),
 //     'String#trim()': builtInProtoMethod('String'),
-//     'console': builtInStaticMethods('console.log', 'console.error', 'console.warn'),
-//     'console.log': inaccessibleProperty('console.log'),
+    'console': builtInStaticMethods('console.log', 'console.error', 'console.warn'),
+    'console.log': inaccessibleProperty('console.log'),
 //     'console.log()': inaccessibleProperty('console.log()'),
-//     'console.error': inaccessibleProperty('console.error'),
+    'console.error': inaccessibleProperty('console.error'),
 //     'console.error()': inaccessibleProperty('console.error()'),
-//     'console.warn': inaccessibleProperty('console.warn'),
+    'console.warn': inaccessibleProperty('console.warn'),
 //     'console.warn()': inaccessibleProperty('console.warn()'),
-//     'fetch': inaccessibleProperty('fetch'),
-//     'undefined': inaccessibleProperty('undefined'),
-//     '%ParameterSourced': configValue,
-// }
+    'fetch': inaccessibleProperty('fetch'),
+    'undefined': inaccessibleProperty('undefined'),
+    '%ParameterSourced': configValue,
+}
 
 // type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue
 // const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
