@@ -36,11 +36,6 @@ export function setJoinMap<T>(set: StructuralSet<T>, f: (item: T) => ConfigSet) 
     return set.elements.map(f).reduce(joinValue, empty());
 }
 
-export function nodeLatticeFilter<R extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is R): StructuralSet<R | Extern>
-export function nodeLatticeFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet
-export function nodeLatticeFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
-    return setFilter(set, elem => isExtern(elem.node) || predicate(elem as ConfigNoExtern)); // TODO mcfa deal with as
-}
 export function nodeLatticeMap<R>(set: ConfigSet, convert: (node: ts.Node) => R): StructuralSet<R | Extern> {
     return setMap(set, elem => isExtern(elem.node) ? elem.node : convert(elem.node));
 }
