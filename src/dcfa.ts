@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
-// import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
@@ -74,9 +74,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 env: consList(pushContext(node, env, m), opConfig.env) 
                             });
                         }
-                    // } else if (isBuiltInConstructorShaped(op)) {
-                    //     const builtInValue = getBuiltInValueOfBuiltInConstructor(op, fixed_eval, printNodeAndPos, targetFunction);
-                    //     return resultOfCalling[builtInValue](node, { fixed_eval });
+                    } else if (isBuiltInConstructorShapedConfig(opConfig)) {
+                        const builtInValue = getBuiltInValueOfBuiltInConstructor(
+                            opConfig,
+                            fixed_eval, printNodeAndPos, targetFunction
+                        );
+                        return resultOfCalling[builtInValue](node, { fixed_eval });
                     } else {
                         return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
@@ -205,7 +208,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const refs = getReferences({ node: node.name, env });
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             // } else if (ts.isForOfStatement(parent) && parent.expression === node) {
-            //     return botValue; // we're effectively "destructuring" the expression here, so the original value is gone
+            //     return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
             // } else if (ts.isPropertyAccessExpression(parent)) {
             //     if (node != parent.expression) {
             //         return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)

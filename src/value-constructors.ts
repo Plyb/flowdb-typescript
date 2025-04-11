@@ -1,17 +1,19 @@
-// import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
-// import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-// import { empty, setFilter, singleton } from './setUtil';
-// import { SimpleSet } from 'typescript-super-set';
-// import { AbstractValue, botValue, isExtern, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, Extern, externValue, unimplementedVal } from './abstract-values';
-// import { structuralComparator } from './comparators';
-// import { unimplemented } from './util';
-// import { FixedEval, FixedTrace } from './dcfa';
-// import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
+import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
+import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { empty, setFilter, singleton } from './setUtil';
+import { SimpleSet } from 'typescript-super-set';
+import { AbstractValue, botValue, isExtern, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, Extern, externValue, unimplementedVal } from './abstract-values';
+import { structuralComparator } from './comparators';
+import { unimplemented } from './util';
+import { FixedEval, FixedTrace } from './dcfa';
+import { getElementNodesOfArrayValuedNode } from './abstract-value-utils';
 
-// type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
+import { Config, ConfigSet, Cursor } from './configuration';
 
-// const builtInValuesObject = {
-//     'Array': true,
+type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
+
+const builtInValuesObject = {
+    'Array': true,
 //     'Array#filter': true,
 //     'Array#filter()': true,
 //     'Array#find': true,
@@ -68,10 +70,10 @@
 //     'console.warn()': true,
 //     'fetch': true,
 //     'undefined': true,
-//     '%ParameterSourced': true,
-// }
-// type BuiltInValue = keyof typeof builtInValuesObject;
-// const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
+    '%ParameterSourced': true,
+}
+type BuiltInValue = keyof typeof builtInValuesObject;
+const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
 
 // const builtInProtosObject = {
 //     'Array': true,
@@ -83,73 +85,80 @@
 // }
 // type BuiltInProto = keyof typeof builtInProtosObject;
 
-// /**
-//  * Given a node that we already know represents some built-in value, which built in value does it represent?
-//  * Note that this assumes there are no methods that share a name.
-//  */
-// export function getBuiltInValueOfBuiltInConstructor(builtInConstructor: BuiltInConstructor, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
-//     if (isParamSourced(builtInConstructor, fixed_eval, targetFunction)) {
-//         return '%ParameterSourced';
-//     }
+/**
+ * Given a node that we already know represents some built-in value, which built in value does it represent?
+ * Note that this assumes there are no methods that share a name.
+ */
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
+    const { node: builtInConstructor, env } = builtInConstructorConfig;
+    if (isParamSourced(builtInConstructorConfig, fixed_eval, targetFunction)) {
+        return '%ParameterSourced';
+    }
 
-//     if (ts.isPropertyAccessExpression(builtInConstructor)) {
-//         const methodName = builtInConstructor.name.text;
-//         const builtInValue = builtInValues.elements.find(val =>
-//             typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
-//         );
-//         assertNotUndefined(builtInValue);
-//         return builtInValue;
-//     } else if (ts.isIdentifier(builtInConstructor)) {
-//         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
-//         assertNotUndefined(builtInValue);
-//         return builtInValue;
-//     } else { // call expression
-//         const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructor);
-//         const builtInValue = builtInValues.elements.find(val =>
-//             typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
-//         );
-//         assertNotUndefined(builtInValue);
-//         return builtInValue;
-//     }
+    if (ts.isPropertyAccessExpression(builtInConstructor)) {
+        const methodName = builtInConstructor.name.text;
+        const builtInValue = builtInValues.elements.find(val =>
+            typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else if (ts.isIdentifier(builtInConstructor)) {
+        const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else { // call expression
+        const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
+        const builtInValue = builtInValues.elements.find(val =>
+            typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    }
 
-//     function getBuiltInValueOfExpression(call: ts.CallExpression): BuiltInValue {
-//         const expressionValue = fixed_eval(call.expression);
-//         const builtInConstructorsForExpression = setFilter(
-//             expressionValue,
-//             isBuiltInConstructorShaped
-//         );
-//         if (builtInConstructorsForExpression.size() !== 1) {
-//             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
-//         }
-//         const expressionConstructor = builtInConstructorsForExpression.elements[0];
-//         return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos, targetFunction);
-//     }
+    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression>): BuiltInValue {
+        const expressionConses = fixed_eval({
+            node: callConfig.node.expression,
+            env: callConfig.env,
+        });
+        const builtInConstructorsForExpression = setFilter(
+            expressionConses,
+            isBuiltInConstructorShapedConfig
+        );
+        if (builtInConstructorsForExpression.size() !== 1) {
+            throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
+        }
+        const expressionConstructor = builtInConstructorsForExpression.elements[0];
+        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos, targetFunction);
+    }
 
-//     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
-//         if (val === undefined) {
-//             throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
-//         }
-//     }
-// }
+    function assertNotUndefined<T>(val: T | undefined): asserts val is T {
+        if (val === undefined) {
+            throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
+        }
+    }
+}
 
-// /**
-//  * If a node is shaped like a built in constructor and is a value, it is a built in constructor
-//  */
-// export function isBuiltInConstructorShaped(node: NodeLatticeElem): node is BuiltInConstructor {
-//     if (isExtern(node)) {
-//         return false;
-//     }
+/**
+ * If a node is shaped like a built in constructor and is a value, it is a built in constructor
+ */
+export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstructor {
+    if (isExtern(node)) {
+        return false;
+    }
 
-//     return ts.isPropertyAccessExpression(node)
-//         || ts.isIdentifier(node)
-//         || ts.isBinaryExpression(node)
-//         || ts.isCallExpression(node);
-// }
+    return ts.isPropertyAccessExpression(node)
+        || ts.isIdentifier(node)
+        || ts.isBinaryExpression(node)
+        || ts.isCallExpression(node);
+}
+export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
+    return isBuiltInConstructorShaped(config.node);
+}
 
-// function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
-// type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => AbstractValue
-// export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
-//     'Array': uncallable('Array'),
+function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
+type CallGetter = (call: CallExpression, args: { fixed_eval: FixedEval }) => ConfigSet
+export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
+    'Array': uncallable('Array'),
 //     'Array#filter': uncallable('Array#filter'), // TODO
 //     'Array#filter()': uncallable('Array#filter()'),
 //     'Array#find': uncallable('Array#find'), // TODO
@@ -206,8 +215,8 @@
 //     'console.warn()': uncallable('console.warn()'),
 //     'fetch': () => externValue,
 //     'undefined': uncallable('undefined'),
-//     '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
-// }
+    '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
+}
 
 // export function idIsBuiltIn(id: ts.Identifier): boolean {
 //     return builtInValues.elements.some(val => val === id.text);
@@ -523,17 +532,18 @@
 //     return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
 // }
 
-// function isParamSourced(node: BuiltInConstructor, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
-//     if (ts.isIdentifier(node)) {
-//         return ts.isParameter(node.parent) && node.parent.parent === targetFunction;
-//     } else {
-//         const expressionConses = fixed_eval(node.expression);
-//         const builtInExpressionConses = setFilter(expressionConses, cons => isBuiltInConstructorShaped(cons));
-//         if (builtInExpressionConses.size() === 0) {
-//             return false;
-//         } else if (builtInExpressionConses.size() > 1) {
-//             return unimplemented(`Currently only handling single built in cons here`, false);
-//         }
-//         return isParamSourced(builtInExpressionConses.elements[0], fixed_eval, targetFunction);
-//     }
-// }
+function isParamSourced(config: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
+    const { node, env } = config
+    if (ts.isIdentifier(node)) {
+        return ts.isParameter(node.parent) && node.parent.parent === targetFunction;
+    } else {
+        const expressionConses = fixed_eval({ node: node.expression, env });
+        const builtInExpressionConses = setFilter(expressionConses, isBuiltInConstructorShapedConfig);
+        if (builtInExpressionConses.size() === 0) {
+            return false;
+        } else if (builtInExpressionConses.size() > 1) {
+            return unimplemented(`Currently only handling single built in cons here`, false);
+        }
+        return isParamSourced(builtInExpressionConses.elements[0], fixed_eval, targetFunction);
+    }
+}
