@@ -74,7 +74,7 @@ export function runTests() {
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function
         testRes(47, 37), // parenthesized expression
-        // librRes(16, 14), // variable declaration
+        librRes(16, 14), // variable declaration
         testRes(49, 29), // function declaration
                          // for of (test shouldn't come up with anything)
         // testRes(51, 48), // property access
