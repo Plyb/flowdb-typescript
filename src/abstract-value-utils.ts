@@ -50,27 +50,31 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     })
 }
 
-// export function getElementNodesOfArrayValuedNode(node: ts.Node, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
-//     const conses = fixed_eval(node);
-//     return nodeLatticeFlatMap(conses, cons => {
-//         if (ts.isArrayLiteralExpression(cons)) {
-//             const elements = new SimpleSet<NodeLatticeElem>(structuralComparator, ...cons.elements);
-//             return nodeLatticeFlatMap(elements, element => {
-//                 if (ts.isSpreadElement(element)) {
-//                     const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-//                     return subElements;
-//                 }
+export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
+    const conses = fixed_eval(config);
+    return configSetJoinMap(conses, consConfig => {
+        const { node: cons, env: consEnv } = consConfig;
+        if (ts.isArrayLiteralExpression(cons)) {
+            const elements = new SimpleSet(structuralComparator, ...cons.elements.map(elem => ({
+                node: elem,
+                env: consEnv,
+            } as Config)));
+            return configSetJoinMap(elements, elementConfig => {
+                // if (ts.isSpreadElement(element)) {
+                //     const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+                //     return subElements;
+                // }
 
-//                 return singleton<NodeLatticeElem>(element);
-//             })
-//         } else if (isBuiltInConstructorShaped(cons)) {
-//             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction)
-//             return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-//         } else {
-//             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
-//         }
-//     });
-// }
+                return configValue(elementConfig);
+            })
+        // } else if (isBuiltInConstructorShaped(cons)) {
+        //     const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction)
+        //     return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+        } else {
+            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
+        }
+    });
+}
 
 export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): ConfigSet {
     const conses = fixed_eval(config);

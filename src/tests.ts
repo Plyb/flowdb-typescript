@@ -54,7 +54,7 @@ export function runTests() {
         librRes( 9, 11), // await async call
         testRes(36, 26), // array literal
         // extern         , // import from library
-        // testRes(38, 28), // element access basic
+        testRes(38, 28), // element access basic
         // testRes(39, 41), // element access built in constructor
         // testRes(40, 26), // new expression
         // testRes(41, 26), // null

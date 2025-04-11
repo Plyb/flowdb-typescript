@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLi
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 // import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
 
@@ -124,9 +124,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
             } else if (ts.isArrayLiteralExpression(node)) {
                 return configValue(config);
-            // } else if (ts.isElementAccessExpression(node)) {
-            //     const elementExpressions = getElementNodesOfArrayValuedNode(node.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-            //     return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
+            } else if (ts.isElementAccessExpression(node)) {
+                const elementExpressions = getElementNodesOfArrayValuedNode(
+                    { node: node.expression, env },
+                    { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }
+                );
+                return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             // } else if (ts.isNewExpression(node)) {
             //     return nodeValue(node);
             // } else if (isNullLiteral(node)) {
