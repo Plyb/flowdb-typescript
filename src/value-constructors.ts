@@ -247,7 +247,7 @@ function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
         const expressionConses = fixed_eval({ node: pac.node.expression, env: pac.env});
         const isBuiltInProtoMethod = expressionConses.elements.some(consConfig =>
             isConfigNoExtern(consConfig)
-            && getPropertyOfProto(typeName, pac.node.name.text, consConfig.node, pac, fixed_eval).size() > 0
+            && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size() > 0
         )
         return isBuiltInProtoMethod
             ? configValue(pac)
@@ -445,16 +445,17 @@ export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltIn
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }
 
-export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionCons: ts.Node, accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval): ConfigSet {
-    // if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
-    //     if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
-    //         return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
-    //     }
-    //     if (expressionCons.arguments.length > 0) {
-    //         return fixed_eval(expressionCons.arguments[0]);
-    //     }
-    //     return empty();
-    // }
+export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionConsConfig: Config<ts.Node>, accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval): ConfigSet {
+    const { node: expressionCons, env: expressionConsEnv } = expressionConsConfig;
+    if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
+        if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
+            return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
+        }
+        if (expressionCons.arguments.length > 0) {
+            return fixed_eval({ node: expressionCons.arguments[0], env: expressionConsEnv });
+        }
+        return empty();
+    }
     const builtInValueExists = builtInValues.elements.some(val => {
         const [valType, valMethod] = val.split('#');
         return proto === valType && valMethod === propertyName;

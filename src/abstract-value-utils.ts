@@ -1,7 +1,6 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, nodeLatticeSome, configValue, unimplementedVal } from './abstract-values';
-// import { getPropertyOfProto, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift, singleton } from './setUtil';
@@ -45,7 +44,7 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
             if (proto === null) {
                 return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
             }
-            return getPropertyOfProto(proto, property.text, cons, accessConfig, fixed_eval);
+            return getPropertyOfProto(proto, property.text, consConfig, accessConfig, fixed_eval);
         }
     })
 }

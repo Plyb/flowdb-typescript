@@ -66,8 +66,8 @@ export function runTests() {
         testRes(53, 27), // as expression
         testRes(54, 26), // new expression on custom class
         // testRes(55, 26), // Promise.allSettled
-        // testRes(56, 36), // error message
-        // testRes(57, 26), // error message includes (mixed proto accesses)
+        testRes(56, 36), // error message
+        testRes(57, 26), // error message includes (mixed proto accesses)
         librRes(19,  8), // promise from async function
         testRes( 8, 31), // target function parameter
         testRes(60, 27), // primop property binder getter
