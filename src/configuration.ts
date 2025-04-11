@@ -2,7 +2,7 @@ import { Extern, isExtern } from './abstract-values'
 import { setFilter, setMap, setSome } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { emptyList, List, toList } from './util';
+import { emptyList, List, listReduce, toList } from './util';
 import ts from 'typescript';
 
 export type ConfigSet = StructuralSet<Config>;
@@ -44,8 +44,17 @@ export function withZeroContext<T extends Cursor>(node: T): Config<T> {
 }
 
 export function printConfig(config: Config) {
-    return printNodeAndPos(config.node) // TODO mcfa
-} 
+    return `${printNodeAndPos(config.node)}~<${listReduce(config.env, (acc, curr) => acc + ',' + printContext(curr), '')}>`
+}
+function printContext(context: Context) {
+    if (isLimit(context)) {
+        return '□';
+    } else if (isQuestion(context)) {
+        return `?_${context.func.pos}`
+    } else {
+        return `${context.head.pos}::${printContext(context.tail)}`
+    }
+}
 
 export function pushContext(call: ts.CallExpression, env: Environment, m: number) {
     const innermostContext = env.head;
