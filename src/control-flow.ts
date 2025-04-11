@@ -24,12 +24,15 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
             directCallSiteConfigs,
             ({ node: site, env }) => {
                 const operators = fixed_eval({ node: site.expression, env });
-                return configSetJoinMap(operators, ({ node: func, env: funcEnv }) =>
-                    fix_run(compute, {
-                        node: (func as SimpleFunctionLikeDeclaration).body,
+                return configSetJoinMap(operators, ({ node: op, env: funcEnv }) => {
+                    if (!isFunctionLikeDeclaration(op)) {
+                        return empty(); // built in functions fit this criterion
+                    }
+                    return fix_run(compute, {
+                        node: op.body,
                         env: consList(pushContext(site, env, m), funcEnv)
                     })
-                );
+                });
             }
         ) as StructuralSet<Config<ts.CallExpression>>;
         return union(directCallSiteConfigs, transitiveCallSiteConfigs);

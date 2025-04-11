@@ -35,7 +35,7 @@ export function runTests() {
         testRes(16, 26), // function expr
         testRes(17, 26), // function decl
         librRes( 5, 11), // call syntactic func
-        // testRes(19, 26), // call built in func
+        testRes(19, 26), // call built in func
         testRes( 9, 39), // bound identifier
         testRes(21, 26), // built in identifier
         testRes( 9, 42), // shadowed identifier
