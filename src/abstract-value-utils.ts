@@ -1,6 +1,6 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
-import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, nodeLatticeSome, configValue, unimplementedVal } from './abstract-values';
+import { configSetJoinMap, configValue, unimplementedVal } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift, singleton } from './setUtil';

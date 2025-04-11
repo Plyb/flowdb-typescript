@@ -39,10 +39,7 @@ export function setJoinMap<T>(set: StructuralSet<T>, f: (item: T) => ConfigSet) 
 export function nodeLatticeMap<R>(set: ConfigSet, convert: (node: ts.Node) => R): StructuralSet<R | Extern> {
     return setMap(set, elem => isExtern(elem.node) ? elem.node : convert(elem.node));
 }
-export function nodeLatticeFlatMap<R>(nodeLattice: NodeLattice, convert: (node: ts.Node) => StructuralSet<R | Extern>, rComparator: Comparator<R | Extern> = structuralComparator): StructuralSet<R | Extern> {
-    return setFlatMap(nodeLattice, elem => isExtern(elem) ? new SimpleSet<R | Extern>(rComparator, elem) : convert(elem));
-}
-export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet { // TODO mcfa: could we merge this with flatMap?
+export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
     return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : externValue);
 }
 export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node) => boolean): boolean {
