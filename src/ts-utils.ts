@@ -238,7 +238,7 @@ export function* getParentChain(node: ts.Node) {
 }
 
 type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile;
-export function getDeclaringScope(declaration: Declaration): Scope {
+export function getDeclaringScope(declaration: Declaration, typeChecker: ts.TypeChecker): Scope {
     if (ts.isParameter(declaration)) {
         if (!isFunctionLikeDeclaration(declaration.parent)) {
             throw new Error(`Unknown kind of signature declaration: ${printNodeAndPos(declaration.parent)}`)
@@ -261,6 +261,16 @@ export function getDeclaringScope(declaration: Declaration): Scope {
         return declarationParent;
     } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
         return declaration.getSourceFile();
+    } else if (ts.isBindingElement(declaration)) {
+        const bindingElementSource = declaration.parent.parent;
+        return getDeclaringScope(bindingElementSource, typeChecker);
+    } else if (ts.isShorthandPropertyAssignment(declaration)) {
+        const higherLevelDeclarationSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+        const higherLevelDeclaration = higherLevelDeclarationSymbol?.valueDeclaration ?? higherLevelDeclarationSymbol?.declarations?.[0];
+        if (higherLevelDeclaration === undefined) {
+            throw new Error(`Unable to find higher level declaration of shorthand property assignment ${printNodeAndPos(declaration)}`)
+        }
+        return getDeclaringScope(higherLevelDeclaration, typeChecker);
     } else {
         throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
     }

@@ -216,32 +216,40 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
 
                 return empty();
-            // } else if (ts.isShorthandPropertyAssignment(parent)) {
-            //     const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
-            //     return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
-            //         const returnLocParent = returnLoc.parent;
-            //         if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
-            //             return getWhereReturnedInsideFunction(returnLocParent, returnLoc, (parameterName) => {
-            //                 if (!ts.isObjectBindingPattern(parameterName)) {
-            //                     return empty();
-            //                 }
-            //                 const destructedName = parameterName.elements.find(elem => 
-            //                     ts.isIdentifier(elem.name)
-            //                         ? elem.name.text === parent.name.text
-            //                         : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
-            //                 )?.name;
-            //                 if (destructedName === undefined) {
-            //                     return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
-            //                 }
-            //                 if (!ts.isIdentifier(destructedName)) {
-            //                     return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
-            //                 }
+            } else if (ts.isShorthandPropertyAssignment(parent)) {
+                const parentObjectReturnedAt = fix_run(getWhereValueReturned, { node: parent.parent, env });
+                return configSetJoinMap(parentObjectReturnedAt, returnLocConfig => {
+                    const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
+                    const returnLocParent = returnLoc.parent;
+                    if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
+                        return getWhereReturnedInsideFunction(
+                            { node: returnLocParent, env: returnLocEnv },
+                            returnLoc,
+                            (parameterName, opEnv) => {
+                                if (!ts.isObjectBindingPattern(parameterName)) {
+                                    return empty();
+                                }
+                                const destructedName = parameterName.elements.find(elem => 
+                                    ts.isIdentifier(elem.name)
+                                        ? elem.name.text === parent.name.text
+                                        : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
+                                )?.name;
+                                if (destructedName === undefined) {
+                                    return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
+                                }
+                                if (!ts.isIdentifier(destructedName)) {
+                                    return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
+                                }
 
-            //                 return getReferences(destructedName);
-            //             })
-            //         }
-            //         return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
-            //     })
+                                return getReferences({
+                                    node: destructedName,
+                                    env: consList(pushContext(returnLocParent, returnLocEnv, m), opEnv),
+                                });
+                            }
+                        )
+                    }
+                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
+                })
             }
             return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
@@ -297,7 +305,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             if (declaration === undefined) {
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }
-            const scope = getDeclaringScope(declaration);
+            const scope = getDeclaringScope(declaration, typeChecker);
 
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
@@ -311,19 +319,23 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 ref.textSpan!.start,
                 ref.textSpan!.length,
             )!);
-            const refNodeConfigs: Config[] = refNodes.map(refNode => {
+            const refNodeConfigs: Config[] = refNodes.flatMap(refNode => {
                 const parents = getParentChain(refNode);
                 let env = idEnv;
                 for (const parent of parents) {
-                    if (parent === scope) break;
+                    if (parent === scope) {
+                        return [{
+                            node: refNode,
+                            env
+                        }]
+                    }
                     if (isFunctionLikeDeclaration(parent)) {
                         env = consList(newQuestion(parent), env);
                     }
                 }
-                return {
-                    node: refNode,
-                    env
-                }
+                return [];  // We get here if the refNode's parent chain never hits the declaring scope.
+                            // If that is the case, the ts compiler has given us a false positive as a
+                            // reference.
             });
             return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
         }
@@ -347,15 +359,15 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
 
         function getBoundExprsOfSymbol(symbol: ts.Symbol, idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            // const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
-            // const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+            const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
+            const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
             const declaration = symbol.valueDeclaration
                 ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
             if (declaration === undefined) {
                 return unimplemented(`could not find declaration: ${symbol.name}`, empty());
             }
-            const declaringScope = getDeclaringScope(declaration);
+            const declaringScope = getDeclaringScope(declaration, typeChecker);
             const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
             if (ts.isParameter(declaration)) {
@@ -365,18 +377,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 return getArgumentsForParameter(declaration, envAtDeclaringScope);
             } else if (ts.isVariableDeclaration(declaration)) {
-                // if (ts.isForOfStatement(declaration.parent.parent)) {
-                //     const forOfStatement = declaration.parent.parent;
-                //     const expression = forOfStatement.expression;
+                if (ts.isForOfStatement(declaration.parent.parent)) {
+                    const forOfStatement = declaration.parent.parent;
+                    const expression = forOfStatement.expression;
     
-                //     return getElementNodesOfArrayValuedNode(expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+                    return getElementNodesOfArrayValuedNode(
+                        { node: expression, env: envAtDeclaringScope },
+                        { fixed_eval, fixed_trace, targetFunction, m }
+                    );
                 // // } else if (ts.isCatchClause(declaration.parent)) {
                 // //     const tryBlock = declaration.parent.parent.tryBlock;
                 // //     const reachableBlocks = getReachableBlocks(tryBlock, fixed_eval);
                 // //     const throwStatements = setFlatMap(reachableBlocks, setOf(getThrowStatements));
                 // //     const thrownNodes = setMap(throwStatements, statement => statement.expression);
                 // //     return asNodeLattice(thrownNodes);
-                // } else { // it's a standard variable delcaration
+                } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
@@ -385,46 +400,46 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         node: declaration.initializer,
                         env: envAtDeclaringScope,
                     });
-                // }
+                }
             } else if (ts.isFunctionDeclaration(declaration)) {
                 return singleton<Config>({
                     node: declaration,
                     env: envAtDeclaringScope,
                 });
-            // } else if (ts.isBindingElement(declaration)) {
-            //     const bindingElementSource = declaration.parent.parent;
-            //     if (ts.isVariableDeclaration(bindingElementSource)) {
-            //         const initializer = bindingElementSource.initializer;
-            //         if (initializer === undefined) {
-            //             return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
-            //         }
+            } else if (ts.isBindingElement(declaration)) {
+                const bindingElementSource = declaration.parent.parent;
+                if (ts.isVariableDeclaration(bindingElementSource)) {
+                    const initializer = bindingElementSource.initializer;
+                    if (initializer === undefined) {
+                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                    }
 
-            //         // special case for Promise.allSettled
-            //         if (ts.isArrayBindingPattern(declaration.parent)
-            //             && ts.isAwaitExpression(initializer)
-            //             && ts.isCallExpression(initializer.expression)
-            //             && ts.isPropertyAccessExpression(initializer.expression.expression)
-            //             && ts.isIdentifier(initializer.expression.expression.expression)
-            //             && initializer.expression.expression.expression.text === 'Promise'
-            //             && initializer.expression.expression.name.text === 'allSettled'
-            //             && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
-            //         ) {
-            //             const index = declaration.parent.elements.indexOf(declaration);
-            //             const arrayNode = initializer.expression.arguments[0];
-            //             const arg = arrayNode.elements[index];
-            //             // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
-            //             return resolvePromisesOfNode(arg, fixed_eval);
-            //         }
+                    // // special case for Promise.allSettled
+                    // if (ts.isArrayBindingPattern(declaration.parent)
+                    //     && ts.isAwaitExpression(initializer)
+                    //     && ts.isCallExpression(initializer.expression)
+                    //     && ts.isPropertyAccessExpression(initializer.expression.expression)
+                    //     && ts.isIdentifier(initializer.expression.expression.expression)
+                    //     && initializer.expression.expression.expression.text === 'Promise'
+                    //     && initializer.expression.expression.name.text === 'allSettled'
+                    //     && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
+                    // ) {
+                    //     const index = declaration.parent.elements.indexOf(declaration);
+                    //     const arrayNode = initializer.expression.arguments[0];
+                    //     const arg = arrayNode.elements[index];
+                    //     // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
+                    //     return resolvePromisesOfNode(arg, fixed_eval);
+                    // }
     
-            //         const objectConses = fix_run(abstractEval, initializer);
-            //         return getObjectsPropertyInitializers(objectConses, symbol.name);
-            //     } else if (ts.isParameter(bindingElementSource)) {
-            //         const args = getArgumentsForParameter(bindingElementSource);
+                    const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
+                    return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
+                } else if (ts.isParameter(bindingElementSource)) {
+                    const argConfigs = getArgumentsForParameter(bindingElementSource, envAtDeclaringScope);
                     
-            //         const argsValues = nodeLatticeJoinMap(args, arg => fix_run(abstractEval, arg));
+                    const argsValues = configSetJoinMap(argConfigs, argConfig => fix_run(abstractEval, argConfig));
 
-            //         return getObjectsPropertyInitializers(argsValues, symbol.name);
-            //     }
+                    return getObjectsPropertyInitializers(argsValues, symbol.name);
+                }
             } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
                 const moduleSpecifier = ts.isImportClause(declaration)
                     ? declaration.parent.moduleSpecifier
@@ -440,12 +455,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
                 return getBoundExprsOfSymbol(aliasedSymbol, idConfig, fix_run);
-            // } else if (ts.isShorthandPropertyAssignment(declaration)) {
-            //     const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
-            //     if (shorthandValueSymbol === undefined) {
-            //         throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
-            //     }
-            //     return getBoundExprsOfSymbol(shorthandValueSymbol, fix_run);
+            } else if (ts.isShorthandPropertyAssignment(declaration)) {
+                const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+                if (shorthandValueSymbol === undefined) {
+                    throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
+                }
+                return getBoundExprsOfSymbol(shorthandValueSymbol, idConfig, fix_run);
             }
             return unimplementedVal(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
@@ -500,19 +515,19 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
         }
     
-        // function getObjectsPropertyInitializers(objConstructors: NodeLattice, idName: string): NodeLattice {
-        //     return nodeLatticeFlatMap(objConstructors, objConstructor => {
-        //         if (!ts.isObjectLiteralExpression(objConstructor)) {
-        //             return unimplemented(`Destructuring non-object literals not yet implemented: ${printNodeAndPos(objConstructor)}`, empty());
-        //         }
+        function getObjectsPropertyInitializers(objConstructorConfigs: ConfigSet, idName: string): ConfigSet {
+            return configSetJoinMap(objConstructorConfigs, ({ node: objConstructor, env }) => {
+                if (!ts.isObjectLiteralExpression(objConstructor)) {
+                    return unimplemented(`Destructuring non-object literals not yet implemented: ${printNodeAndPos(objConstructor)}`, empty());
+                }
 
-        //         const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
+                const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
                 
-        //         return initializer !== undefined
-        //             ? singleton<NodeLatticeElem>(initializer)
-        //             : empty<NodeLatticeElem>();
-        //     });
-        // }
+                return initializer !== undefined
+                    ? configValue({ node: initializer, env})
+                    : empty();
+            });
+        }
     }
 
     

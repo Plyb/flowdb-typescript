@@ -30,8 +30,8 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
 
                 if (ts.isPropertyAssignment(prop)) {
                     return fixed_eval({ node: prop.initializer, env: consEnv });
-                // } else if (ts.isShorthandPropertyAssignment(prop)) {
-                //     return fixed_eval(prop.name)
+                } else if (ts.isShorthandPropertyAssignment(prop)) {
+                    return fixed_eval({ node: prop.name, env: consEnv })
                 } else {
                     console.warn(`Unknown object property assignment`)
                 }
