@@ -34,7 +34,7 @@ export function runTests() {
         testRes(15, 26), // arrow func
         testRes(16, 26), // function expr
         testRes(17, 26), // function decl
-        // librRes( 5, 11), // call syntactic func
+        librRes( 5, 11), // call syntactic func
         // testRes(19, 26), // call built in func
         testRes( 9, 39), // bound identifier
         // testRes(21, 26), // built in identifier
@@ -52,7 +52,7 @@ export function runTests() {
         // testRes(33, 26), // proto property access
         librRes( 5, 11), // await non-async call
         librRes( 9, 11), // await async call
-        // testRes(36, 26), // array literal
+        testRes(36, 26), // array literal
         // extern         , // import from library
         // testRes(38, 28), // element access basic
         // testRes(39, 41), // element access built in constructor

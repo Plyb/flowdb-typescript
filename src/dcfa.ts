@@ -122,8 +122,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return getObjectProperty(config, fixed_eval, targetFunction);
             } else if (ts.isAwaitExpression(node)) {
                 return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
-            // } else if (ts.isArrayLiteralExpression(node)) {
-            //     return nodeValue(node);
+            } else if (ts.isArrayLiteralExpression(node)) {
+                return configValue(config);
             // } else if (ts.isElementAccessExpression(node)) {
             //     const elementExpressions = getElementNodesOfArrayValuedNode(node.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
             //     return nodeLatticeJoinMap(elementExpressions, element => fix_run(abstractEval, element));
