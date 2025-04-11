@@ -1,5 +1,5 @@
 import { Extern, isExtern } from './abstract-values'
-import { setFilter, setMap } from './setUtil';
+import { setFilter, setMap, setSome } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { emptyList, List, toList } from './util';
@@ -100,6 +100,9 @@ export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predic
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
     return setFilter(set, config => !isConfigNoExtern(config) || predicate(config));
+}
+export function configSetSome(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): boolean {
+    return setSome(set, config => isConfigNoExtern(config) && predicate(config));
 }
 
 export function newQuestion(func: SimpleFunctionLikeDeclaration): Question {

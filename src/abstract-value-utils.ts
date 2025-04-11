@@ -4,11 +4,11 @@ import { AbstractValue, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, config
 // import { getPropertyOfProto, getBuiltInValueOfBuiltInConstructor, getProtoOf, isBuiltInConstructorShaped, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
-import { empty, setSift, singleton } from './setUtil';
+import { empty, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet } from './configuration';
-import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfPropertyAccess } from './value-constructors';
+import { Config, ConfigSet, configSetMap, configSetSome, isConfigNoExtern } from './configuration';
+import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
@@ -50,7 +50,7 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     })
 }
 
-export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
+export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }): ConfigSet {
     const conses = fixed_eval(config);
     return configSetJoinMap(conses, consConfig => {
         const { node: cons, env: consEnv } = consConfig;
@@ -67,9 +67,9 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
 
                 return configValue(elementConfig);
             })
-        // } else if (isBuiltInConstructorShaped(cons)) {
-        //     const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction)
-        //     return resultOfElementAccess[builtInValue](cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
+        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction)
+            return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, targetFunction, m });
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }
@@ -92,27 +92,32 @@ export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): Co
     })
 }
 
-// export function getMapSetCalls(returnSites: NodeLattice, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }): NodeLattice {
-//     const callSitesOrFalses = nodeLatticeMap(returnSites, site => {
-//         const access = site.parent;
-//         if (!(ts.isPropertyAccessExpression(access))) {
-//             return false;
-//         }
-//         const accessConses = fixed_eval(access);
-//         if (!nodeLatticeSome(accessConses, cons =>
-//                 isBuiltInConstructorShaped(cons)
-//                 && getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction) === 'Map#set'
-//             )
-//         ) {
-//             return false;
-//         }
+export function getMapSetCalls(returnSiteConfigs: ConfigSet, { fixed_eval, targetFunction }: { fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
+    const callSitesOrFalses = setMap(returnSiteConfigs, siteConfig => {
+        if (!isConfigNoExtern(siteConfig)) {
+            return siteConfig;
+        }
 
-//         const call = access.parent;
-//         if (!ts.isCallExpression(call)) {
-//             return false;
-//         }
+        const site = siteConfig.node;
+        const access = site.parent;
+        if (!(ts.isPropertyAccessExpression(access))) {
+            return false;
+        }
+        const accessConses = fixed_eval(siteConfig);
+        if (!configSetSome(accessConses, consConfig =>
+                isBuiltInConstructorShapedConfig(consConfig)
+                && getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction) === 'Map#set'
+            )
+        ) {
+            return false;
+        }
 
-//         return call as ts.Node;
-//     });
-//     return setSift(callSitesOrFalses);
-// }
+        const call = access.parent;
+        if (!ts.isCallExpression(call)) {
+            return false;
+        }
+
+        return { node: call, env: siteConfig.env };
+    });
+    return setSift(callSitesOrFalses);
+}

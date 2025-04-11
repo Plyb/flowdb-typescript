@@ -131,7 +131,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isElementAccessExpression(node)) {
                 const elementExpressions = getElementNodesOfArrayValuedNode(
                     { node: node.expression, env },
-                    { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }
+                    { fixed_eval, fixed_trace, targetFunction, m }
                 );
                 return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {

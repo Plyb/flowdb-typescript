@@ -55,7 +55,7 @@ export function runTests() {
         testRes(36, 26), // array literal
         extern         , // import from library
         testRes(38, 28), // element access basic
-        // testRes(39, 41), // element access built in constructor
+        testRes(39, 41), // element access built in constructor
         testRes(40, 26), // new expression
         testRes(41, 26), // null
         testRes(42, 27), // binary expression lhs

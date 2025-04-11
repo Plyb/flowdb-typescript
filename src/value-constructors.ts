@@ -4,11 +4,11 @@ import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { AbstractValue, botValue, isExtern, NodeLattice, NodeLatticeElem, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, Extern, externValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { unimplemented } from './util';
+import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
-import { getElementNodesOfArrayValuedNode } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
 
-import { Config, ConfigSet, Cursor, isConfigNoExtern } from './configuration';
+import { Config, ConfigSet, Cursor, isConfigNoExtern, isPropertyAccessConfig, printConfig, pushContext } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -315,108 +315,112 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     '%ParameterSourced': configValue,
 }
 
-// type ElementAccessGetter = (cons: BuiltInConstructor, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue
-// const inaccessibleElement: ElementAccessGetter = (cons, { printNodeAndPos }) =>
-//     unimplementedVal(`Unable to get element of ${printNodeAndPos(cons)}`);
-// const arrayMapEAG: ElementAccessGetter = (cons, { fixed_eval, printNodeAndPos }) => {
-//     if (!ts.isCallExpression(cons)) {
-//         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
-//     }
-//     const argFuncs = fixed_eval(cons.arguments[0]);
-//     return configSetJoinMap(argFuncs, func => {
-//         if (!isFunctionLikeDeclaration(func)) {
-//             return unimplementedVal(`Expected ${printNodeAndPos(func)} to be a function`);
-//         }
-//         return fixed_eval(func.body);
-//     })
-// }
-// const arrayFilterEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }) => {
-//     const thisArrayConses = getCallExpressionExpressionOfValue(cons, 'Array#filter', { fixed_eval, printNodeAndPos, targetFunction });
-//     return configSetJoinMap(thisArrayConses, cons => getElementNodesOfArrayValuedNode(cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }));
-// }
-// const mapKeysEAG: ElementAccessGetter = (cons, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }) => {
-//     const thisMapConses = getCallExpressionExpressionOfValue(cons, 'Map#keys', { fixed_eval, printNodeAndPos, targetFunction });
-//     const setSites = nodeLatticeFlatMap(thisMapConses, mapCons =>
-//         getMapSetCalls(fixed_trace(mapCons), { fixed_eval, printNodeAndPos, targetFunction })
-//     );
-//     return configSetJoinMap(setSites, site => {
-//         const keyArg = (site as CallExpression).arguments[0];
-//         return fixed_eval(keyArg)
-//     });
-// }
-// function getCallExpressionExpressionOfValue(cons: BuiltInConstructor, val: BuiltInValue, { fixed_eval, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) {
-//     if (!ts.isCallExpression(cons)) {
-//         return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
-//     }
-//     const funcExpression = cons.expression;
-//     const funcs = fixed_eval(funcExpression);
-//     return configSetJoinMap(funcs, cons => {
-//         if (!ts.isPropertyAccessExpression(cons) || getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction) !== val) {
-//             return botValue;
-//         }
-//         return fixed_eval(cons.expression);
-//     });
-// }
-// export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
-//     'Array': inaccessibleElement,
-//     'Array#filter': inaccessibleElement,
-//     'Array#filter()': arrayFilterEAG,
-//     'Array#find': inaccessibleElement,
-//     'Array#includes': inaccessibleElement,
-//     'Array#includes()': inaccessibleElement,
-//     'Array#indexOf': inaccessibleElement,
-//     'Array#indexOf()': inaccessibleElement,
-//     'Array#join': inaccessibleElement,
-//     'Array#join()': inaccessibleElement,
-//     'Array#map': inaccessibleElement,
-//     'Array#map()': arrayMapEAG,
-//     'Array#some': inaccessibleElement,
-//     'Array#some()': inaccessibleElement,
-//     'Array.from': inaccessibleElement,
-//     'Date': inaccessibleElement,
-//     'Date.now': inaccessibleElement,
-//     'Date.now()': inaccessibleElement,
-//     'JSON': inaccessibleElement,
-//     'JSON.parse': inaccessibleElement,
-//     'Map#get': inaccessibleElement,
-//     'Map#keys': inaccessibleElement,
-//     'Map#keys()': mapKeysEAG,
-//     'Map#set': inaccessibleElement,
-//     'Math': inaccessibleElement,
-//     'Math.floor': inaccessibleElement,
-//     'Math.floor()': inaccessibleElement,
-//     'Object': inaccessibleElement,
-//     'Object.freeze': inaccessibleElement,
-//     'Object.assign': inaccessibleElement,
-//     'Object.keys': inaccessibleElement,
-//     'Promise': inaccessibleElement,
-//     'Promise.allSettled': inaccessibleElement,
-//     'Promise.allSettled()': inaccessibleElement,
-//     'RegExp#test': inaccessibleElement,
-//     'RegExp#test()': inaccessibleElement,
-//     'String#includes': inaccessibleElement,
-//     'String#includes()': inaccessibleElement,
-//     'String#match': inaccessibleElement,
-//     'String#match()': inaccessibleElement,
-//     'String#split': inaccessibleElement,
-//     'String#split()': inaccessibleElement,
-//     'String#substring': inaccessibleElement,
-//     'String#substring()': inaccessibleElement,
-//     'String#toLowerCase': inaccessibleElement,
-//     'String#toLowerCase()': inaccessibleElement,
-//     'String#trim': inaccessibleElement,
-//     'String#trim()': inaccessibleElement,
-//     'console': inaccessibleElement,
-//     'console.log': inaccessibleElement,
-//     'console.log()': inaccessibleElement,
-//     'console.error': inaccessibleElement,
-//     'console.error()': inaccessibleElement,
-//     'console.warn': inaccessibleElement,
-//     'console.warn()': inaccessibleElement,
-//     'fetch': inaccessibleElement,
-//     'undefined': inaccessibleElement,
-//     '%ParameterSourced': inaccessibleElement, // TODO
-// }
+type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet
+const inaccessibleElement: ElementAccessGetter = ({ node }) =>
+    unimplementedVal(`Unable to get element of ${printNodeAndPos(node)}`);
+const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
+    const { node: cons, env } = consConfig;
+    if (!ts.isCallExpression(cons)) {
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const argFuncs = fixed_eval({ node: cons.arguments[0], env });
+    return configSetJoinMap(argFuncs, funcConfig => {
+        const { node: func, env: funcEnv } = funcConfig;
+        if (!isFunctionLikeDeclaration(func)) {
+            return unimplementedVal(`Expected ${printNodeAndPos(func)} to be a function`);
+        }
+        return fixed_eval({ node: func.body, env: consList(pushContext(cons, env, m), funcEnv)});
+    })
+}
+const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, targetFunction, m }) => {
+    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval, targetFunction });
+    return configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, targetFunction, m }));
+}
+const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, targetFunction }) => {
+    const thisMapConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Map#keys', { fixed_eval, targetFunction });
+    const setSiteConfigs = configSetJoinMap(thisMapConsConfigs, mapConsConfig =>
+        getMapSetCalls(fixed_trace(mapConsConfig), { fixed_eval, targetFunction })
+    );
+    return configSetJoinMap(setSiteConfigs, siteConfig => {
+        const keyArg = (siteConfig.node as CallExpression).arguments[0];
+        return fixed_eval({ node: keyArg, env: siteConfig.env });
+    });
+}
+function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval, targetFunction }: { fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
+    const { node: cons, env } = consConfig;
+    if (!ts.isCallExpression(cons)) {
+        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+    }
+    const funcExpression = cons.expression;
+    const funcConfigs = fixed_eval({ node: funcExpression, env });
+    return configSetJoinMap(funcConfigs, funcConfig => {
+        if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval, printNodeAndPos, targetFunction) !== val) {
+            return empty();
+        }
+        const { node: cons, env: funcEnv } = funcConfig;
+        return fixed_eval({ node: cons.expression, env: funcEnv });
+    });
+}
+export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
+    'Array': inaccessibleElement,
+    'Array#filter': inaccessibleElement,
+    'Array#filter()': arrayFilterEAG,
+    'Array#find': inaccessibleElement,
+    'Array#includes': inaccessibleElement,
+    'Array#includes()': inaccessibleElement,
+    'Array#indexOf': inaccessibleElement,
+    'Array#indexOf()': inaccessibleElement,
+    'Array#join': inaccessibleElement,
+    'Array#join()': inaccessibleElement,
+    'Array#map': inaccessibleElement,
+    'Array#map()': arrayMapEAG,
+    'Array#some': inaccessibleElement,
+    'Array#some()': inaccessibleElement,
+    'Array.from': inaccessibleElement,
+    'Date': inaccessibleElement,
+    'Date.now': inaccessibleElement,
+    'Date.now()': inaccessibleElement,
+    'JSON': inaccessibleElement,
+    'JSON.parse': inaccessibleElement,
+    'Map#get': inaccessibleElement,
+    'Map#keys': inaccessibleElement,
+    'Map#keys()': mapKeysEAG,
+    'Map#set': inaccessibleElement,
+    'Math': inaccessibleElement,
+    'Math.floor': inaccessibleElement,
+    'Math.floor()': inaccessibleElement,
+    'Object': inaccessibleElement,
+    'Object.freeze': inaccessibleElement,
+    'Object.assign': inaccessibleElement,
+    'Object.keys': inaccessibleElement,
+    'Promise': inaccessibleElement,
+    'Promise.allSettled': inaccessibleElement,
+    'Promise.allSettled()': inaccessibleElement,
+    'RegExp#test': inaccessibleElement,
+    'RegExp#test()': inaccessibleElement,
+    'String#includes': inaccessibleElement,
+    'String#includes()': inaccessibleElement,
+    'String#match': inaccessibleElement,
+    'String#match()': inaccessibleElement,
+    'String#split': inaccessibleElement,
+    'String#split()': inaccessibleElement,
+    'String#substring': inaccessibleElement,
+    'String#substring()': inaccessibleElement,
+    'String#toLowerCase': inaccessibleElement,
+    'String#toLowerCase()': inaccessibleElement,
+    'String#trim': inaccessibleElement,
+    'String#trim()': inaccessibleElement,
+    'console': inaccessibleElement,
+    'console.log': inaccessibleElement,
+    'console.log()': inaccessibleElement,
+    'console.error': inaccessibleElement,
+    'console.error()': inaccessibleElement,
+    'console.warn': inaccessibleElement,
+    'console.warn()': inaccessibleElement,
+    'fetch': inaccessibleElement,
+    'undefined': inaccessibleElement,
+    '%ParameterSourced': inaccessibleElement, // TODO
+}
 
 /**
  * @param cons here we're assuming a constructor that isn't "built in"
