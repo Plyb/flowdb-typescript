@@ -176,7 +176,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             const { node, env } = config;
             if (isExtern(node)) {
-                return empty(); // TODO mcfa not sure if this is the right thing
+                return empty();
             }
 
             const parent = node.parent;
@@ -275,10 +275,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "call"
-        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet { // TODO mcfa make a DcfaFixRunFunc type
+        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             const { node, env } = config;
             if (isExtern(node)) {
-                return empty(); // TODO mcfa I'm not sure this is the right thing to do
+                return empty();
             }
             
             if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
@@ -301,8 +301,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "find"
         function getReferences(idConfig: Config<ts.Identifier>): ConfigSet {
             const { node: id, env: idEnv } = idConfig;
-            const symbol = typeChecker.getSymbolAtLocation(id); // TODO mcfa: merge this with the declaration getting in bind
-            const declaration = symbol?.valueDeclaration!;
+            const symbol = typeChecker.getSymbolAtLocation(id);
+            const declaration = symbol?.valueDeclaration;
             if (declaration === undefined) {
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }

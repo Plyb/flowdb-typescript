@@ -225,7 +225,7 @@ export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
     return findAll(node, ts.isCallExpression) as Iterable<ts.CallExpression>;
 }
 
-export function findAllParameterBinders(node: ts.Node) { // TODO mcfa we may want to extend this to other kinds of binders, but for now I'll do this
+export function findAllParameterBinders(node: ts.Node) {
     const parentChain = [...getParentChain(node)];
     return parentChain.filter(node => isFunctionLikeDeclaration);
 }
