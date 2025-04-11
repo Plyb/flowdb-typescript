@@ -1,6 +1,6 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setOf, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
@@ -10,6 +10,7 @@ import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorS
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
+import { getReachableBlocks } from './control-flow';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -385,12 +386,17 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         { node: expression, env: envAtDeclaringScope },
                         { fixed_eval, fixed_trace, targetFunction, m }
                     );
-                // // } else if (ts.isCatchClause(declaration.parent)) {
-                // //     const tryBlock = declaration.parent.parent.tryBlock;
-                // //     const reachableBlocks = getReachableBlocks(tryBlock, fixed_eval);
-                // //     const throwStatements = setFlatMap(reachableBlocks, setOf(getThrowStatements));
-                // //     const thrownNodes = setMap(throwStatements, statement => statement.expression);
-                // //     return asNodeLattice(thrownNodes);
+                } else if (ts.isCatchClause(declaration.parent)) {
+                    const tryBlock = declaration.parent.parent.tryBlock;
+                    const reachableBlocks = getReachableBlocks({ node: tryBlock, env: envAtDeclaringScope }, m, fixed_eval);
+                    const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
+                        const throwStatements = getThrowStatements(blockConfig.node);
+                        return [...throwStatements].map(throwStatement => ({
+                            node: throwStatement.expression,
+                            env: blockConfig.env,
+                        } as Config<ts.Expression>));
+                    }));
+                    return thrownNodeConfigs;
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)

@@ -71,6 +71,8 @@ export function runTests() {
         librRes(19,  8), // promise from async function
         testRes( 8, 31), // target function parameter
         testRes(60, 27), // primop property binder getter
+        librRes(24, 10), // throw/catch bound variables remote
+        testRes(61, 41), // throw/catch bound variables local
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function

@@ -79,6 +79,8 @@ function isLimit(context: Context): context is LimitSentinel {
 
 export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
     return !isExtern(config.node);
+}export function isConfigExtern(config: Config): config is ConfigExtern {
+    return isExtern(config.node);
 }
 export function isIdentifierConfig(config: Config): config is Config<ts.Identifier> {
     return !isExtern(config.node) && ts.isIdentifier(config.node);
@@ -91,9 +93,11 @@ export function isPropertyAccessConfig(config: ConfigNoExtern): config is Config
 }
 export function isCallConfig(config: ConfigNoExtern): config is Config<ts.CallExpression> {
     return ts.isCallExpression(config.node);
+}export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block> {
+    return ts.isBlock(config.node);
 }
 
-export function configSetMap(set: ConfigSet, convert: (config: ConfigNoExtern) => Config): ConfigSet {
+export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
 }
 export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): StructuralSet<ConfigExtern | T>

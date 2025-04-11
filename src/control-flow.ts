@@ -1,11 +1,11 @@
 import ts, { ConciseBody } from 'typescript';
-import { configSetJoinMap, isExtern, joinAllValues } from './abstract-values';
+import { configSetJoinMap, configValue, isExtern, joinAllValues } from './abstract-values';
 import { FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { StructuralSet } from './structural-set';
-import { Config, printConfig, pushContext, withZeroContext } from './configuration';
+import { Config, ConfigNoExtern, configSetFilter, configSetMap, isBlockConfig, isConfigExtern, isConfigNoExtern, isFunctionLikeDeclarationConfig, printConfig, pushContext, withZeroContext } from './configuration';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { consList } from './util';
@@ -39,8 +39,20 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
     }
 }
 
-// export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): StructuralSet<ts.Block> {
-//     const reachableFuncs = getReachableFunctions(block, fixed_eval);
-//     const bodies = setMap(reachableFuncs, func => func.body);
-//     return union(singleton(block), setFilter(bodies, ts.isBlock));
-// }
+export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fixed_eval: FixedEval): StructuralSet<Config<ts.Block>> {
+    const reachableCalls = getReachableCallConfigs(blockConfig, m, fixed_eval);
+    const otherReachableBodies = configSetJoinMap(reachableCalls, callConfig => {
+        const operatorConfig = { node: callConfig.node.expression, env: callConfig.env };
+        const possibleFunctions = fixed_eval(operatorConfig);
+        return setFlatMap(possibleFunctions, funcConfig => {
+            if (!isFunctionLikeDeclarationConfig(funcConfig)) {
+                return empty();
+            }
+            return configValue({
+                node: funcConfig.node.body,
+                env: consList(pushContext(callConfig.node, callConfig.env, m), funcConfig.env),
+            })
+        })
+    }) as StructuralSet<ConfigNoExtern>;
+    return union(singleton(blockConfig), setFilter(otherReachableBodies, isBlockConfig));
+}
