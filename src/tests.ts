@@ -70,6 +70,7 @@ export function runTests() {
         // testRes(57, 26), // error message includes (mixed proto accesses)
         librRes(19,  8), // promise from async function
         testRes( 8, 31), // target function parameter
+        testRes(60, 27), // primop property binder getter
         // getWhereValueReturned tests
         testRes(45, 35), // call expression
         testRes(46, 52), // body of function

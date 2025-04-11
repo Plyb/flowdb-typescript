@@ -465,80 +465,79 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
 }
 
 
-// type PrimopFunctionArgParamBinderGetter = (this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) => AbstractValue;
-// type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
-// const getBot = () => botValue;
-// const notSupported = (name: BuiltInValue) => () => unimplementedVal(`Unimplemented function arg param binder getter for ${name}`);
-// export const primopBinderGetters: PrimopBinderGetters = {
-//     'Array': notSupported('Array'),
-//     'Array#filter': notSupported('Array#filter'),
-//     'Array#filter()': notSupported('Array#filter()'),
-//     'Array#find': notSupported('Array#find'),
-//     'Array#includes': notSupported('Array#includes'),
-//     'Array#includes()': notSupported('Array#includes()'),
-//     'Array#indexOf': notSupported('Array#indexOf'),
-//     'Array#indexOf()': notSupported('Array#indexOf()'),
-//     'Array#join': notSupported('Array#join'),
-//     'Array#join()': notSupported('Array#join()'),
-//     'Array#map': arrayMapABG,
-//     'Array#map()': notSupported('Array'),
-//     'Array#some': notSupported('Array#some'),
-//     'Array#some()': notSupported('Array#some()'),
-//     'Array.from': notSupported('Array.from'),
-//     'Date': notSupported('Date'),
-//     'Date.now': notSupported('Date.now'),
-//     'Date.now()': notSupported('Date.now()'),
-//     'JSON': notSupported('JSON'),
-//     'JSON.parse': notSupported('JSON.parse'),
-//     'Map#get': notSupported('Map#get'),
-//     'Map#keys': notSupported('Map#keys'),
-//     'Map#keys()': notSupported('Map#keys()'),
-//     'Map#set': notSupported('Map#set'),
-//     'Math': notSupported('Math'),
-//     'Math.floor': notSupported('Math.floor'),
-//     'Math.floor()': notSupported('Math.floor()'),
-//     'Object': notSupported('Object'),
-//     'Object.assign': notSupported('Object.assign'),
-//     'Object.freeze': notSupported('Object.freeze'),
-//     'Object.keys': notSupported('Object.keys'), // TODO
-//     'Promise': notSupported('Promise'),
-//     'Promise.allSettled': notSupported('Promise.allSettled'),
-//     'Promise.allSettled()': notSupported('Promise.allSettled()'),
-//     'RegExp#test': notSupported('RegExp#test'),
-//     'RegExp#test()': notSupported('RegExp#test()'),
-//     'String#includes': notSupported('String#includes'),
-//     'String#includes()': notSupported('String#includes()'),
-//     'String#match': notSupported('String#match'),
-//     'String#match()': notSupported('String#match()'),
-//     'String#split': notSupported('String#split'),
-//     'String#split()': notSupported('String#split()'),
-//     'String#substring': notSupported('String#substring'),
-//     'String#substring()': notSupported('String#substring()'),
-//     'String#toLowerCase': notSupported('String#toLowerCase'),
-//     'String#toLowerCase()': notSupported('String#toLowerCase()'),
-//     'String#trim': notSupported('String#trim'),
-//     'String#trim()': notSupported('String#trim()'),
-//     'console': notSupported('console'),
-//     'console.log': notSupported('console.log'),
-//     'console.log()': notSupported('console.log()'),
-//     'console.error': notSupported('console.error'),
-//     'console.error()': notSupported('console.error()'),
-//     'console.warn': notSupported('console.warn'),
-//     'console.warn()': notSupported('console.warn()'),
-//     'fetch': notSupported('fetch'),
-//     'undefined': notSupported('undefined'),
-//     '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
-// }
-// function arrayMapABG(this: ts.Expression | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration }) {
-//     if (this === undefined) {
-//         throw new Error();
-//     }
+type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet;
+type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
+const notSupported = (name: BuiltInValue) => () => unimplementedVal(`Unimplemented function arg param binder getter for ${name}`);
+export const primopBinderGetters: PrimopBinderGetters = {
+    'Array': notSupported('Array'),
+    'Array#filter': notSupported('Array#filter'),
+    'Array#filter()': notSupported('Array#filter()'),
+    'Array#find': notSupported('Array#find'),
+    'Array#includes': notSupported('Array#includes'),
+    'Array#includes()': notSupported('Array#includes()'),
+    'Array#indexOf': notSupported('Array#indexOf'),
+    'Array#indexOf()': notSupported('Array#indexOf()'),
+    'Array#join': notSupported('Array#join'),
+    'Array#join()': notSupported('Array#join()'),
+    'Array#map': arrayMapABG,
+    'Array#map()': notSupported('Array'),
+    'Array#some': notSupported('Array#some'),
+    'Array#some()': notSupported('Array#some()'),
+    'Array.from': notSupported('Array.from'),
+    'Date': notSupported('Date'),
+    'Date.now': notSupported('Date.now'),
+    'Date.now()': notSupported('Date.now()'),
+    'JSON': notSupported('JSON'),
+    'JSON.parse': notSupported('JSON.parse'),
+    'Map#get': notSupported('Map#get'),
+    'Map#keys': notSupported('Map#keys'),
+    'Map#keys()': notSupported('Map#keys()'),
+    'Map#set': notSupported('Map#set'),
+    'Math': notSupported('Math'),
+    'Math.floor': notSupported('Math.floor'),
+    'Math.floor()': notSupported('Math.floor()'),
+    'Object': notSupported('Object'),
+    'Object.assign': notSupported('Object.assign'),
+    'Object.freeze': notSupported('Object.freeze'),
+    'Object.keys': notSupported('Object.keys'), // TODO
+    'Promise': notSupported('Promise'),
+    'Promise.allSettled': notSupported('Promise.allSettled'),
+    'Promise.allSettled()': notSupported('Promise.allSettled()'),
+    'RegExp#test': notSupported('RegExp#test'),
+    'RegExp#test()': notSupported('RegExp#test()'),
+    'String#includes': notSupported('String#includes'),
+    'String#includes()': notSupported('String#includes()'),
+    'String#match': notSupported('String#match'),
+    'String#match()': notSupported('String#match()'),
+    'String#split': notSupported('String#split'),
+    'String#split()': notSupported('String#split()'),
+    'String#substring': notSupported('String#substring'),
+    'String#substring()': notSupported('String#substring()'),
+    'String#toLowerCase': notSupported('String#toLowerCase'),
+    'String#toLowerCase()': notSupported('String#toLowerCase()'),
+    'String#trim': notSupported('String#trim'),
+    'String#trim()': notSupported('String#trim()'),
+    'console': notSupported('console'),
+    'console.log': notSupported('console.log'),
+    'console.log()': notSupported('console.log()'),
+    'console.error': notSupported('console.error'),
+    'console.error()': notSupported('console.error()'),
+    'console.warn': notSupported('console.warn'),
+    'console.warn()': notSupported('console.warn()'),
+    'fetch': notSupported('fetch'),
+    'undefined': notSupported('undefined'),
+    '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
+}
+function arrayMapABG(this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }): ConfigSet {
+    if (this === undefined) {
+        throw new Error();
+    }
     
-//     if (primopArgIndex != 0 || argParameterIndex != 0) {
-//         return empty<NodeLatticeElem>();
-//     }
-//     return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-// }
+    if (primopArgIndex != 0 || argParameterIndex != 0) {
+        return empty();
+    }
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m });
+}
 
 function isParamSourced(config: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
     const { node, env } = config

@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { AbstractValue, botValue, isExtern, joinAllValues, joinValue, NodeLattice, NodeLatticeElem, nodeLatticeFilter, nodeLatticeFlatMap, configSetJoinMap, nodeLatticeMap, configValue, pretty, setJoinMap, extern, externValue, unimplementedVal, Extern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
-import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, resultOfCalling } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
 import { isEqual } from 'lodash';
@@ -480,38 +480,39 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     env: callSite.env,
                 }));
 
-                // const sitesWhereDeclaringFunctionReturned = fix_run(getWhereValueReturned, declaringFunction);
-                // const boundFromPrimop = nodeLatticeFlatMap(
-                //     sitesWhereDeclaringFunctionReturned,
-                //     (node) => {
-                //         const callSiteWhereArg = node.parent;
-                //         if (!ts.isCallExpression(callSiteWhereArg)) {
-                //             return empty<NodeLatticeElem>();
-                //         }
-                //         const consumerValues = fix_run(abstractEval, callSiteWhereArg.expression);
-                //         const consumerConses = setFilter(consumerValues, value => {
-                //             return !isTop(value);
-                //         }) as SimpleSet<ts.Node>;
+                const sitesWhereDeclaringFunctionReturned = fixed_trace({ node: declaringFunction, env: envAtDeclaredScope });
+                const boundFromPrimop = configSetJoinMap(
+                    sitesWhereDeclaringFunctionReturned,
+                    (config) => {
+                        const { node, env: callSiteEnv } = config;
+                        const callSiteWhereArg = node.parent;
+                        if (!ts.isCallExpression(callSiteWhereArg)) {
+                            return empty();
+                        }
+                        const consumerConfigsAndExterns = fixed_eval({ node: callSiteWhereArg.expression, env: callSiteEnv });
+                        const consumerConfigs = setFilter(consumerConfigsAndExterns, isConfigNoExtern);
 
-                //         return setFlatMap(consumerConses, (cons) => {
-                //             if (!isBuiltInConstructorShaped(cons)) {
-                //                 return empty();
-                //             }
+                        return setFlatMap(consumerConfigs, (config) => {
+                            if (!isBuiltInConstructorShapedConfig(config)) {
+                                return empty();
+                            }
 
-                //             const builtInValue = getBuiltInValueOfBuiltInConstructor(cons, fixed_eval, printNodeAndPos, targetFunction);
-                //             const binderGetter = primopBinderGetters[builtInValue];
-                //             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
-                //             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
-                //             const thisExpression = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
-                //                 ? callSiteWhereArg.expression.expression
-                //                 : undefined;
-                //             return binderGetter.apply(thisExpression, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction }]);
-                //         }) as NodeLattice;
-                //     }
-                // );
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval, printNodeAndPos, targetFunction);
+                            const binderGetter = primopBinderGetters[builtInValue];
+                            const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
+                            const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
+                            const thisConfig = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+                                ? {
+                                    node: callSiteWhereArg.expression.expression,
+                                    env: callSiteEnv
+                                }
+                                : undefined;
+                            return binderGetter.apply(thisConfig, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, targetFunction, m }]);
+                        });
+                    }
+                );
 
-                // return union(boundFromArgs, boundFromPrimop);
-                return boundFromArgs;
+                return union(boundFromArgs, boundFromPrimop);
             }
         }
     
