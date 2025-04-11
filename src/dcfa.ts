@@ -416,21 +416,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             //         return getObjectsPropertyInitializers(argsValues, symbol.name);
             //     }
-            // } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
-            //     const moduleSpecifier = ts.isImportClause(declaration)
-            //         ? declaration.parent.moduleSpecifier
-            //         : declaration.parent.parent.parent.moduleSpecifier;
+            } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+                const moduleSpecifier = ts.isImportClause(declaration)
+                    ? declaration.parent.moduleSpecifier
+                    : declaration.parent.parent.parent.moduleSpecifier;
     
-            //     if (!ts.isStringLiteral(moduleSpecifier)) {
-            //         throw new Error('Module specifier must be a string literal');
-            //     }
+                if (!ts.isStringLiteral(moduleSpecifier)) {
+                    throw new Error('Module specifier must be a string literal');
+                }
     
-            //     if (isBareSpecifier(moduleSpecifier.text)) {
-            //         return singleton<NodeLatticeElem>(top);
-            //     }
+                if (isBareSpecifier(moduleSpecifier.text)) {
+                    return externValue;
+                }
 
-            //     const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
-            //     return getBoundExprsOfSymbol(aliasedSymbol, fix_run);
+                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
+                return getBoundExprsOfSymbol(aliasedSymbol, idConfig, fix_run);
             // } else if (ts.isShorthandPropertyAssignment(declaration)) {
             //     const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
             //     if (shorthandValueSymbol === undefined) {

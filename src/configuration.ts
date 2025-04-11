@@ -48,7 +48,7 @@ export function printConfig(config: Config) {
 } 
 
 export function pushContext(call: ts.CallExpression, env: Environment, m: number) {
-    const innermostContext = env[0];
+    const innermostContext = env.head;
     return truncate({ head: call, tail: innermostContext }, m);
 
 }

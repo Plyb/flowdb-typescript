@@ -6,7 +6,7 @@ import fs from 'fs';
 import { isExtern, NodeLatticeElem } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment, newQuestion } from './configuration';
-import { consList, unimplemented } from './util';
+import { consList, emptyList, unimplemented } from './util';
 
 
 export type NodePrinter = (node: ts.Node) => string
@@ -259,6 +259,8 @@ export function getDeclaringScope(declaration: Declaration): Scope {
             throw new Error(`Expected a function declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
         }
         return declarationParent;
+    } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+        return declaration.getSourceFile();
     } else {
         throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
     }
@@ -276,5 +278,8 @@ export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: 
             env = env.tail;
         }
     }
-    throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
+    if (!ts.isSourceFile(scope)) {
+        throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
+    }
+    return emptyList; // This can happen if the declaring scope is another file altogether
 }

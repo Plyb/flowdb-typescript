@@ -27,7 +27,7 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                 return configSetJoinMap(operators, ({ node: func, env: funcEnv }) =>
                     fix_run(compute, {
                         node: (func as SimpleFunctionLikeDeclaration).body,
-                        env: consList(pushContext(site, funcEnv, m), env)
+                        env: consList(pushContext(site, env, m), funcEnv)
                     })
                 );
             }
