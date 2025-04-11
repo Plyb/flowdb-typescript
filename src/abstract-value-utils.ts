@@ -60,10 +60,13 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
                 env: consEnv,
             } as Config)));
             return configSetJoinMap(elements, elementConfig => {
-                // if (ts.isSpreadElement(element)) {
-                //     const subElements = getElementNodesOfArrayValuedNode(element.expression, { fixed_eval, fixed_trace, printNodeAndPos, targetFunction });
-                //     return subElements;
-                // }
+                if (ts.isSpreadElement(elementConfig.node)) {
+                    const subElements = getElementNodesOfArrayValuedNode(
+                        { node: elementConfig.node.expression, env: elementConfig.env },
+                        { fixed_eval, fixed_trace, targetFunction, m }
+                    );
+                    return subElements;
+                }
 
                 return configValue(elementConfig);
             })

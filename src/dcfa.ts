@@ -208,14 +208,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 const refs = getReferences({ node: node.name, env });
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-            // } else if (ts.isForOfStatement(parent) && parent.expression === node) {
-            //     return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
-            // } else if (ts.isPropertyAccessExpression(parent)) {
-            //     if (node != parent.expression) {
-            //         return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
-            //     }
+            } else if (ts.isForOfStatement(parent) && parent.expression === node) {
+                return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
+            } else if (ts.isPropertyAccessExpression(parent)) {
+                if (node != parent.expression) {
+                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
+                }
 
-            //     return botValue;
+                return empty();
             // } else if (ts.isShorthandPropertyAssignment(parent)) {
             //     const parentObjectReturnedAt = fix_run(getWhereValueReturned, parent.parent);
             //     return nodeLatticeJoinMap(parentObjectReturnedAt, returnLoc => {
