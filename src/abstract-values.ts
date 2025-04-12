@@ -1,14 +1,11 @@
 import ts from 'typescript'
-import { empty, setMap, setSome, singleton, union } from './setUtil'
-import { toList, unimplemented } from './util';
+import { empty, setMap, singleton, union } from './setUtil'
+import { unimplemented } from './util';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigSet, Cursor, isConfigNoExtern, printConfig, stackBottom } from './configuration';
+import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, printConfig, stackBottom } from './configuration';
 
 export type Extern = { __externBrand: true }
-
 export const extern: Extern = { __externBrand: true }
-
-export const externValue: ConfigSet = singleton<Config>({ node: extern, env: toList([stackBottom]) });
 
 export function configValue(config: Config): ConfigSet {
     return singleton(config);
@@ -33,7 +30,7 @@ export function nodeLatticeMap<R>(set: ConfigSet, convert: (node: ts.Node) => R)
     return setMap(set, elem => isExtern(elem.node) ? elem.node : convert(elem.node));
 }
 export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
-    return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : externValue);
+    return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : justExtern);
 }
 
 export function pretty(set: ConfigSet): string[] {

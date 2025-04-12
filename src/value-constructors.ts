@@ -2,12 +2,12 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isExtern, configSetJoinMap, configValue, externValue, unimplementedVal } from './abstract-values';
+import { isExtern, configSetJoinMap, configValue, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, Cursor, isConfigNoExtern, isPropertyAccessConfig, pushContext } from './configuration';
+import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -180,7 +180,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Date.now': configValue,
     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
-    'JSON.parse': () => externValue,
+    'JSON.parse': () => justExtern,
     'Map#get': uncallable('Map#get'), // TODO
     'Map#keys': configValue,
     'Map#keys()': uncallable('Map#keys()'),
@@ -216,7 +216,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'console.error()': uncallable('console.error()'),
     'console.warn': configValue,
     'console.warn()': uncallable('console.warn()'),
-    'fetch': () => externValue,
+    'fetch': () => justExtern,
     'undefined': uncallable('undefined'),
     '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
 }

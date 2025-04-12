@@ -1,4 +1,4 @@
-import { Extern, isExtern } from './abstract-values'
+import { configValue, extern, Extern, isExtern } from './abstract-values'
 import { setFilter, setMap, setSome } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
@@ -31,6 +31,8 @@ export const stackBottom: StackBottom = { __stackBottomBrand: true };
 type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
+
+export const justExtern: ConfigSet = configValue({ node: extern, env: toList([stackBottom]) });
 
 export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {
