@@ -3,7 +3,7 @@ import { FixedEval, FixedTrace } from './dcfa';
 import { configSetJoinMap, configValue, unimplementedVal } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
-import { empty, setMap, setSift, singleton } from './setUtil';
+import { empty, setMap, setSift } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, isConfigNoExtern } from './configuration';

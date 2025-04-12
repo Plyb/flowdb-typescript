@@ -5,8 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { isExtern, NodeLatticeElem } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Environment, newQuestion, stackBottom } from './configuration';
-import { consList, emptyList, toList, unimplemented } from './util';
+import { Config, Environment, stackBottom } from './configuration';
+import { toList } from './util';
 
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {

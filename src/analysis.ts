@@ -1,8 +1,7 @@
 import ts from 'typescript';
-import { findAllPrismaQueryExpressions, getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, isPrismaQuery, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, printNodeAndPos } from './ts-utils';
 import { makeDcfaComputer } from './dcfa';
-import { setFilter, setFlatMap, setMap, setSift, singleton, union } from './setUtil';
-import { isExtern } from './abstract-values';
+import { setFilter, setMap, setSift } from './setUtil';
 import { getReachableCallConfigs } from './control-flow';
 import { isConfigNoExtern, withUnknownContext } from './configuration';
 

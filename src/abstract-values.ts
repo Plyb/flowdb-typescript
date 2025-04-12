@@ -1,10 +1,8 @@
 import ts from 'typescript'
-import { Comparator, SimpleSet } from 'typescript-super-set'
-import { empty, setFilter, setFlatMap, setMap, setSome, singleton, union } from './setUtil'
-import { structuralComparator } from './comparators'
-import { emptyList, toList, unimplemented } from './util';
+import { empty, setMap, setSome, singleton, union } from './setUtil'
+import { toList, unimplemented } from './util';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigNoExtern, ConfigSet, ConfigSetNoExtern, Cursor, isConfigNoExtern, printConfig, stackBottom } from './configuration';
+import { Config, ConfigSet, Cursor, isConfigNoExtern, printConfig, stackBottom } from './configuration';
 
 export type AbstractValue = NodeLattice;
 

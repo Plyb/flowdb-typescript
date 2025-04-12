@@ -2,7 +2,7 @@ import { Extern, isExtern } from './abstract-values'
 import { setFilter, setMap, setSome } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { emptyList, List, listReduce, toList } from './util';
+import { List, listReduce, toList } from './util';
 import ts from 'typescript';
 
 export type ConfigSet = StructuralSet<Config>;
