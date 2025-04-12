@@ -1,5 +1,5 @@
 import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
-import { isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { isExtern, configSetJoinMap, configValue, externValue, unimplementedVal } from './abstract-values';
@@ -7,8 +7,7 @@ import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-
-import { Config, ConfigSet, Cursor, isConfigNoExtern, isPropertyAccessConfig, printConfig, pushContext } from './configuration';
+import { Config, ConfigSet, Cursor, isConfigNoExtern, isPropertyAccessConfig, pushContext } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -89,7 +88,7 @@ type BuiltInProto = keyof typeof builtInProtosObject;
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  * Note that this assumes there are no methods that share a name.
  */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval, printNodeAndPos: NodePrinter, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
     const { node: builtInConstructor, env } = builtInConstructorConfig;
     if (isParamSourced(builtInConstructorConfig, fixed_eval, targetFunction)) {
         return '%ParameterSourced';
@@ -128,7 +127,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
         const expressionConstructor = builtInConstructorsForExpression.elements[0];
-        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, printNodeAndPos, targetFunction);
+        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, targetFunction);
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
@@ -355,7 +354,7 @@ function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructo
     const funcExpression = cons.expression;
     const funcConfigs = fixed_eval({ node: funcExpression, env });
     return configSetJoinMap(funcConfigs, funcConfig => {
-        if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval, printNodeAndPos, targetFunction) !== val) {
+        if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval, targetFunction) !== val) {
             return empty();
         }
         const { node: cons, env: funcEnv } = funcConfig;
@@ -426,7 +425,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
 /**
  * @param cons here we're assuming a constructor that isn't "built in"
  */
-export function getProtoOf(cons: ts.Node, printNodeAndPos: NodePrinter): BuiltInProto | null {
+export function getProtoOf(cons: ts.Node): BuiltInProto | null {
     if (ts.isStringLiteral(cons) || ts.isTemplateLiteral(cons)) {
         return 'String';
     } else if (ts.isRegularExpressionLiteral(cons)) {

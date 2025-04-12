@@ -5,8 +5,8 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isAsyncKeyword, isFunctionLikeDeclaration, NodePrinter, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetMap, configSetSome, isConfigNoExtern } from './configuration';
+import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { Config, ConfigSet, configSetSome, isConfigNoExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
@@ -37,10 +37,10 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
             }
             return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction);
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
             return resultOfPropertyAccess[builtInValue](accessConfig, { fixed_eval });
         } else {
-            const proto = getProtoOf(cons, printNodeAndPos);
+            const proto = getProtoOf(cons);
             if (proto === null) {
                 return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
             }
@@ -70,7 +70,7 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
                 return configValue(elementConfig);
             })
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction)
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction)
             return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, targetFunction, m });
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
@@ -108,7 +108,7 @@ export function getMapSetCalls(returnSiteConfigs: ConfigSet, { fixed_eval, targe
         const accessConses = fixed_eval({ node: access, env: siteConfig.env });
         if (!configSetSome(accessConses, consConfig =>
                 isBuiltInConstructorShapedConfig(consConfig)
-                && getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, printNodeAndPos, targetFunction) === 'Map#set'
+                && getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction) === 'Map#set'
             )
         ) {
             return false;

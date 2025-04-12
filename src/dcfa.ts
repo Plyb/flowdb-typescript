@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, singleton, union } from './setUtil';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, NodePrinter, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { isExtern, joinAllValues, joinValue, configSetJoinMap, configValue, pretty, externValue, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -79,7 +79,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     } else if (isBuiltInConstructorShapedConfig(opConfig)) {
                         const builtInValue = getBuiltInValueOfBuiltInConstructor(
                             opConfig,
-                            fixed_eval, printNodeAndPos, targetFunction
+                            fixed_eval, targetFunction
                         );
                         return resultOfCalling[builtInValue](config, { fixed_eval });
                     } else {
@@ -503,7 +503,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 return empty();
                             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval, printNodeAndPos, targetFunction);
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval, targetFunction);
                             const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);

@@ -9,8 +9,6 @@ import { Config, Environment, newQuestion, stackBottom } from './configuration';
 import { consList, emptyList, toList, unimplemented } from './util';
 
 
-export type NodePrinter = (node: ts.Node) => string
-
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
         if (position === node.getStart(sourceFile) && (length === undefined || node.end - node.pos === length)) {
