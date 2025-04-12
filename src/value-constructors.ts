@@ -2,12 +2,12 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isExtern, configSetJoinMap, unimplementedVal } from './abstract-values';
+import { isExtern, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig } from './configuration';
+import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 

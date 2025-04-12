@@ -1,5 +1,5 @@
 import { extern, Extern, isExtern } from './abstract-values'
-import { setFilter, setMap, setSome, singleton } from './setUtil';
+import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { List, listReduce, toList } from './util';
@@ -37,6 +37,20 @@ export const justExtern: ConfigSet = singleConfig({ node: extern, env: toList([s
 export function singleConfig(config: Config): ConfigSet {
     return singleton(config);
 }
+
+export function join(a: ConfigSet, b: ConfigSet): ConfigSet {
+    return union(a, b);
+}
+export function joinAll(...values: ConfigSet[]): ConfigSet {
+    return values.reduce(join, empty());
+}
+function setJoinMap<T>(set: StructuralSet<T>, f: (item: T) => ConfigSet) {
+    return set.elements.map(f).reduce(join, empty());
+}
+export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
+    return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : justExtern);
+}
+
 
 export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {

@@ -4,11 +4,11 @@ import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
-import { isExtern, joinAllValues, joinValue, configSetJoinMap, pretty, unimplementedVal } from './abstract-values';
+import { isExtern, pretty, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 
@@ -114,7 +114,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
                     return fix_run(abstractEval, { node: returnStatement.expression, env });
                 });
-                return joinAllValues(...returnStatementValues);
+                return joinAll(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
                 return singleConfig(config);
             } else if (ts.isObjectLiteralExpression(node)) {
@@ -144,7 +144,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const rhsRes = fix_run(abstractEval, { node: node.right, env });
                 const primopId = node.operatorToken.kind;
                 if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
-                    return joinValue(lhsRes, rhsRes);
+                    return join(lhsRes, rhsRes);
                 } else {
                     return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                 }
@@ -153,7 +153,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isConditionalExpression(node)) {
                 const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
                 const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
-                return joinValue(thenValue, elseValue)
+                return join(thenValue, elseValue)
             } else if (ts.isAsExpression(node)) {
                 return fix_run(abstractEval, { node: node.expression, env });
             }
@@ -170,7 +170,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            return joinValue(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run));
+            return join(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run));
         }
     
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {

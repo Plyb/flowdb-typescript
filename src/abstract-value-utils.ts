@@ -1,12 +1,12 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
-import { configSetJoinMap, unimplementedVal } from './abstract-values';
+import { unimplementedVal } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern } from './configuration';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
