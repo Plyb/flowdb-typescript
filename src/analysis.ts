@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { findAllPrismaQueryExpressions, getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, isPrismaQuery, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { findAllPrismaQueryExpressions, getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, isPrismaQuery, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { makeDcfaComputer } from './dcfa';
 import { setFilter, setFlatMap, setMap, setSift, singleton, union } from './setUtil';
 import { isExtern } from './abstract-values';
@@ -19,7 +19,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error('no node at that position')
     }
     if (!isFunctionLikeDeclaration(node)) {
-        throw new Error('expected function declaration');
+        throw new Error(`expected function declaration $${printNodeAndPos(node)}`);
     }
 
     const fixed_eval = makeDcfaComputer(service, node, m);
