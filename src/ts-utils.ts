@@ -218,7 +218,7 @@ function printNode(node: ts.Node) {
 export function getPosText(node: ts.Node) {
     const sf = node.getSourceFile();
     const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
-    return `${line}:${character}:${last(sf.fileName.split('/'))}`
+    return `${line + 1}:${character + 1}:${last(sf.fileName.split('/'))}`
 }
 
 export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {

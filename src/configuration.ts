@@ -1,7 +1,7 @@
 import { Extern, isExtern } from './abstract-values'
 import { setFilter, setMap, setSome } from './setUtil';
 import { StructuralSet } from './structural-set';
-import { findAllParameterBinders, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { emptyList, List, listReduce, toList } from './util';
 import ts from 'typescript';
 
@@ -53,11 +53,11 @@ function printContext(context: Context) {
     if (isLimit(context)) {
         return '□';
     } else if (isQuestion(context)) {
-        return `?_${context.func.pos}`
+        return `?_${getPosText(context.func)}`
     } else if (isStackBottom(context)) {
         return '()'
     }  else {
-        return `${context.head.pos}::${printContext(context.tail)}`
+        return `${getPosText(context.head)}::${printContext(context.tail)}`
     }
 }
 
