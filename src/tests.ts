@@ -4,8 +4,9 @@ import { analyze } from './analysis';
 import ts from 'typescript';
 import { setFlatMap, setMap, setMinus } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { NodeLatticeElem, extern } from './abstract-values';
+import { extern } from './abstract-values';
 import { structuralComparator } from './comparators';
+import { Cursor } from './configuration';
 
 export function runTests() {
     const pathString = '../../examples/unit-tests'
@@ -28,7 +29,7 @@ export function runTests() {
         return getNodeAtPosition(librFile, ts.getPositionOfLineAndCharacter(librFile, line, char))!
     }
 
-    const expectedResults = new SimpleSet<NodeLatticeElem>(structuralComparator,
+    const expectedResults = new SimpleSet<Cursor>(structuralComparator,
         // abstractEval tests
         testRes(14, 26), // num
         testRes(15, 26), // arrow func

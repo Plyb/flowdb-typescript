@@ -4,11 +4,6 @@ import { toList, unimplemented } from './util';
 import { StructuralSet } from './structural-set';
 import { Config, ConfigSet, Cursor, isConfigNoExtern, printConfig, stackBottom } from './configuration';
 
-export type AbstractValue = NodeLattice;
-
-export type NodeLatticeElem = ts.Node | Extern;
-export type NodeLattice = StructuralSet<NodeLatticeElem>;
-
 export type Extern = { __externBrand: true }
 
 export const extern: Extern = { __externBrand: true }
@@ -39,9 +34,6 @@ export function nodeLatticeMap<R>(set: ConfigSet, convert: (node: ts.Node) => R)
 }
 export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
     return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : externValue);
-}
-export function nodeLatticeSome(lattice: NodeLattice, predicate: (node: ts.Node) => boolean): boolean {
-    return setSome(lattice, (elem) => !isExtern(elem) && predicate(elem));
 }
 
 export function pretty(set: ConfigSet): string[] {

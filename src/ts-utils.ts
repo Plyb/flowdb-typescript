@@ -3,9 +3,9 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { isExtern, NodeLatticeElem } from './abstract-values';
+import { isExtern } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Environment, stackBottom } from './configuration';
+import { Config, Cursor, Environment, stackBottom } from './configuration';
 import { toList } from './util';
 
 
@@ -64,7 +64,7 @@ export type SimpleFunctionLikeDeclaration =
     & { body: ConciseBody }
 type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
     & { modifiers: [AsyncKeyword]}
-export function isFunctionLikeDeclaration(node: NodeLatticeElem): node is SimpleFunctionLikeDeclaration {
+export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionLikeDeclaration {
     if (isExtern(node)) {
         return false;
     }
@@ -203,7 +203,7 @@ export function getService(rootFolder: string) {
 }
 
 const printer = ts.createPrinter();    
-export function printNodeAndPos(node: NodeLatticeElem): string {
+export function printNodeAndPos(node: Cursor): string {
     if (isExtern(node)) {
         return `EXTERNAL`;
     }
