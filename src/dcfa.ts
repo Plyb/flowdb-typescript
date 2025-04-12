@@ -4,11 +4,11 @@ import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
-import { isExtern, joinAllValues, joinValue, configSetJoinMap, configValue, pretty, unimplementedVal } from './abstract-values';
+import { isExtern, joinAllValues, joinValue, configSetJoinMap, pretty, unimplementedVal } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 
@@ -50,12 +50,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
             
             if (!isConfigNoExtern(config)) {
-                return configValue(config);
+                return singleConfig(config);
             }
             const { node, env } = config;
             
             if (isFunctionLikeDeclaration(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (isCallConfig(config)) {
                 const call = config.node;
                 const operator: ts.Node = call.expression;
@@ -65,7 +65,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const op = opConfig.node;
                     if (isFunctionLikeDeclaration(op)) {
                         if (isAsync(op)) {
-                            return configValue({
+                            return singleConfig({
                                 node: op.modifiers!.find(isAsyncKeyword)!,
                                 env: consList(pushContext(call, env, m), opConfig.env)
                             })
@@ -93,14 +93,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     if (node.parent.parent !== targetFunction) {
                         return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
                     }
-                    return configValue(config);
+                    return singleConfig(config);
                 }
 
                 const boundExprs = getBoundExprs(config, fix_run);
                 if (boundExprs.size() > 0) {
                     return configSetJoinMap(boundExprs, fixed_eval);
                 } else if (idIsBuiltIn(config.node)) {
-                    return configValue(config);
+                    return singleConfig(config);
                 } else {
                     return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
@@ -116,9 +116,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 });
                 return joinAllValues(...returnStatementValues);
             } else if (isAtomicLiteral(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (ts.isObjectLiteralExpression(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (isPropertyAccessConfig(config)) {
                 if (!ts.isIdentifier(config.node.name)) {
                     return unimplementedVal(`Expected simple identifier property access: ${config.node.name}`);
@@ -128,7 +128,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isAwaitExpression(node)) {
                 return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
             } else if (ts.isArrayLiteralExpression(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (ts.isElementAccessExpression(node)) {
                 const elementExpressions = getElementNodesOfArrayValuedNode(
                     { node: node.expression, env },
@@ -136,9 +136,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 );
                 return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
             } else if (ts.isNewExpression(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (isNullLiteral(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (ts.isBinaryExpression(node)) {
                 const lhsRes = fix_run(abstractEval, { node: node.left, env });
                 const rhsRes = fix_run(abstractEval, { node: node.right, env });
@@ -149,7 +149,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                 }
             } else if (ts.isTemplateExpression(node)) {
-                return configValue(config);
+                return singleConfig(config);
             } else if (ts.isConditionalExpression(node)) {
                 const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
                 const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
@@ -170,7 +170,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            return joinValue(configValue(config), getWhereValueReturnedElsewhere(config, fix_run));
+            return joinValue(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run));
         }
     
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
@@ -531,7 +531,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const initializer = getObjectPropertyInitializer(objConstructor as ObjectLiteralExpression, idName);
                 
                 return initializer !== undefined
-                    ? configValue({ node: initializer, env})
+                    ? singleConfig({ node: initializer, env})
                     : empty();
             });
         }

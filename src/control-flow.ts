@@ -1,11 +1,11 @@
 import ts, { ConciseBody } from 'typescript';
-import { configSetJoinMap, configValue } from './abstract-values';
+import { configSetJoinMap } from './abstract-values';
 import { FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration } from './ts-utils';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigNoExtern, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext } from './configuration';
+import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext } from './configuration';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { consList } from './util';
@@ -48,7 +48,7 @@ export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fix
             if (!isFunctionLikeDeclarationConfig(funcConfig)) {
                 return empty();
             }
-            return configValue({
+            return singleConfig({
                 node: funcConfig.node.body,
                 env: consList(pushContext(callConfig.node, callConfig.env, m), funcConfig.env),
             })

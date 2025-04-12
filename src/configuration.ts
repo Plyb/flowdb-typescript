@@ -1,5 +1,5 @@
-import { configValue, extern, Extern, isExtern } from './abstract-values'
-import { setFilter, setMap, setSome } from './setUtil';
+import { extern, Extern, isExtern } from './abstract-values'
+import { setFilter, setMap, setSome, singleton } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { List, listReduce, toList } from './util';
@@ -32,7 +32,11 @@ type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
 
-export const justExtern: ConfigSet = configValue({ node: extern, env: toList([stackBottom]) });
+export const justExtern: ConfigSet = singleConfig({ node: extern, env: toList([stackBottom]) });
+
+export function singleConfig(config: Config): ConfigSet {
+    return singleton(config);
+}
 
 export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {

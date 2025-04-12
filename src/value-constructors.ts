@@ -2,12 +2,12 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isExtern, configSetJoinMap, configValue, unimplementedVal } from './abstract-values';
+import { isExtern, configSetJoinMap, unimplementedVal } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext } from './configuration';
+import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -165,56 +165,56 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array#filter': uncallable('Array#filter'), // TODO
     'Array#filter()': uncallable('Array#filter()'),
     'Array#find': uncallable('Array#find'), // TODO
-    'Array#includes': configValue,
+    'Array#includes': singleConfig,
     'Array#includes()': uncallable('Array#includes()'),
-    'Array#indexOf': configValue,
+    'Array#indexOf': singleConfig,
     'Array#indexOf()': uncallable('Array#indexOf()'),
-    'Array#join': configValue,
+    'Array#join': singleConfig,
     'Array#join()': uncallable('Array#join()'),
-    'Array#map': configValue,
+    'Array#map': singleConfig,
     'Array#map()': uncallable('Array#map()'),
-    'Array#some': configValue,
+    'Array#some': singleConfig,
     'Array#some()': uncallable('Array#some()'),
     'Array.from': arrayFromCallGetter,
     'Date': uncallable('Date'),
-    'Date.now': configValue,
+    'Date.now': singleConfig,
     'Date.now()': uncallable('Date.now()'),
     'JSON': uncallable('JSON'),
     'JSON.parse': () => justExtern,
     'Map#get': uncallable('Map#get'), // TODO
-    'Map#keys': configValue,
+    'Map#keys': singleConfig,
     'Map#keys()': uncallable('Map#keys()'),
     'Map#set': uncallable('Map#set'), // TODO
     'Math': uncallable('Math'),
-    'Math.floor': configValue,
+    'Math.floor': singleConfig,
     'Math.floor()': uncallable('Math.floor()'),
     'Object': uncallable('Object'),
     'Object.assign': uncallable('Object.assign'), // TODO
     'Object.freeze': uncallable('Object.freeze'), // TODO
-    'Object.keys': configValue,
+    'Object.keys': singleConfig,
     'Promise': uncallable('Promise'),
-    'Promise.allSettled': configValue,
+    'Promise.allSettled': singleConfig,
     'Promise.allSettled()': uncallable('Promise.allSettled()'),
-    'RegExp#test': configValue,
+    'RegExp#test': singleConfig,
     'RegExp#test()': uncallable('RegExp#test()'),
-    'String#includes': configValue,
+    'String#includes': singleConfig,
     'String#includes()': uncallable('String#includes()'),
-    'String#match': configValue,
+    'String#match': singleConfig,
     'String#match()': uncallable('String#match()'),
-    'String#split': configValue,
+    'String#split': singleConfig,
     'String#split()': uncallable('String#split()'),
-    'String#substring': configValue,
+    'String#substring': singleConfig,
     'String#substring()': uncallable('String#substring()'),
-    'String#toLowerCase': configValue,
+    'String#toLowerCase': singleConfig,
     'String#toLowerCase()': uncallable('String#toLowerCase()'),
-    'String#trim': configValue,
+    'String#trim': singleConfig,
     'String#trim()': uncallable('String#trim()'),
     'console': uncallable('console'),
-    'console.log': configValue,
+    'console.log': singleConfig,
     'console.log()': uncallable('console.log()'),
-    'console.error': configValue,
+    'console.error': singleConfig,
     'console.error()': uncallable('console.error()'),
-    'console.warn': configValue,
+    'console.warn': singleConfig,
     'console.warn()': uncallable('console.warn()'),
     'fetch': () => justExtern,
     'undefined': uncallable('undefined'),
@@ -232,14 +232,14 @@ function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccess
 function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
     const [typeName, methodName] = name.split('.');
     return (pac, { fixed_eval}) => pac.node.name.text === methodName
-        ? configValue(pac)
+        ? singleConfig(pac)
         : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
 }
 function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
     const [typeName] = names[0].split('.');
     const methodNames = names.map(name => name.split('.')[1]);
     return (pac, { fixed_eval }) => methodNames.some(methodName => pac.node.name.text === methodName)
-        ? configValue(pac)
+        ? singleConfig(pac)
         : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
 }
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
@@ -250,7 +250,7 @@ function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
             && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size() > 0
         )
         return isBuiltInProtoMethod
-            ? configValue(pac)
+            ? singleConfig(pac)
             : inaccessibleProperty(typeName)(pac, { fixed_eval });
     }
 }
@@ -312,7 +312,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'console.warn()': inaccessibleProperty('console.warn()'),
     'fetch': inaccessibleProperty('fetch'),
     'undefined': inaccessibleProperty('undefined'),
-    '%ParameterSourced': configValue,
+    '%ParameterSourced': singleConfig,
 }
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet

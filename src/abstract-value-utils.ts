@@ -1,12 +1,12 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
-import { configSetJoinMap, configValue, unimplementedVal } from './abstract-values';
+import { configSetJoinMap, unimplementedVal } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, isConfigNoExtern } from './configuration';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
@@ -67,7 +67,7 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
                     return subElements;
                 }
 
-                return configValue(elementConfig);
+                return singleConfig(elementConfig);
             })
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction)
@@ -89,7 +89,7 @@ export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): Co
             }
             return fixed_eval({ node: sourceFunction.body, env: consEnv });
         } else {
-            return configValue(consConfig);
+            return singleConfig(consConfig);
         }
     })
 }

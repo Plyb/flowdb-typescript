@@ -7,10 +7,6 @@ import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, printConfig, s
 export type Extern = { __externBrand: true }
 export const extern: Extern = { __externBrand: true }
 
-export function configValue(config: Config): ConfigSet {
-    return singleton(config);
-}
-
 export function joinValue(a: ConfigSet, b: ConfigSet): ConfigSet {
     return union(a, b);
 }
