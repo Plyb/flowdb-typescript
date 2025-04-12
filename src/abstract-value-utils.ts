@@ -1,12 +1,11 @@
 import ts from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
-import { unimplementedVal } from './abstract-values';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setMap, setSift } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap } from './configuration';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
@@ -35,14 +34,14 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
                     console.warn(`Unknown object property assignment`)
                 }
             }
-            return unimplementedVal(`Unable to find object property ${printNodeAndPos(property)}`)
+            return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
             return resultOfPropertyAccess[builtInValue](accessConfig, { fixed_eval });
         } else {
             const proto = getProtoOf(cons);
             if (proto === null) {
-                return unimplementedVal(`No constructors found for property access ${printNodeAndPos(access)}`);
+                return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(access)}`);
             }
             return getPropertyOfProto(proto, property.text, consConfig, accessConfig, fixed_eval);
         }
@@ -85,7 +84,7 @@ export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): Co
         if (isAsyncKeyword(cons)) { // i.e. it's a return value of an async function
             const sourceFunction = cons.parent;
             if (!isFunctionLikeDeclaration(sourceFunction)) {
-                return unimplementedVal(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
+                return unimplementedBottom(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
             }
             return fixed_eval({ node: sourceFunction.body, env: consEnv });
         } else {

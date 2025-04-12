@@ -4,11 +4,11 @@ import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
-import { isExtern, pretty, unimplementedVal } from './abstract-values';
+import { isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 
@@ -83,7 +83,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         );
                         return resultOfCalling[builtInValue](config, { fixed_eval });
                     } else {
-                        return unimplementedVal(`Unknown kind of operator: ${printNodeAndPos(node)}`);
+                        return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
                 });
             } else if (isIdentifierConfig(config)) {
@@ -91,7 +91,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     // I believe we will only get here if the node is the parameter of the target function,
                     // but let's do a sanity check just to make sure.
                     if (node.parent.parent !== targetFunction) {
-                        return unimplementedVal(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                        return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
                     }
                     return singleConfig(config);
                 }
@@ -102,7 +102,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 } else if (idIsBuiltIn(config.node)) {
                     return singleConfig(config);
                 } else {
-                    return unimplementedVal(`Could not find binding for ${printNodeAndPos(node)}`)
+                    return unimplementedBottom(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
             } else if (ts.isParenthesizedExpression(node)) {
                 return fix_run(abstractEval, { node: node.expression, env });
@@ -121,7 +121,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return singleConfig(config);
             } else if (isPropertyAccessConfig(config)) {
                 if (!ts.isIdentifier(config.node.name)) {
-                    return unimplementedVal(`Expected simple identifier property access: ${config.node.name}`);
+                    return unimplementedBottom(`Expected simple identifier property access: ${config.node.name}`);
                 }
     
                 return getObjectProperty(config, fixed_eval, targetFunction);
@@ -146,7 +146,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
                     return join(lhsRes, rhsRes);
                 } else {
-                    return unimplementedVal(`Unimplemented binary expression ${printNodeAndPos(node)}`);
+                    return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                 }
             } else if (ts.isTemplateExpression(node)) {
                 return singleConfig(config);
@@ -157,7 +157,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isAsExpression(node)) {
                 return fix_run(abstractEval, { node: node.expression, env });
             }
-            return unimplementedVal(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
+            return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }
         
         // "expr"
@@ -204,7 +204,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
             } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
-                    return unimplementedVal('function declaration should have name')
+                    return unimplementedBottom('function declaration should have name')
                 }
     
                 const refs = getReferences({ node: node.name, env });
@@ -213,7 +213,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
             } else if (ts.isPropertyAccessExpression(parent)) {
                 if (node != parent.expression) {
-                    return unimplementedVal(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
+                    return unimplementedBottom(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
                 }
 
                 return empty();
@@ -249,10 +249,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             }
                         )
                     }
-                    return unimplementedVal(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
+                    return unimplementedBottom(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
                 })
             }
-            return unimplementedVal(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
+            return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
             function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
                 const parent = parentConfig.node;
@@ -282,7 +282,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             
             if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
-                return unimplementedVal(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
+                return unimplementedBottom(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
             }
 
             const applicationSites = fix_run(getWhereValueApplied, { node: node.parent, env: env.tail });
@@ -399,7 +399,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return thrownNodeConfigs;
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
-                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
         
                     return singleton<Config>({
@@ -417,7 +417,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (ts.isVariableDeclaration(bindingElementSource)) {
                     const initializer = bindingElementSource.initializer;
                     if (initializer === undefined) {
-                        return unimplementedVal(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
                     }
 
                     // // special case for Promise.allSettled
@@ -468,12 +468,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
                 return getBoundExprsOfSymbol(shorthandValueSymbol, idConfig, fix_run);
             }
-            return unimplementedVal(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
+            return unimplementedBottom(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
             function getArgumentsForParameter(declaration: ParameterDeclaration, envAtDeclaredScope: Environment): ConfigSet {
                 const declaringFunction = declaration.parent;
                 if (!isFunctionLikeDeclaration(declaringFunction)) {
-                    return unimplementedVal('not yet implemented');
+                    return unimplementedBottom('not yet implemented');
                 }
                 const parameterIndex = declaringFunction.parameters.indexOf(declaration);
                 const declaringFunctionBody = declaringFunction.body

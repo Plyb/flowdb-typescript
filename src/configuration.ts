@@ -2,7 +2,7 @@ import { extern, Extern, isExtern } from './abstract-values'
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { List, listReduce, toList } from './util';
+import { List, listReduce, toList, unimplemented } from './util';
 import ts from 'typescript';
 
 export type ConfigSet = StructuralSet<Config>;
@@ -152,4 +152,12 @@ export function newQuestion(func: SimpleFunctionLikeDeclaration): Question {
         __questionBrand: true,
         func,
     }
+}
+
+export function pretty(set: ConfigSet): string[] {
+    return set.elements.map(printConfig)
+}
+
+export function unimplementedBottom(message: string): ConfigSet {
+    return unimplemented(message, empty());
 }

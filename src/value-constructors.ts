@@ -2,12 +2,12 @@ import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { isExtern, unimplementedVal } from './abstract-values';
+import { isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap } from './configuration';
+import { Config, ConfigSet, Cursor, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -154,7 +154,7 @@ export function isBuiltInConstructorShapedConfig(config: Config): config is Conf
     return isBuiltInConstructorShaped(config.node);
 }
 
-function uncallable(name: BuiltInValue) { return () => unimplementedVal(`No result of calling ${name}`)}
+function uncallable(name: BuiltInValue) { return () => unimplementedBottom(`No result of calling ${name}`)}
 type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval }) => ConfigSet
 const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
     node: callConfig.node.arguments[0],
@@ -227,7 +227,7 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
 
 type PropertyAccessGetter = (propertyAccessConfig: Config<PropertyAccessExpression>, args: { fixed_eval: FixedEval }) => ConfigSet;
 function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
-    return ({ node: pa }) => unimplementedVal(`Unable to get property ${name}.${pa.name.text}`) 
+    return ({ node: pa }) => unimplementedBottom(`Unable to get property ${name}.${pa.name.text}`) 
 }
 function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
     const [typeName, methodName] = name.split('.');
@@ -317,17 +317,17 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet
 const inaccessibleElement: ElementAccessGetter = ({ node }) =>
-    unimplementedVal(`Unable to get element of ${printNodeAndPos(node)}`);
+    unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
     const { node: cons, env } = consConfig;
     if (!ts.isCallExpression(cons)) {
-        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+        return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const argFuncs = fixed_eval({ node: cons.arguments[0], env });
     return configSetJoinMap(argFuncs, funcConfig => {
         const { node: func, env: funcEnv } = funcConfig;
         if (!isFunctionLikeDeclaration(func)) {
-            return unimplementedVal(`Expected ${printNodeAndPos(func)} to be a function`);
+            return unimplementedBottom(`Expected ${printNodeAndPos(func)} to be a function`);
         }
         return fixed_eval({ node: func.body, env: consList(pushContext(cons, env, m), funcEnv)});
     })
@@ -349,7 +349,7 @@ const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, 
 function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval, targetFunction }: { fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
     const { node: cons, env } = consConfig;
     if (!ts.isCallExpression(cons)) {
-        return unimplementedVal(`Expected ${printNodeAndPos(cons)} to be a call expression`);
+        return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
     const funcConfigs = fixed_eval({ node: funcExpression, env });
@@ -449,7 +449,7 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
     const { node: expressionCons, env: expressionConsEnv } = expressionConsConfig;
     if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
         if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
-            return unimplementedVal(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
+            return unimplementedBottom(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
         }
         if (expressionCons.arguments.length > 0) {
             return fixed_eval({ node: expressionCons.arguments[0], env: expressionConsEnv });
@@ -468,7 +468,7 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
 
 type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet;
 type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
-const notSupported = (name: BuiltInValue) => () => unimplementedVal(`Unimplemented function arg param binder getter for ${name}`);
+const notSupported = (name: BuiltInValue) => () => unimplementedBottom(`Unimplemented function arg param binder getter for ${name}`);
 export const primopBinderGetters: PrimopBinderGetters = {
     'Array': notSupported('Array'),
     'Array#filter': notSupported('Array#filter'),
