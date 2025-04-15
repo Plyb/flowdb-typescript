@@ -4,7 +4,7 @@ import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration } from './ts-utils';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap } from './configuration';
+import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap, join } from './configuration';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { consList } from './util';
@@ -12,6 +12,7 @@ import { consList } from './util';
 export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval): StructuralSet<Config<ts.CallExpression>> {
     const valueOf = makeFixpointComputer(
         empty<Config<ts.CallExpression>>(),
+        join,
         { printArgs: printConfig as (config: Config<ConciseBody>) => string, printRet: set => setMap(set, printConfig).toString()}
     );
     return valueOf({ func: compute, args: config })

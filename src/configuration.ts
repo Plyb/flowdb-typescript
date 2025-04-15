@@ -1,12 +1,13 @@
 import { extern, Extern, isExtern } from './abstract-values'
 import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
+import { Computation } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { List, listReduce, toList, unimplemented } from './util';
 import ts from 'typescript';
 
-export type ConfigSet = StructuralSet<Config>;
+export type ConfigSet<N extends Cursor = Cursor> = StructuralSet<Config<N>>;
 
 export type Config<N extends Cursor = Cursor> = {
     node: N,
@@ -25,7 +26,7 @@ export function singleConfig(config: Config): ConfigSet {
     return singleton(config);
 }
 
-export function join(a: ConfigSet, b: ConfigSet): ConfigSet {
+export function join<T extends Cursor>(a: ConfigSet<T>, b: ConfigSet<T>): ConfigSet<T> {
     return union(a, b);
 }
 export function joinAll(...values: ConfigSet[]): ConfigSet {
@@ -130,4 +131,20 @@ export function pretty(set: ConfigSet): string[] {
 
 export function unimplementedBottom(message: string): ConfigSet {
     return unimplemented(message, empty());
+}
+
+const dummy = ts.factory.createVoidZero()
+function envKeyFunc() { return empty<Config>() }
+/**
+ * in order to use environments as keys in the fixpoint, we need them to have the same
+ * type as other keys, namely configs, so we can just wrap it and pair it with a dummy node
+ */
+export function envKey(env: Environment): Computation<Config, ConfigSet> {
+    return {
+        func: envKeyFunc,
+        args: {
+            node: dummy,
+            env,
+        }
+    }
 }

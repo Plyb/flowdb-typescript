@@ -20,7 +20,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
 
-    const valueOf = makeFixpointComputer(empty<Config>(), {
+    const valueOf = makeFixpointComputer(empty<Config>(), join, {
         printArgs: printConfig,
         printRet: config => pretty(config).toString() 
     });
