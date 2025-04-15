@@ -3,7 +3,7 @@ import { Lookup } from './lookup'
 import { lexicographic, stringCompare, structuralComparator } from './comparators'
 import { SimpleMap } from './simple-map'
 
-type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>) => Ret
+type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>, set_cache: (comp: Computation<Args, Ret>, val: Ret) => void) => Ret
 export type LabeledFixable<Args, Ret> = Fixable<Args, Ret> & { name: string}
 export type FixRunFunc<Args, Ret> = (func: LabeledFixable<Args, Ret>, args: Args) => Ret
 type Computation<Args, Ret> = { func: LabeledFixable<Args, Ret>, args: Args }
@@ -71,16 +71,20 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
     
                 return values.get(dependencyComp) ?? defaultRet;
             }
+
+            function set_cache(comp: Computation<Args, Ret>, val: Ret) {
+                if (valuesUpdated(values, comp, val)) {
+                    const thisDependents = dependents.get(comp)
+                    compsToDo.add(...thisDependents);
+                }
+                values.set(comp, val);
+            }
     
             console.info(`${func.name}(${printArgs(args)})`);
-            const results = func(args, fix_run);
+            const results = func(args, fix_run, set_cache);
             console.info(`${func.name}(${printArgs(args)}) = ${printRet(results)}`);
     
-            if (valuesUpdated(values, comp, results)) {
-                const thisDependents = dependents.get(comp)
-                compsToDo.add(...thisDependents);
-            }
-            values.set(comp, results);
+            set_cache(comp, results);
             for (const dependency of dependencyUsages) {
                 if (!dependents.get(dependency).has(comp)) {
                     dependents.add(dependency, comp);
