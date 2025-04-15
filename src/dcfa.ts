@@ -8,9 +8,10 @@ import { isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, newQuestion, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
+import { newQuestion } from './context';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;

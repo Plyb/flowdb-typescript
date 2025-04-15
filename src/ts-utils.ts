@@ -5,8 +5,9 @@ import path from 'path';
 import fs from 'fs';
 import { isExtern } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Cursor, Environment, stackBottom } from './configuration';
+import { Config, Cursor, Environment } from './configuration';
 import { toList } from './util';
+import { stackBottom } from './context';
 
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {

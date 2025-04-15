@@ -1,4 +1,5 @@
 import { extern, Extern, isExtern } from './abstract-values'
+import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
@@ -13,20 +14,6 @@ export type Config<N extends Cursor = Cursor> = {
 }
 export type Cursor = ts.Node | Extern;
 export type Environment = List<Context>;
-type Context =
-| LimitSentinel
-| Question
-| StackBottom
-| {
-    head: ts.CallExpression,
-    tail: Context
-};
-type LimitSentinel = { __limitSentinelBrand: true }
-type Question = { __questionBrand: true, func: SimpleFunctionLikeDeclaration }
-type StackBottom = { __stackBottomBrand: true }
-
-export const limit: LimitSentinel = { __limitSentinelBrand: true };
-export const stackBottom: StackBottom = { __stackBottomBrand: true };
 
 type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
@@ -105,16 +92,6 @@ function truncate(context: Context, m: number): Context {
     }
 }
 
-function isQuestion(context: Context): context is Question {
-    return '__questionBrand' in context;
-}
-function isLimit(context: Context): context is LimitSentinel {
-    return context === limit;
-}
-function isStackBottom(context: Context): context is StackBottom {
-    return '__stackBottomBrand' in context;
-}
-
 export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
     return !isExtern(config.node);
 }export function isConfigExtern(config: Config): config is ConfigExtern {
@@ -145,13 +122,6 @@ export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExte
 }
 export function configSetSome(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): boolean {
     return setSome(set, config => isConfigNoExtern(config) && predicate(config));
-}
-
-export function newQuestion(func: SimpleFunctionLikeDeclaration): Question {
-    return {
-        __questionBrand: true,
-        func,
-    }
 }
 
 export function pretty(set: ConfigSet): string[] {
