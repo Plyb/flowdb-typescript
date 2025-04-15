@@ -3,9 +3,10 @@ import { Lookup } from './lookup'
 import { lexicographic, stringCompare, structuralComparator } from './comparators'
 import { SimpleMap } from './simple-map'
 
-type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>, set_cache: (comp: Computation<Args, Ret>, val: Ret) => void) => Ret
+type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>, set_cache: CacheSetter<Args, Ret>) => Ret
 export type LabeledFixable<Args, Ret> = Fixable<Args, Ret> & { name: string}
 export type FixRunFunc<Args, Ret> = (func: LabeledFixable<Args, Ret>, args: Args) => Ret
+export type CacheSetter<Args, Ret> = (comp: Computation<Args, Ret>, val: Ret) => void
 type Computation<Args, Ret> = { func: LabeledFixable<Args, Ret>, args: Args }
 
 function labeledFixableComparator<Args, Ret>(a: LabeledFixable<Args, Ret>, b: LabeledFixable<Args, Ret>) {
