@@ -1,6 +1,6 @@
 import { extern, Extern, isExtern } from './abstract-values'
 import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
-import { Computation } from './fixpoint';
+import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
@@ -55,6 +55,10 @@ export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
 }
 
 export function printConfig(config: Config) {
+    if (config.node === dummy) {
+        return 'ENV'
+    }
+
     return `${printNodeAndPos(config.node)}~<${listReduce(config.env, (acc, curr) => acc + ',' + printContext(curr), '')}>`
 }
 function printContext(context: Context) {
@@ -137,7 +141,7 @@ const dummy = ts.factory.createVoidZero()
 function envKeyFunc() { return empty<Config>() }
 /**
  * in order to use environments as keys in the fixpoint, we need them to have the same
- * type as other keys, namely configs, so we can just wrap it and pair it with a dummy node
+ * type as other keys, namely computations, so we can just wrap it and pair it with a dummy node
  */
 export function envKey(env: Environment): Computation<Config, ConfigSet> {
     return {
@@ -147,4 +151,19 @@ export function envKey(env: Environment): Computation<Config, ConfigSet> {
             env,
         }
     }
+}
+/**
+ * Similarly, for an env to be stored in the cache, it has to have the same type as other values,
+ * namely, config (sets)
+ */
+export function envValue(env: Environment): ConfigSet {
+    return singleton({
+        node: dummy,
+        env,
+    });
+}
+
+export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+    const refinedEnvironments = fix_run(envKeyFunc, { node: dummy, env: config.env });
+    return setMap(refinedEnvironments, ({ env }) => ({ node: config.node, env } as Config));
 }

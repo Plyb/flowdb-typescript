@@ -52,7 +52,7 @@ export function toList<T>(arr: T[]): List<T> {
 export function consList<T>(item: T, list: List<T>) {
     return { head: item, tail: list };
 }
-function toArr<T>(list: List<T>) {
+export function toArr<T>(list: List<T>) {
     return [...toIterable(list)]
 }
 function* toIterable<T>(list: List<T>): Iterable<T> {

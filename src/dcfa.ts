@@ -1,17 +1,17 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
-import { FixRunFunc, makeFixpointComputer } from './fixpoint';
+import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
-import { newQuestion } from './context';
+import { newQuestion, refines } from './context';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
@@ -46,135 +46,156 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         });
     
         // "eval"
-        function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {    
+        function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {    
             const fixed_eval: FixedEval = config => fix_run(abstractEval, config);
             const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
-            
-            if (!isConfigNoExtern(config)) {
-                return singleConfig(config);
-            }
-            const { node, env } = config;
-            
-            if (isFunctionLikeDeclaration(node)) {
-                return singleConfig(config);
-            } else if (isCallConfig(config)) {
-                const call = config.node;
-                const operator: ts.Node = call.expression;
-                const possibleOperators = fix_run(abstractEval, { node: operator, env });
 
-                return configSetJoinMap(possibleOperators, (opConfig) => {
-                    const op = opConfig.node;
-                    if (isFunctionLikeDeclaration(op)) {
-                        if (isAsync(op)) {
-                            return singleConfig({
-                                node: op.modifiers!.find(isAsyncKeyword)!,
-                                env: consList(pushContext(call, env, m), opConfig.env)
-                            })
+            return join(
+                abstractEvalCurrentConfig(),
+                setFlatMap(getRefinementsOf(config, fix_run), (refinedConfig) => fix_run(abstractEval, refinedConfig))
+            );
+            
+            function abstractEvalCurrentConfig() {
+                if (!isConfigNoExtern(config)) {
+                    return singleConfig(config);
+                }
+                const { node, env } = config;
+                
+                if (isFunctionLikeDeclaration(node)) {
+                    return singleConfig(config);
+                } else if (isCallConfig(config)) {
+                    const call = config.node;
+                    const operator: ts.Node = call.expression;
+                    const possibleOperators = fix_run(abstractEval, { node: operator, env });
+
+                    return configSetJoinMap(possibleOperators, (opConfig) => {
+                        const op = opConfig.node;
+                        if (isFunctionLikeDeclaration(op)) {
+                            push_cache(
+                                envKey(consList(newQuestion(op), opConfig.env)),
+                                envValue(consList(pushContext(call, env, m), opConfig.env))
+                            );
+                            if (isAsync(op)) {
+                                return singleConfig({
+                                    node: op.modifiers!.find(isAsyncKeyword)!,
+                                    env: consList(pushContext(call, env, m), opConfig.env)
+                                })
+                            } else {
+                                const body: ts.Node = op.body;
+                                return fix_run(abstractEval, {
+                                    node: body,
+                                    env: consList(pushContext(call, env, m), opConfig.env) 
+                                });
+                            }
+                        } else if (isBuiltInConstructorShapedConfig(opConfig)) {
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(
+                                opConfig,
+                                fixed_eval, targetFunction
+                            );
+                            return resultOfCalling[builtInValue](config, { fixed_eval });
                         } else {
-                            const body: ts.Node = op.body;
-                            return fix_run(abstractEval, {
-                                node: body,
-                                env: consList(pushContext(call, env, m), opConfig.env) 
-                            });
+                            return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                         }
-                    } else if (isBuiltInConstructorShapedConfig(opConfig)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(
-                            opConfig,
-                            fixed_eval, targetFunction
-                        );
-                        return resultOfCalling[builtInValue](config, { fixed_eval });
-                    } else {
-                        return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
+                    });
+                } else if (isIdentifierConfig(config)) {
+                    if (ts.isParameter(node.parent)) {
+                        // I believe we will only get here if the node is the parameter of the target function,
+                        // but let's do a sanity check just to make sure.
+                        if (node.parent.parent !== targetFunction) {
+                            return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                        }
+                        return singleConfig(config);
                     }
-                });
-            } else if (isIdentifierConfig(config)) {
-                if (ts.isParameter(node.parent)) {
-                    // I believe we will only get here if the node is the parameter of the target function,
-                    // but let's do a sanity check just to make sure.
-                    if (node.parent.parent !== targetFunction) {
-                        return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
-                    }
-                    return singleConfig(config);
-                }
 
-                const boundExprs = getBoundExprs(config, fix_run);
-                if (boundExprs.size() > 0) {
-                    return configSetJoinMap(boundExprs, fixed_eval);
-                } else if (idIsBuiltIn(config.node)) {
-                    return singleConfig(config);
-                } else {
-                    return unimplementedBottom(`Could not find binding for ${printNodeAndPos(node)}`)
-                }
-            } else if (ts.isParenthesizedExpression(node)) {
-                return fix_run(abstractEval, { node: node.expression, env });
-            } else if (ts.isBlock(node)) {
-                const returnStatements = [...getReturnStatements(node)];
-                const returnStatementValues = returnStatements.map(returnStatement => {
-                    if (returnStatement.expression === undefined) {
-                        return empty<Config>();
+                    const boundExprs = getBoundExprs(config, fix_run);
+                    if (boundExprs.size() > 0) {
+                        return configSetJoinMap(boundExprs, fixed_eval);
+                    } else if (idIsBuiltIn(config.node)) {
+                        return singleConfig(config);
+                    } else {
+                        return unimplementedBottom(`Could not find binding for ${printNodeAndPos(node)}`)
                     }
-                    return fix_run(abstractEval, { node: returnStatement.expression, env });
-                });
-                return joinAll(...returnStatementValues);
-            } else if (isAtomicLiteral(node)) {
-                return singleConfig(config);
-            } else if (ts.isObjectLiteralExpression(node)) {
-                return singleConfig(config);
-            } else if (isPropertyAccessConfig(config)) {
-                if (!ts.isIdentifier(config.node.name)) {
-                    return unimplementedBottom(`Expected simple identifier property access: ${config.node.name}`);
+                } else if (ts.isParenthesizedExpression(node)) {
+                    return fix_run(abstractEval, { node: node.expression, env });
+                } else if (ts.isBlock(node)) {
+                    const returnStatements = [...getReturnStatements(node)];
+                    const returnStatementValues = returnStatements.map(returnStatement => {
+                        if (returnStatement.expression === undefined) {
+                            return empty<Config>();
+                        }
+                        return fix_run(abstractEval, { node: returnStatement.expression, env });
+                    });
+                    return joinAll(...returnStatementValues);
+                } else if (isAtomicLiteral(node)) {
+                    return singleConfig(config);
+                } else if (ts.isObjectLiteralExpression(node)) {
+                    return singleConfig(config);
+                } else if (isPropertyAccessConfig(config)) {
+                    if (!ts.isIdentifier(config.node.name)) {
+                        return unimplementedBottom(`Expected simple identifier property access: ${config.node.name}`);
+                    }
+        
+                    return getObjectProperty(config, fixed_eval, targetFunction);
+                } else if (ts.isAwaitExpression(node)) {
+                    return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
+                } else if (ts.isArrayLiteralExpression(node)) {
+                    return singleConfig(config);
+                } else if (ts.isElementAccessExpression(node)) {
+                    const elementExpressions = getElementNodesOfArrayValuedNode(
+                        { node: node.expression, env },
+                        { fixed_eval, fixed_trace, targetFunction, m }
+                    );
+                    return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
+                } else if (ts.isNewExpression(node)) {
+                    return singleConfig(config);
+                } else if (isNullLiteral(node)) {
+                    return singleConfig(config);
+                } else if (ts.isBinaryExpression(node)) {
+                    const lhsRes = fix_run(abstractEval, { node: node.left, env });
+                    const rhsRes = fix_run(abstractEval, { node: node.right, env });
+                    const primopId = node.operatorToken.kind;
+                    if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                        return join(lhsRes, rhsRes);
+                    } else {
+                        return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
+                    }
+                } else if (ts.isTemplateExpression(node)) {
+                    return singleConfig(config);
+                } else if (ts.isConditionalExpression(node)) {
+                    const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
+                    const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
+                    return join(thenValue, elseValue)
+                } else if (ts.isAsExpression(node)) {
+                    return fix_run(abstractEval, { node: node.expression, env });
                 }
-    
-                return getObjectProperty(config, fixed_eval, targetFunction);
-            } else if (ts.isAwaitExpression(node)) {
-                return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
-            } else if (ts.isArrayLiteralExpression(node)) {
-                return singleConfig(config);
-            } else if (ts.isElementAccessExpression(node)) {
-                const elementExpressions = getElementNodesOfArrayValuedNode(
-                    { node: node.expression, env },
-                    { fixed_eval, fixed_trace, targetFunction, m }
-                );
-                return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
-            } else if (ts.isNewExpression(node)) {
-                return singleConfig(config);
-            } else if (isNullLiteral(node)) {
-                return singleConfig(config);
-            } else if (ts.isBinaryExpression(node)) {
-                const lhsRes = fix_run(abstractEval, { node: node.left, env });
-                const rhsRes = fix_run(abstractEval, { node: node.right, env });
-                const primopId = node.operatorToken.kind;
-                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
-                    return join(lhsRes, rhsRes);
-                } else {
-                    return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
-                }
-            } else if (ts.isTemplateExpression(node)) {
-                return singleConfig(config);
-            } else if (ts.isConditionalExpression(node)) {
-                const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
-                const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
-                return join(thenValue, elseValue)
-            } else if (ts.isAsExpression(node)) {
-                return fix_run(abstractEval, { node: node.expression, env });
+                return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
             }
-            return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
         }
         
         // "expr"
-        function getWhereValueApplied(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            const operatorSites = configSetFilter(
-                getWhereValueReturned(config, fix_run),
-                funcConfig => ts.isCallExpression(funcConfig.node.parent) && isOperatorOf(funcConfig.node, funcConfig.node.parent)
+        function getWhereValueApplied(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+            return join(
+                getWhereValueOfCurrentConfigApplied(),
+                setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereValueApplied, refinedConfig))
+            )
+
+            function getWhereValueOfCurrentConfigApplied() {
+                const operatorSites = configSetFilter(
+                    getWhereValueReturned(config, fix_run, push_cache),
+                    funcConfig => ts.isCallExpression(funcConfig.node.parent) && isOperatorOf(funcConfig.node, funcConfig.node.parent)
+                );
+                return configSetMap(operatorSites, config => ({ node: config.node.parent, env: config.env }));
+            }
+        }
+    
+        function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+            return join(
+                join(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run, push_cache)),
+                setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereValueReturned, refinedConfig))
             );
-            return configSetMap(operatorSites, config => ({ node: config.node.parent, env: config.env }));
         }
     
-        function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            return join(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run));
-        }
-    
-        function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+        function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
             const { node, env } = config;
             if (isExtern(node)) {
                 return empty();
@@ -266,6 +287,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const parameterReferences = configSetJoinMap(
                     possibleFunctions,
                     (funcConfig) => {
+                        push_cache(
+                            envKey(consList(newQuestion(funcConfig.node), funcConfig.env)),
+                            envValue(consList(pushContext(parent, parentConfig.env, m), funcConfig.env))
+                        );
                         const parameterName = funcConfig.node.parameters[argIndex].name;
                         const refs = getReferencesFromParameter(parameterName, funcConfig.env);
                         return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
@@ -276,27 +301,39 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "call"
-        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-            const { node, env } = config;
-            if (isExtern(node)) {
-                return empty();
-            }
-            
-            if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
-                return unimplementedBottom(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
-            }
+        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+            return join(
+                getWhereCurrentConfigClosed(),
+                setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereClosed, refinedConfig))
+            )
 
-            const applicationSites = fix_run(getWhereValueApplied, { node: node.parent, env: env.tail });
-    
-            return configSetFilter(applicationSites, siteConfig => {
-                const site = siteConfig.node;
-                if (!ts.isCallExpression(site)) {
-                    return unimplemented(`Got non-callsite from getWhereValueApplied: ${printNodeAndPos(site)}`, false);
+            function getWhereCurrentConfigClosed(): ConfigSet {
+                const { node, env } = config;
+                if (isExtern(node)) {
+                    return empty();
+                }
+                
+                if (!isFunctionLikeDeclaration(node.parent) || !isConciseBody(node)) {
+                    return unimplementedBottom(`Trying to find closure locations for ${SyntaxKind[node.kind]}`);
                 }
 
-                const contextFromCallSite = pushContext(site, siteConfig.env, m);
-                return isEqual(contextFromCallSite, env.head);
-            });
+                const applicationSites = fix_run(getWhereValueApplied, { node: node.parent, env: env.tail });
+        
+                return configSetFilter(applicationSites, siteConfig => {
+                    const site = siteConfig.node;
+                    if (!ts.isCallExpression(site)) {
+                        return unimplemented(`Got non-callsite from getWhereValueApplied: ${printNodeAndPos(site)}`, false);
+                    }
+
+                    const contextFromCallSite = pushContext(site, siteConfig.env, m);
+
+                    if (refines(contextFromCallSite, env.head)) {
+                        push_cache(envKey(env), envValue(consList(contextFromCallSite, env.tail)));
+                    }
+
+                    return isEqual(contextFromCallSite, env.head);
+                });
+            }
         }
         
         // "find"
@@ -323,21 +360,31 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             )!);
             const refNodeConfigs: Config[] = refNodes.flatMap(refNode => {
                 const parents = getParentChain(refNode);
-                let env = idEnv;
+                const bindersForEnvOfRef: SimpleFunctionLikeDeclaration[] = [];
+                let foundScope = false;
                 for (const parent of parents) {
                     if (parent === scope) {
-                        return [{
-                            node: refNode,
-                            env
-                        }]
+                        foundScope = true;
+                        break;
                     }
                     if (isFunctionLikeDeclaration(parent)) {
-                        env = consList(newQuestion(parent), env);
+                        bindersForEnvOfRef.push(parent);
                     }
                 }
-                return [];  // We get here if the refNode's parent chain never hits the declaring scope.
-                            // If that is the case, the ts compiler has given us a false positive as a
-                            // reference.
+                if (!foundScope) {
+                    return [];  // We get here if the refNode's parent chain never hits the declaring scope.
+                                // If that is the case, the ts compiler has given us a false positive as a
+                                // reference.
+                }
+
+                const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => ({
+                    head: newQuestion(binder),
+                    tail: env
+                }), idEnv);
+                return {
+                    node: refNode,
+                    env: refEnv,
+                }
             });
             return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
         }
@@ -487,7 +534,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     env: callSite.env,
                 }));
 
-                const sitesWhereDeclaringFunctionReturned = fixed_trace({ node: declaringFunction, env: envAtDeclaredScope });
+                const sitesWhereDeclaringFunctionReturned = fixed_trace({ node: declaringFunction, env: envAtDeclaredScope.tail });
                 const boundFromPrimop = configSetJoinMap(
                     sitesWhereDeclaringFunctionReturned,
                     (config) => {

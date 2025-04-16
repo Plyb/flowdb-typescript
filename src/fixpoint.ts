@@ -75,11 +75,12 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
             }
 
             function push_cache(comp: Computation<Args, Ret>, val: Ret) {
-                if (valuesUpdated(values, comp, val)) {
+                const joinedVal = join(values.get(comp) ?? bottomRet, val)
+                if (valuesUpdated(values, comp, joinedVal)) {
                     const thisDependents = dependents.get(comp)
                     compsToDo.add(...thisDependents);
                 }
-                values.set(comp, join(values.get(comp) ?? bottomRet, val));
+                values.set(comp, joinedVal);
             }
     
             console.info(`${func.name}(${printArgs(args)})`);

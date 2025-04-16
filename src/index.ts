@@ -23,7 +23,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 }
 
 // analyzeInboxZero()
-analyzePlayground()
+// analyzePlayground()
 
 function analyzePlayground() {
   console.log((runAnalysis('../../examples/playground', './test.ts', 10, 38, 3)).elements)
@@ -37,4 +37,4 @@ function analyzeInboxZero() {
   console.log(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 0).elements)
 }
 
-// runTests();
+runTests();
