@@ -273,6 +273,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
                     return unimplementedBottom(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
                 })
+            } else if (ts.isImportSpecifier(parent)) {
+                return getReferences({ node: parent.name, env });
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
@@ -340,7 +342,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         function getReferences(idConfig: Config<ts.Identifier>): ConfigSet {
             const { node: id, env: idEnv } = idConfig;
             const symbol = typeChecker.getSymbolAtLocation(id);
-            const declaration = symbol?.valueDeclaration;
+            const declaration = symbol?.valueDeclaration
+                ?? symbol?.declarations?.[0];
             if (declaration === undefined) {
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }
