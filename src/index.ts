@@ -22,7 +22,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   return results;
 }
 
-// analyzeInboxZero()
+analyzeInboxZero()
 // analyzePlayground()
 
 function analyzePlayground() {
@@ -34,7 +34,7 @@ function analyzeInboxZeroClean() {
 }
 
 function analyzeInboxZero() {
-  console.log(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 0).elements)
+  console.log(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 4).elements)
 }
 
-runTests();
+// runTests();

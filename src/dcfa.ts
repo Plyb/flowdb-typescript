@@ -371,20 +371,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         bindersForEnvOfRef.push(parent);
                     }
                 }
-                if (!foundScope) {
-                    return [];  // We get here if the refNode's parent chain never hits the declaring scope.
-                                // If that is the case, the ts compiler has given us a false positive as a
-                                // reference.
+                // Sometimes the TypeScript compiler gives us spurious references for reasons I
+                // don't fully understand. My hypothesis that all of these false positives will
+                // be in the same file, but in a different branch of the AST.
+                if (!foundScope && refNode.getSourceFile() === id.getSourceFile()) {
+                    return [];
                 }
 
                 const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => ({
                     head: newQuestion(binder),
                     tail: env
                 }), idEnv);
-                return {
+                return [{
                     node: refNode,
                     env: refEnv,
-                }
+                }]
             });
             return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
         }
@@ -444,7 +445,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             env: blockConfig.env,
                         } as Config<ts.Expression>));
                     }));
-                    return thrownNodeConfigs;
+                    // the `justExtern` here is a bit of an overapproximation, but it's pretty
+                    // likely that *something* in the catch block could throw an exception that
+                    // isn't syntactically represented
+                    return join(thrownNodeConfigs, justExtern); 
                 } else { // it's a standard variable delcaration
                     if (declaration.initializer === undefined) {
                         return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
