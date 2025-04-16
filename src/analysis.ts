@@ -21,9 +21,9 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error(`expected function declaration $${printNodeAndPos(node)}`);
     }
 
-    const fixed_eval = makeDcfaComputer(service, node, m);
+    const { fixed_eval, push_cache } = makeDcfaComputer(service, node, m);
 
-    const reachableCallConfigsWithExterns = getReachableCallConfigs(withUnknownContext(node.body), m, fixed_eval)
+    const reachableCallConfigsWithExterns = getReachableCallConfigs(withUnknownContext(node.body), m, fixed_eval, push_cache)
     const reachableCallConfigs = setFilter(reachableCallConfigsWithExterns, elem => isConfigNoExtern(elem));
     const prismaQueryExpressionsConfigs = setSift(setMap(reachableCallConfigs, callConfig => {
         const qExp = getPrismaQuery(callConfig.node);

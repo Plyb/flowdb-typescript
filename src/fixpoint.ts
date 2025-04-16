@@ -40,13 +40,29 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
     bottomRet: Ret,
     join: (a: Ret, b: Ret) => Ret,
     { printArgs, printRet }: ValueOfOptions<Args, Ret> = defaultOptions,
-): (query: Computation<Args, Ret>) => Ret {
+): { valueOf: (query: Computation<Args, Ret>) => Ret, push_cache: (comp: Computation<Args, Ret>, val: Ret) => void } {
     const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, bottomRet);
     const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
-    return function valueOf(
+    const compsToDo = new SimpleSet(computationComparator<Args, Ret>);
+    
+    return {
+        valueOf,
+        push_cache,
+    };
+
+    function push_cache(comp: Computation<Args, Ret>, val: Ret) {
+        const joinedVal = join(values.get(comp) ?? bottomRet, val)
+        if (valuesUpdated(values, comp, joinedVal)) {
+            const thisDependents = dependents.get(comp)
+            compsToDo.add(...thisDependents);
+        }
+        values.set(comp, joinedVal);
+    }
+
+    function valueOf(
         query: Computation<Args, Ret>,
     ) {
-        const compsToDo = new SimpleSet(computationComparator<Args, Ret>, query);
+        compsToDo.add(query);
         while (compsToDo.size() !== 0) {
             const compToDo = compsToDo.elements[0];
             compsToDo.delete(compToDo);
@@ -72,15 +88,6 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
                 }
     
                 return values.get(dependencyComp) ?? bottomRet;
-            }
-
-            function push_cache(comp: Computation<Args, Ret>, val: Ret) {
-                const joinedVal = join(values.get(comp) ?? bottomRet, val)
-                if (valuesUpdated(values, comp, joinedVal)) {
-                    const thisDependents = dependents.get(comp)
-                    compsToDo.add(...thisDependents);
-                }
-                values.set(comp, joinedVal);
             }
     
             console.info(`${func.name}(${printArgs(args)})`);

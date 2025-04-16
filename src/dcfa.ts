@@ -15,17 +15,23 @@ import { newQuestion, refines } from './context';
 
 export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
+export type DcfaCachePusher = CachePusher<Config, ConfigSet>;
 
-export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): FixedEval {
+export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): { fixed_eval: FixedEval, push_cache: DcfaCachePusher } {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
 
-    const valueOf = makeFixpointComputer(empty<Config>(), join, {
+    const { valueOf, push_cache } = makeFixpointComputer(empty<Config>(), join, {
         printArgs: printConfig,
         printRet: config => pretty(config).toString() 
     });
     
-    return function dcfa(config: Config) {
+    return {
+        fixed_eval: dcfa,
+        push_cache,
+    }
+
+    function dcfa(config: Config) {
     
         if (config.node === undefined) {
             throw new Error('no node at that position')
@@ -46,7 +52,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         });
     
         // "eval"
-        function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {    
+        function abstractEval(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {    
             const fixed_eval: FixedEval = config => fix_run(abstractEval, config);
             const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
@@ -173,7 +179,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "expr"
-        function getWhereValueApplied(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+        function getWhereValueApplied(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
             return join(
                 getWhereValueOfCurrentConfigApplied(),
                 setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereValueApplied, refinedConfig))
@@ -188,14 +194,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
         }
     
-        function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+        function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
             return join(
                 join(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run, push_cache)),
                 setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereValueReturned, refinedConfig))
             );
         }
     
-        function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+        function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
             const { node, env } = config;
             if (isExtern(node)) {
                 return empty();
@@ -303,7 +309,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "call"
-        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: CachePusher<Config, ConfigSet>): ConfigSet {
+        function getWhereClosed(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
             return join(
                 getWhereCurrentConfigClosed(),
                 setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereClosed, refinedConfig))
@@ -440,7 +446,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     );
                 } else if (ts.isCatchClause(declaration.parent)) {
                     const tryBlock = declaration.parent.parent.tryBlock;
-                    const reachableBlocks = getReachableBlocks({ node: tryBlock, env: envAtDeclaringScope }, m, fixed_eval);
+                    const reachableBlocks = getReachableBlocks({ node: tryBlock, env: envAtDeclaringScope }, m, fixed_eval, push_cache);
                     const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
                         const throwStatements = getThrowStatements(blockConfig.node);
                         return [...throwStatements].map(throwStatement => ({
