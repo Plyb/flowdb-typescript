@@ -1,13 +1,14 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { isTop, NodeLatticeElem } from './abstract-values';
+import { isExtern } from './abstract-values';
 import { last } from 'lodash';
+import { Config, Cursor, Environment } from './configuration';
+import { toList } from './util';
+import { stackBottom } from './context';
 
-
-export type NodePrinter = (node: ts.Node) => string
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {
     function find(node: ts.Node): ts.Node | undefined {
@@ -61,11 +62,11 @@ export function* getStatements<T extends ts.Node>(node: ts.Node, predicate: (nod
 
 export type SimpleFunctionLikeDeclaration =
     (FunctionDeclaration | FunctionExpression | ArrowFunction)
-    & { body: ts.Node }
+    & { body: ConciseBody }
 type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
     & { modifiers: [AsyncKeyword]}
-export function isFunctionLikeDeclaration(node: NodeLatticeElem): node is SimpleFunctionLikeDeclaration {
-    if (isTop(node)) {
+export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionLikeDeclaration {
+    if (isExtern(node)) {
         return false;
     }
 
@@ -203,8 +204,8 @@ export function getService(rootFolder: string) {
 }
 
 const printer = ts.createPrinter();    
-export function printNodeAndPos(node: NodeLatticeElem): string {
-    if (isTop(node)) {
+export function printNodeAndPos(node: Cursor): string {
+    if (isExtern(node)) {
         return `EXTERNAL`;
     }
 
@@ -216,9 +217,83 @@ function printNode(node: ts.Node) {
 export function getPosText(node: ts.Node) {
     const sf = node.getSourceFile();
     const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
-    return `${line}:${character}:${last(sf.fileName.split('/'))}`
+    return `${line + 1}:${character + 1}:${last(sf.fileName.split('/'))}`
 }
 
 export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
     return findAll(node, ts.isCallExpression) as Iterable<ts.CallExpression>;
+}
+
+export function findAllParameterBinders(node: ts.Node) {
+    const parentChain = [...getParentChain(node)];
+    return parentChain.filter(isFunctionLikeDeclaration);
+}
+
+export function* getParentChain(node: ts.Node) {
+    while (node !== undefined) {
+        yield node;
+        node = node.parent;
+    }
+}
+
+type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile | ts.CatchClause;
+export function getDeclaringScope(declaration: Declaration, typeChecker: ts.TypeChecker): Scope {
+    if (ts.isParameter(declaration)) {
+        if (!isFunctionLikeDeclaration(declaration.parent)) {
+            throw new Error(`Unknown kind of signature declaration: ${printNodeAndPos(declaration.parent)}`)
+        }
+        return declaration.parent;
+    } else if (ts.isVariableDeclaration(declaration)) {
+        if (ts.isVariableDeclarationList(declaration.parent)
+            && ts.isVariableStatement(declaration.parent.parent)
+        ) {
+            const variableStatementParent = declaration.parent.parent.parent;
+            if (!(ts.isBlock(variableStatementParent) || ts.isSourceFile(variableStatementParent))) {
+                throw new Error(`Expected a statement to be in a block or sf: ${printNodeAndPos(variableStatementParent)}`);
+            }
+            return variableStatementParent;
+        } else if (ts.isCatchClause(declaration.parent)) {
+            return declaration.parent;
+        } else {
+            throw new Error(`Unknown kind of variable declaration for finding scope: ${printNodeAndPos(declaration)}`)
+        }
+    } else if (ts.isFunctionDeclaration(declaration)) {
+        const declarationParent = declaration.parent;
+        if (!(ts.isBlock(declarationParent) || ts.isSourceFile(declarationParent))) {
+            throw new Error(`Expected a function declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
+        }
+        return declarationParent;
+    } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+        return declaration.getSourceFile();
+    } else if (ts.isBindingElement(declaration)) {
+        const bindingElementSource = declaration.parent.parent;
+        return getDeclaringScope(bindingElementSource, typeChecker);
+    } else if (ts.isShorthandPropertyAssignment(declaration)) {
+        const higherLevelDeclarationSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+        const higherLevelDeclaration = higherLevelDeclarationSymbol?.valueDeclaration ?? higherLevelDeclarationSymbol?.declarations?.[0];
+        if (higherLevelDeclaration === undefined) {
+            throw new Error(`Unable to find higher level declaration of shorthand property assignment ${printNodeAndPos(declaration)}`)
+        }
+        return getDeclaringScope(higherLevelDeclaration, typeChecker);
+    } else {
+        throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
+    }
+}
+
+export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: Scope): Environment {
+    const parents = getParentChain(config.node);
+    let env = config.env;
+    for (const parent of parents) {
+        if (parent === scope) {
+            return env;
+        }
+
+        if (isFunctionLikeDeclaration(parent)) {
+            env = env.tail;
+        }
+    }
+    if (!ts.isSourceFile(scope)) {
+        throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
+    }
+    return toList([stackBottom]); // This can happen if the declaring scope is another file altogether
 }

@@ -3,10 +3,11 @@ import { Lookup } from './lookup'
 import { lexicographic, stringCompare, structuralComparator } from './comparators'
 import { SimpleMap } from './simple-map'
 
-type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>) => Ret
+type Fixable<Args, Ret> = (args: Args, fix_run: FixRunFunc<Args, Ret>, push_cache: CachePusher<Args, Ret>) => Ret
 export type LabeledFixable<Args, Ret> = Fixable<Args, Ret> & { name: string}
 export type FixRunFunc<Args, Ret> = (func: LabeledFixable<Args, Ret>, args: Args) => Ret
-type Computation<Args, Ret> = { func: LabeledFixable<Args, Ret>, args: Args }
+export type CachePusher<Args, Ret> = (comp: Computation<Args, Ret>, val: Ret) => void
+export type Computation<Args, Ret> = { func: LabeledFixable<Args, Ret>, args: Args }
 
 function labeledFixableComparator<Args, Ret>(a: LabeledFixable<Args, Ret>, b: LabeledFixable<Args, Ret>) {
     return stringCompare(a.name, b.name);
@@ -36,10 +37,11 @@ const defaultOptions: ValueOfOptions<any, any> = {
     printRet: (ret) => ret.toString(),
 };
 export function makeFixpointComputer<Args extends object, Ret extends object>(
-    defaultRet: Ret,
+    bottomRet: Ret,
+    join: (a: Ret, b: Ret) => Ret,
     { printArgs, printRet }: ValueOfOptions<Args, Ret> = defaultOptions,
 ): (query: Computation<Args, Ret>) => Ret {
-    const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, defaultRet);
+    const values = new SimpleMap<Computation<Args, Ret>, Ret>(computationComparator, bottomRet);
     const dependents = new Lookup(computationComparator<Args, Ret>, computationComparator<Args, Ret>);
     return function valueOf(
         query: Computation<Args, Ret>,
@@ -52,7 +54,7 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
             evaluateComputation(compToDo);
         }
     
-        return values.get(query) ?? defaultRet;
+        return values.get(query) ?? bottomRet;
     
         function evaluateComputation(comp: Computation<Args, Ret>) {
             const { func, args } = comp;
@@ -64,23 +66,28 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
     
                 if (!values.has(dependencyComp)) {
                     if (!values.has(comp)) { // ensure no infinite recursion
-                        values.set(comp, defaultRet);
+                        values.set(comp, bottomRet);
                     }
                     evaluateComputation(dependencyComp);
                 }
     
-                return values.get(dependencyComp) ?? defaultRet;
+                return values.get(dependencyComp) ?? bottomRet;
+            }
+
+            function push_cache(comp: Computation<Args, Ret>, val: Ret) {
+                const joinedVal = join(values.get(comp) ?? bottomRet, val)
+                if (valuesUpdated(values, comp, joinedVal)) {
+                    const thisDependents = dependents.get(comp)
+                    compsToDo.add(...thisDependents);
+                }
+                values.set(comp, joinedVal);
             }
     
             console.info(`${func.name}(${printArgs(args)})`);
-            const results = func(args, fix_run);
+            const results = func(args, fix_run, push_cache);
             console.info(`${func.name}(${printArgs(args)}) = ${printRet(results)}`);
     
-            if (valuesUpdated(values, comp, results)) {
-                const thisDependents = dependents.get(comp)
-                compsToDo.add(...thisDependents);
-            }
-            values.set(comp, results);
+            push_cache(comp, results);
             for (const dependency of dependencyUsages) {
                 if (!dependents.get(dependency).has(comp)) {
                     dependents.add(dependency, comp);

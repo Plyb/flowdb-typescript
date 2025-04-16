@@ -1,11 +1,11 @@
 import ts from 'typescript';
-import { findAllPrismaQueryExpressions, getNodeAtPosition, isFunctionLikeDeclaration, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, printNodeAndPos } from './ts-utils';
 import { makeDcfaComputer } from './dcfa';
-import { setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { isTop } from './abstract-values';
-import { getReachableFunctions } from './control-flow';
+import { setFilter, setMap, setSift } from './setUtil';
+import { getReachableCallConfigs } from './control-flow';
+import { isConfigNoExtern, withUnknownContext } from './configuration';
 
-export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number) {
+export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number, m: number) {
     const program = service.getProgram()!;
     
     const sf = program.getSourceFiles().find(sf => sf.fileName === filePath);
@@ -18,17 +18,26 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error('no node at that position')
     }
     if (!isFunctionLikeDeclaration(node)) {
-        throw new Error('expected function declaration');
+        throw new Error(`expected function declaration $${printNodeAndPos(node)}`);
     }
 
-    const fixed_eval = makeDcfaComputer(service, node);
+    const fixed_eval = makeDcfaComputer(service, node, m);
 
-    const reachableFunctionsWithTops = union(singleton(node), getReachableFunctions(node.body, fixed_eval));
-    const reachableFunctions = setFilter(reachableFunctionsWithTops, elem => !isTop(elem));
-    const prismaQueryExpressions = setFlatMap(reachableFunctions, func => findAllPrismaQueryExpressions((func as SimpleFunctionLikeDeclaration).body));
-    return setMap(prismaQueryExpressions, qExp => ({
+    const reachableCallConfigsWithExterns = getReachableCallConfigs(withUnknownContext(node.body), m, fixed_eval)
+    const reachableCallConfigs = setFilter(reachableCallConfigsWithExterns, elem => isConfigNoExtern(elem));
+    const prismaQueryExpressionsConfigs = setSift(setMap(reachableCallConfigs, callConfig => {
+        const qExp = getPrismaQuery(callConfig.node);
+        if (qExp === false) {
+            return undefined;
+        }
+        return {
+            qExp,
+            env: callConfig.env
+        }
+    }));
+    return setMap(prismaQueryExpressionsConfigs, ({ qExp, env }) => ({
         table: qExp.table,
         method: qExp.method,
-        argument: fixed_eval(qExp.argument)
+        argument: fixed_eval({ node: qExp.argument, env })
     }))
 }

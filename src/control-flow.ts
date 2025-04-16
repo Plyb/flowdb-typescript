@@ -1,47 +1,58 @@
-import ts from 'typescript';
-import { isTop, joinAllValues } from './abstract-values';
+import ts, { ConciseBody } from 'typescript';
 import { FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { findAllCalls, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { findAllCalls, isFunctionLikeDeclaration } from './ts-utils';
 import { StructuralSet } from './structural-set';
+import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap, join } from './configuration';
+import { SimpleSet } from 'typescript-super-set';
+import { structuralComparator } from './comparators';
+import { consList } from './util';
 
-export function getReachableFunctions(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
-    const valueOf = makeFixpointComputer(empty<SimpleFunctionLikeDeclaration>(), { printArgs: printNodeAndPos as (node: ts.Block | ts.Expression) => string, printRet: set => setMap(set, getFuncName).toString() });
-    return valueOf({ func: compute, args: node });
-    
-    function compute(node: ts.Block | ts.Expression, fix_run: FixRunFunc<ts.Block | ts.Expression, StructuralSet<SimpleFunctionLikeDeclaration>>): StructuralSet<SimpleFunctionLikeDeclaration> {
-        const directlyCalledFunctions = findAllFunctionsCalledIn(node, fixed_eval);
-        const functionsCalledInDirectlyCalledFunctions = setFlatMap(
-            directlyCalledFunctions,
-            (func) => union(singleton(func), fix_run(compute, func.body))
-        )
-        return functionsCalledInDirectlyCalledFunctions;
-    }
-    
-    function getFuncName(func: SimpleFunctionLikeDeclaration) {
-        if (isTop(func)) {
-            return 'ANY FUNCTION';
-        }
-
-        const { line, character } = ts.getLineAndCharacterOfPosition(func.getSourceFile(), func.pos)
-        if (ts.isFunctionDeclaration(func)) {
-            return func.name?.text ?? `<anonymous:${line}:${character}>`
-        }
-        return `<anonymous:${line}:${character}>`;
-    }
-}
-
-function findAllFunctionsCalledIn(node: ts.Block | ts.Expression, fixed_eval: FixedEval): StructuralSet<SimpleFunctionLikeDeclaration> {
-    const callExpressions = [...findAllCalls(node)];
-    const valuesOfCallExpressionOperators = callExpressions.map(callExpression =>
-        fixed_eval(callExpression.expression)
+export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval): StructuralSet<Config<ts.CallExpression>> {
+    const valueOf = makeFixpointComputer(
+        empty<Config<ts.CallExpression>>(),
+        join,
+        { printArgs: printConfig as (config: Config<ConciseBody>) => string, printRet: set => setMap(set, printConfig).toString()}
     );
-    return setFilter(joinAllValues(...valuesOfCallExpressionOperators), isFunctionLikeDeclaration);
+    return valueOf({ func: compute, args: config })
+
+    function compute(config: Config<ConciseBody>, fix_run: FixRunFunc<Config<ConciseBody>, StructuralSet<Config<ts.CallExpression>>>): StructuralSet<Config<ts.CallExpression>> {
+        const directCallSites = new SimpleSet(structuralComparator, ...findAllCalls(config.node));
+        const directCallSiteConfigs = setMap(directCallSites, site => ({ node: site, env: config.env}) as Config<ts.CallExpression>)
+        const transitiveCallSiteConfigs = configSetJoinMap(
+            directCallSiteConfigs,
+            ({ node: site, env }) => {
+                const operators = fixed_eval({ node: site.expression, env });
+                return configSetJoinMap(operators, ({ node: op, env: funcEnv }) => {
+                    if (!isFunctionLikeDeclaration(op)) {
+                        return empty(); // built in functions fit this criterion
+                    }
+                    return fix_run(compute, {
+                        node: op.body,
+                        env: consList(pushContext(site, env, m), funcEnv)
+                    })
+                });
+            }
+        ) as StructuralSet<Config<ts.CallExpression>>;
+        return union(directCallSiteConfigs, transitiveCallSiteConfigs);
+    }
 }
 
-export function getReachableBlocks(block: ts.Block, fixed_eval: FixedEval): StructuralSet<ts.Block> {
-    const reachableFuncs = getReachableFunctions(block, fixed_eval);
-    const bodies = setMap(reachableFuncs, func => func.body);
-    return union(singleton(block), setFilter(bodies, ts.isBlock));
+export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fixed_eval: FixedEval): StructuralSet<Config<ts.Block>> {
+    const reachableCalls = getReachableCallConfigs(blockConfig, m, fixed_eval);
+    const otherReachableBodies = configSetJoinMap(reachableCalls, callConfig => {
+        const operatorConfig = { node: callConfig.node.expression, env: callConfig.env };
+        const possibleFunctions = fixed_eval(operatorConfig);
+        return setFlatMap(possibleFunctions, funcConfig => {
+            if (!isFunctionLikeDeclarationConfig(funcConfig)) {
+                return empty();
+            }
+            return singleConfig({
+                node: funcConfig.node.body,
+                env: consList(pushContext(callConfig.node, callConfig.env, m), funcConfig.env),
+            })
+        })
+    }) as StructuralSet<ConfigNoExtern>;
+    return union(singleton(blockConfig), setFilter(otherReachableBodies, isBlockConfig));
 }
