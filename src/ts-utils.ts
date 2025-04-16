@@ -245,18 +245,25 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
         return declaration.parent;
     } else if (ts.isVariableDeclaration(declaration)) {
         if (ts.isVariableDeclarationList(declaration.parent)
-            && ts.isVariableStatement(declaration.parent.parent)
         ) {
-            const variableStatementParent = declaration.parent.parent.parent;
-            if (!(ts.isBlock(variableStatementParent) || ts.isSourceFile(variableStatementParent))) {
-                throw new Error(`Expected a statement to be in a block or sf: ${printNodeAndPos(variableStatementParent)}`);
+            if (ts.isVariableStatement(declaration.parent.parent)
+                || (ts.isForOfStatement(declaration.parent.parent)
+                    && !ts.isBlock(declaration.parent.parent.statement))
+            ) {
+                const variableStatementParent = declaration.parent.parent.parent;
+                if (!(ts.isBlock(variableStatementParent) || ts.isSourceFile(variableStatementParent))) {
+                    throw new Error(`Expected a statement to be in a block or sf: ${printNodeAndPos(variableStatementParent)}`);
+                }
+                return variableStatementParent;
+            } else if (ts.isForOfStatement(declaration.parent.parent)
+                && ts.isBlock(declaration.parent.parent.statement)
+            ) {
+                return declaration.parent.parent.statement;
             }
-            return variableStatementParent;
         } else if (ts.isCatchClause(declaration.parent)) {
             return declaration.parent;
-        } else {
-            throw new Error(`Unknown kind of variable declaration for finding scope: ${printNodeAndPos(declaration)}`)
         }
+        throw new Error(`Unknown kind of variable declaration for finding scope: ${printNodeAndPos(declaration)}`)
     } else if (ts.isFunctionDeclaration(declaration)) {
         const declarationParent = declaration.parent;
         if (!(ts.isBlock(declarationParent) || ts.isSourceFile(declarationParent))) {
