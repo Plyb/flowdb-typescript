@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, isPrismaQuery, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
 import { isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -39,12 +39,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         if (isExtern(config.node)) {
             throw new Error('Should not call dcfa on extern');
         }
-        console.info(`dcfa for: ${printNodeAndPos(config.node)}`)
-
-        if (isPrismaQuery(config.node.parent) && isOperatorOf(config.node, config.node.parent as CallExpression)) {
-            console.info('Short cicuiting because this is a prisma query');
-            return empty<Config>();
-        }
+        console.info(`dcfa for: ${printNodeAndPos(config.node)}`);
     
         return valueOf({
             func: abstractEval,
