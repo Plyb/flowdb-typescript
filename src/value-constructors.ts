@@ -311,7 +311,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'console.warn': inaccessibleProperty('console.warn'),
     'console.warn()': inaccessibleProperty('console.warn()'),
     'fetch': inaccessibleProperty('fetch'),
-    'undefined': inaccessibleProperty('undefined'),
+    'undefined': () => empty(),
     '%ParameterSourced': singleConfig,
 }
 
