@@ -86,7 +86,8 @@ export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): Co
             if (!isFunctionLikeDeclaration(sourceFunction)) {
                 return unimplementedBottom(`Expected ${printNodeAndPos(sourceFunction)} to be the source of a promise value`);
             }
-            return fixed_eval({ node: sourceFunction.body, env: consEnv });
+            const returnValuesOfAsyncFunction = fixed_eval({ node: sourceFunction.body, env: consEnv });
+            return configSetJoinMap(returnValuesOfAsyncFunction, (retConfig) => resolvePromisesOfNode(retConfig, fixed_eval));
         } else {
             return singleConfig(consConfig);
         }

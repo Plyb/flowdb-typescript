@@ -172,6 +172,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return join(thenValue, elseValue)
                 } else if (ts.isAsExpression(node)) {
                     return fix_run(abstractEval, { node: node.expression, env });
+                } else if (node.kind === SyntaxKind.AsyncKeyword) {
+                    return singleConfig(config);
                 }
                 return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
             }
