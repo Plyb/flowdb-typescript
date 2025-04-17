@@ -280,6 +280,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 })
             } else if (ts.isImportSpecifier(parent)) {
                 return getReferences({ node: parent.name, env });
+            } else if (ts.isPropertySignature(parent)) {
+                return empty(); // spurious reference
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
