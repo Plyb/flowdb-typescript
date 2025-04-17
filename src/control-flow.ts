@@ -20,12 +20,16 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
 
     function compute(config: Config<ConciseBody>, fix_run: FixRunFunc<Config<ConciseBody>, ConfigSet<ts.CallExpression>>): ConfigSet<ts.CallExpression> {
         const directCallSites = new SimpleSet(structuralComparator,
-            ...[...findAllCalls(config.node)].filter(call => !isPrismaQuery(call))
+            ...[...findAllCalls(config.node)]
         );
         const directCallSiteConfigs = setMap(directCallSites, site => ({ node: site, env: config.env}) as Config<ts.CallExpression>);
         const transitiveCallSiteConfigs = configSetJoinMap(
             directCallSiteConfigs,
             ({ node: site, env }) => {
+                if (isPrismaQuery(site)) {
+                    return empty()
+                }
+
                 const operators = fixed_eval({ node: site.expression, env });
                 return configSetJoinMap(operators, ({ node: op, env: funcEnv }) => {
                     if (!isFunctionLikeDeclaration(op)) {
@@ -51,6 +55,10 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
 export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): StructuralSet<Config<ts.Block>> {
     const reachableCalls = getReachableCallConfigs(blockConfig, m, fixed_eval, push_cache);
     const otherReachableBodies = configSetJoinMap(reachableCalls, callConfig => {
+        if (isPrismaQuery(callConfig.node)) {
+            return empty();
+        }
+
         const operatorConfig = { node: callConfig.node.expression, env: callConfig.env };
         const possibleFunctions = fixed_eval(operatorConfig);
         return setFlatMap(possibleFunctions, funcConfig => {
