@@ -3,9 +3,9 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { isExtern } from './abstract-values';
+import { Cursor, isExtern } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Cursor, Environment } from './configuration';
+import { Config, Environment } from './configuration';
 import { toList } from './util';
 import { stackBottom } from './context';
 

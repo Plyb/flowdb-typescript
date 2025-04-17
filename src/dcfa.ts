@@ -3,8 +3,8 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope } from './ts-utils';
-import { isExtern } from './abstract-values';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery } from './ts-utils';
+import { Cursor, isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
@@ -65,6 +65,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (isFunctionLikeDeclaration(node)) {
                     return singleConfig(config);
                 } else if (isCallConfig(config)) {
+                    if (isPrismaQuery(config.node)) {
+                        return singleConfig({ node: { __externBrand: true, node } as Cursor, env});
+                    }
+
                     const call = config.node;
                     const operator: ts.Node = call.expression;
                     const possibleOperators = fix_run(abstractEval, { node: operator, env });

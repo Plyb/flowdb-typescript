@@ -1,4 +1,4 @@
-import { extern, Extern, isExtern } from './abstract-values'
+import { Cursor, extern, Extern, isExtern } from './abstract-values'
 import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
 import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
@@ -13,7 +13,6 @@ export type Config<N extends Cursor = Cursor> = {
     node: N,
     env: Environment,
 }
-export type Cursor = ts.Node | Extern;
 export type Environment = List<Context>;
 
 type ConfigExtern = Config<Extern>

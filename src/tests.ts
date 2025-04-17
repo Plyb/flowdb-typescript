@@ -4,9 +4,8 @@ import { analyze } from './analysis';
 import ts from 'typescript';
 import { setFlatMap, setMap, setMinus } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { extern } from './abstract-values';
+import { Cursor, extern } from './abstract-values';
 import { structuralComparator } from './comparators';
-import { Cursor } from './configuration';
 
 export function runTests() {
     const pathString = '../../examples/unit-tests'
