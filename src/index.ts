@@ -2,6 +2,8 @@ import path from 'path';
 import { analyze } from './analysis';
 import { getService } from './ts-utils';
 import { runTests } from './tests';
+import { StructuralSet } from './structural-set';
+import { ConfigSet, printConfig } from './configuration';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
   const rootFolder = path.resolve(__dirname, pathString);
@@ -34,7 +36,19 @@ function analyzeInboxZeroClean() {
 }
 
 function analyzeInboxZero() {
-  console.log(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 4).elements)
+  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
 }
 
 // runTests();
+
+
+function printResults(results: StructuralSet<{ table: string, method: string, argument: ConfigSet}>) {
+  for (const result of results.elements) {
+    console.log(
+`table: ${result.table}
+method: ${result.method}
+arg: ${result.argument.elements.map(printConfig).join('\n')}
+---------------------
+`);
+  }
+}
