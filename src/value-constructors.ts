@@ -162,7 +162,7 @@ const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_ev
 })
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
-    'Array#filter': uncallable('Array#filter'), // TODO
+    'Array#filter': singleConfig,
     'Array#filter()': uncallable('Array#filter()'),
     'Array#find': uncallable('Array#find'), // TODO
     'Array#includes': singleConfig,

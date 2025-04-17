@@ -397,6 +397,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "bind"
         function getBoundExprs(idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             const { node: id } = idConfig;
+            if (id.text === 'undefined') {
+                return empty();
+            }
+
             const symbol = typeChecker.getSymbolAtLocation(id);
             if (symbol === undefined) {
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
