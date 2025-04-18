@@ -273,7 +273,7 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
             throw new Error(`Expected a function declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
         }
         return declarationParent;
-    } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
+    } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
         return declaration.getSourceFile();
     } else if (ts.isBindingElement(declaration)) {
         const bindingElementSource = declaration.parent.parent;
@@ -285,9 +285,8 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
             throw new Error(`Unable to find higher level declaration of shorthand property assignment ${printNodeAndPos(declaration)}`)
         }
         return getDeclaringScope(higherLevelDeclaration, typeChecker);
-    } else {
-        return unimplemented(`Unknown declaring scope for ${printNodeAndPos(declaration)}`, declaration.getSourceFile());
     }
+    return unimplemented(`Unknown declaring scope for ${printNodeAndPos(declaration)}`, declaration.getSourceFile());
 }
 
 export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: Scope): Environment {
@@ -306,4 +305,14 @@ export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: 
         throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
     }
     return toList([stackBottom]); // This can happen if the declaring scope is another file altogether
+}
+
+export function getModuleSpecifier(importNode: ts.ImportSpecifier | ts.ImportClause | ts.NamespaceImport) {
+    if (ts.isImportSpecifier(importNode)) {
+        return importNode.parent.parent.parent.moduleSpecifier
+    } else if (ts.isImportClause(importNode)) {
+        return importNode.parent.moduleSpecifier;
+    } else {
+        return importNode.parent.parent.moduleSpecifier;
+    }
 }

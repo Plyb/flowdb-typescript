@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -514,10 +514,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                     return getObjectsPropertyInitializers(argsValues, symbol.name);
                 }
-            } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration)) {
-                const moduleSpecifier = ts.isImportClause(declaration)
-                    ? declaration.parent.moduleSpecifier
-                    : declaration.parent.parent.parent.moduleSpecifier;
+            } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
+                const moduleSpecifier = getModuleSpecifier(declaration);
     
                 if (!ts.isStringLiteral(moduleSpecifier)) {
                     throw new Error('Module specifier must be a string literal');
