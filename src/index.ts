@@ -42,7 +42,7 @@ function analyzeInboxZero() {
 }
 
 function analyzeNextCrm() {
-  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 15, 18, 3))
+  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
 
 // runTests();

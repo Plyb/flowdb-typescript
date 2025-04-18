@@ -16,13 +16,11 @@ function changeReactCreateElementToFunctionCall(project: Project) {
                 return;
             }
             const expression = node.getExpression();
-            if (!expression.isKind(SyntaxKind.PropertyAccessExpression)) {
-                return;
-            }
-            const expressionExpression = expression.getExpression();
-            if (!expressionExpression.isKind(SyntaxKind.Identifier)
-                || expressionExpression.getText() !== 'React'
-                || expression.getName() !== 'createElement'
+            if (!(expression.isKind(SyntaxKind.Identifier)
+                    && (expression.getText() === '_jsx'
+                        || expression.getText() === '_jsxs'
+                    )
+                )
             ) {
                 return;
             }
