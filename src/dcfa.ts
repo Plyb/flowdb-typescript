@@ -414,7 +414,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return unimplemented(`Unable to find symbol ${id.text}`, empty())
             }
 
-            if ((symbol.valueDeclaration?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
+            if ((symbol.valueDeclaration?.flags ?? symbol.declarations?.[0]?.flags ?? 0) & Ambient) { // it seems like this happens with built in ids like `Date`
                 if (!idIsBuiltIn(id)) {
                     return unimplemented(`Expected ${printNodeAndPos(id)} to be built in`, empty());
                 }

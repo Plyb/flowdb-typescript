@@ -28,8 +28,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 }
 
 // analyzeInboxZero()
-// analyzeNextCrm()
-prepareNextCrm()
+analyzeNextCrm()
+// prepareNextCrm()
 
 // analyzePlayground()
 

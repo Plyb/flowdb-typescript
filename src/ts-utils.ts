@@ -6,7 +6,7 @@ import fs from 'fs';
 import { Cursor, isExtern } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment } from './configuration';
-import { getTsConfigPath, toList } from './util';
+import { getTsConfigPath, toList, unimplemented } from './util';
 import { stackBottom } from './context';
 
 
@@ -286,7 +286,7 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
         }
         return getDeclaringScope(higherLevelDeclaration, typeChecker);
     } else {
-        throw new Error(`Unknown declaring scope for ${printNodeAndPos(declaration)}`);
+        return unimplemented(`Unknown declaring scope for ${printNodeAndPos(declaration)}`, declaration.getSourceFile());
     }
 }
 
