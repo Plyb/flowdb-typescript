@@ -4,9 +4,12 @@ import { getService } from './ts-utils';
 import { runTests } from './tests';
 import { StructuralSet } from './structural-set';
 import { ConfigSet, printConfig } from './configuration';
+import { preprocess } from './preprocess';
+import { getRootFolder } from './util';
+import { prepareNextCrm } from './prepareExamples';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
-  const rootFolder = path.resolve(__dirname, pathString);
+  const rootFolder = getRootFolder(pathString);
   const file = path.resolve(rootFolder, fileString);
   const service = getService(rootFolder);
 
@@ -24,19 +27,22 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   return results;
 }
 
-analyzeInboxZero()
+// analyzeInboxZero()
+// analyzeNextCrm()
+prepareNextCrm()
+
 // analyzePlayground()
 
 function analyzePlayground() {
   console.log((runAnalysis('../../examples/playground', './test.ts', 7, 0, 3)).elements)
 }
 
-function analyzeInboxZeroClean() {
-  console.log(runAnalysis('../../examples/inbox-zero-clean', './test.ts', 86010, 6, 0).elements)
-}
-
 function analyzeInboxZero() {
   printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
+}
+
+function analyzeNextCrm() {
+  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 15, 18, 3))
 }
 
 // runTests();

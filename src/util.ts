@@ -1,3 +1,5 @@
+import path from 'path';
+
 export function id<T>(x: T): T {
     return x;
 }
@@ -63,4 +65,11 @@ function* toIterable<T>(list: List<T>): Iterable<T> {
 }
 export function listReduce<T, R>(list: List<T>, combine: (acc: R, curr: T) => R, init: R) {
     return toArr(list).reduce(combine, init);
+}
+
+export function getRootFolder(relativePath: string) {
+    return path.resolve(__dirname, relativePath);
+}
+export function getTsConfigPath(rootFolder: string) {
+    return path.join(rootFolder, 'tsconfig.json');
 }

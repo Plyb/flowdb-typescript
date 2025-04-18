@@ -6,7 +6,7 @@ import fs from 'fs';
 import { Cursor, isExtern } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment } from './configuration';
-import { toList } from './util';
+import { getTsConfigPath, toList } from './util';
 import { stackBottom } from './context';
 
 
@@ -154,7 +154,10 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
         return false;
     }
 
-    if (!ts.isIdentifier(prismaTable.expression) || prismaTable.expression.text !== 'prisma') {
+    if (!(ts.isIdentifier(prismaTable.expression)
+        && (prismaTable.expression.text === 'prisma'
+            || prismaTable.expression.text === 'prismadb')
+    )) {
         return false;
     }
 
@@ -173,7 +176,7 @@ export const Ambient = 2**25;
 
 
 export function getService(rootFolder: string) {
-    const configFile = ts.readConfigFile(path.join(rootFolder, 'tsconfig.json'), ts.sys.readFile);
+    const configFile = ts.readConfigFile(getTsConfigPath(rootFolder), ts.sys.readFile);
     const { options, fileNames } = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootFolder);
 
     const files: ts.MapLike<{version: number}> = Object
