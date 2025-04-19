@@ -72,6 +72,7 @@ const builtInValuesObject = {
     'console.warn': true,
     'console.warn()': true,
     'fetch': true,
+    'parseFloat': true,
     'undefined': true,
     '%ParameterSourced': true,
 }
@@ -225,6 +226,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'console.warn': singleConfig,
     'console.warn()': uncallable('console.warn()'),
     'fetch': () => justExtern,
+    'parseFloat': singleConfig,
     'undefined': uncallable('undefined'),
     '%ParameterSourced': singleConfig
 }
@@ -323,6 +325,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'console.warn': inaccessibleProperty('console.warn'),
     'console.warn()': inaccessibleProperty('console.warn()'),
     'fetch': inaccessibleProperty('fetch'),
+    'parseFloat': inaccessibleProperty('parseFloat'),
     'undefined': () => empty(),
     '%ParameterSourced': singleConfig,
 }
@@ -434,6 +437,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'console.warn': inaccessibleElement,
     'console.warn()': inaccessibleElement,
     'fetch': inaccessibleElement,
+    'parseFloat': inaccessibleElement,
     'undefined': inaccessibleElement,
     '%ParameterSourced': inaccessibleElement, // TODO
 }
@@ -546,6 +550,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'console.warn': notSupported('console.warn'),
     'console.warn()': notSupported('console.warn()'),
     'fetch': notSupported('fetch'),
+    'parseFloat': notSupported('parseFloat'),
     'undefined': notSupported('undefined'),
     '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
 }
