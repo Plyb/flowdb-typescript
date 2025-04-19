@@ -1,4 +1,4 @@
-import ts, { CallExpression, PropertyAccessExpression } from 'typescript';
+import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
@@ -152,7 +152,6 @@ export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstru
 
     return ts.isPropertyAccessExpression(node)
         || ts.isIdentifier(node)
-        || ts.isBinaryExpression(node)
         || ts.isCallExpression(node);
 }
 export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
@@ -461,6 +460,10 @@ export function getProtoOf(cons: ts.Node): BuiltInProto | null {
             }
         }
         return 'Object';
+    } else if (ts.isBinaryExpression(cons)
+        && (cons.operatorToken.kind === SyntaxKind.AsteriskToken || cons.operatorToken.kind === SyntaxKind.SlashToken)
+    ) {
+        return 'Object'; // I don't have use for a number proto right now, so we're using Object as the most general placeholder
     }
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }

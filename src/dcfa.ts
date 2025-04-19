@@ -156,11 +156,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 } else if (isNullLiteral(node)) {
                     return singleConfig(config);
                 } else if (ts.isBinaryExpression(node)) {
-                    const lhsRes = fix_run(abstractEval, { node: node.left, env });
-                    const rhsRes = fix_run(abstractEval, { node: node.right, env });
                     const primopId = node.operatorToken.kind;
                     if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                        const lhsRes = fix_run(abstractEval, { node: node.left, env });
+                        const rhsRes = fix_run(abstractEval, { node: node.right, env });
                         return join(lhsRes, rhsRes);
+                    } else if (primopId === SyntaxKind.AsteriskToken || primopId === SyntaxKind.SlashToken) {
+                        return singleConfig(config);
                     } else {
                         return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                     }
