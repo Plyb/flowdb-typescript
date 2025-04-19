@@ -5,7 +5,7 @@ import { structuralComparator } from './comparators';
 import { empty, setMap, setSift } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom } from './configuration';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 
 
@@ -14,38 +14,50 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     const expressionConses = fixed_eval({ node: access.expression, env });
     const property = access.name;
     return configSetJoinMap(expressionConses, consConfig => {
-        const { node: cons, env: consEnv } = consConfig;
-        if (ts.isObjectLiteralExpression(cons)) {
-            for (const prop of cons.properties) {
-                if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
-                    console.warn(`Expected identifier for property`);
-                    continue;
-                }
-
-                if (prop.name.text !== property.text) {
-                    continue;
-                }
-
-                if (ts.isPropertyAssignment(prop)) {
-                    return fixed_eval({ node: prop.initializer, env: consEnv });
-                } else if (ts.isShorthandPropertyAssignment(prop)) {
-                    return fixed_eval({ node: prop.name, env: consEnv })
-                } else {
-                    console.warn(`Unknown object property assignment`)
-                }
-            }
-            return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
-        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
-            return resultOfPropertyAccess[builtInValue](accessConfig, { fixed_eval });
-        } else {
-            const proto = getProtoOf(cons);
-            if (proto === null) {
-                return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(access)}`);
-            }
-            return getPropertyOfProto(proto, property.text, consConfig, accessConfig, fixed_eval);
-        }
+        return getPropertyFromObjectCons(consConfig, property, accessConfig, fixed_eval, targetFunction);
     })
+}
+
+function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
+    const { node: cons, env: consEnv } = consConfig;
+    if (ts.isObjectLiteralExpression(cons)) {
+        for (const prop of [...cons.properties].reverse()) {
+            if (ts.isSpreadAssignment(prop)) {
+                const spreadConses = fixed_eval({ node: prop.expression, env: consConfig.env });
+                return configSetJoinMap(spreadConses, spreadCons =>
+                    getPropertyFromObjectCons(spreadCons, property, originalAccessConfig, fixed_eval, targetFunction)
+                );
+            }
+
+            if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
+                console.warn(`Expected identifier for property`);
+                continue;
+            }
+
+            if (prop.name.text !== property.text) {
+                continue;
+            }
+
+            if (ts.isPropertyAssignment(prop)) {
+                return fixed_eval({ node: prop.initializer, env: consEnv });
+            } else if (ts.isShorthandPropertyAssignment(prop)) {
+                return fixed_eval({ node: prop.name, env: consEnv })
+            } else {
+                console.warn(`Unknown object property assignment`)
+            }
+        }
+        return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
+    } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+        const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
+        return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
+    } else {
+        const proto = getProtoOf(cons);
+        if (proto === null) {
+            return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(originalAccessConfig.node)}`);
+        }
+        return getPropertyOfProto(proto, property.text, consConfig, originalAccessConfig, fixed_eval);
+    }
+
 }
 
 export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }): ConfigSet {
