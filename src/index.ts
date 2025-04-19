@@ -28,7 +28,9 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 }
 
 // analyzeInboxZero()
-analyzeNextCrm()
+// analyzeNextCrm()
+analyzePapermark()
+
 // prepareNextCrm()
 
 // analyzePlayground()
@@ -43,6 +45,11 @@ function analyzeInboxZero() {
 
 function analyzeNextCrm() {
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
+}
+
+function analyzePapermark() {
+  // Note that we'll fail to find bindings for "bytes" a couple of times, but it is resolved by some later instantiations
+  printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 
 // runTests();
