@@ -222,7 +222,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'console.warn()': uncallable('console.warn()'),
     'fetch': () => justExtern,
     'undefined': uncallable('undefined'),
-    '%ParameterSourced': uncallable('%ParameterSourced'), // TODO
+    '%ParameterSourced': singleConfig
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
