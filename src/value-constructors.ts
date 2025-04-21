@@ -591,7 +591,8 @@ function arrayMapABG(this: Config<ts.Expression> | undefined, primopArgIndex: nu
 function isParamSourced(config: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
     const { node, env } = config
     if (ts.isIdentifier(node)) {
-        return ts.isParameter(node.parent) && node.parent.parent === targetFunction;
+        return (ts.isParameter(node.parent) && node.parent.parent === targetFunction)
+            || (ts.isParameter(node.parent.parent.parent) && node.parent.parent.parent.parent === targetFunction);
     } else {
         const expressionConses = fixed_eval({ node: node.expression, env });
         const builtInExpressionConses = setFilter(expressionConses, isBuiltInConstructorShapedConfig);

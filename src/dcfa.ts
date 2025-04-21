@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody, BindingName } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
@@ -107,6 +107,11 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         // I believe we will only get here if the node is the parameter of the target function,
                         // but let's do a sanity check just to make sure.
                         if (node.parent.parent !== targetFunction) {
+                            return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
+                        }
+                        return singleConfig(config);
+                    } else if (ts.isParameter(node.parent.parent.parent)) {
+                        if (node.parent.parent.parent.parent !== targetFunction) {
                             return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
                         }
                         return singleConfig(config);
@@ -518,6 +523,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
                     return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
                 } else if (ts.isParameter(bindingElementSource)) {
+                    if (bindingElementSource.parent === targetFunction) {
+                        return singleConfig({ node: declaration.name, env: envAtDeclaringScope });
+                    }
                     const argConfigs = getArgumentsForParameter(bindingElementSource, envAtDeclaringScope);
                     
                     const argsValues = configSetJoinMap(argConfigs, argConfig => fix_run(abstractEval, argConfig));
