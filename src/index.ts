@@ -48,7 +48,6 @@ function analyzeNextCrm() {
 }
 
 function analyzePapermark() {
-  // Note that we'll fail to find bindings for "bytes" a couple of times, but it is resolved by some later instantiations
   printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 
