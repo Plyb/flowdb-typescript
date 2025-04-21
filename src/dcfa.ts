@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLi
 import { Cursor, isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getElementNodesOfArrayValuedNode, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getElementOfArrayLiteralValue, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
@@ -485,6 +485,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isBindingElement(declaration)) {
                 const bindingElementSource = declaration.parent.parent;
                 if (ts.isVariableDeclaration(bindingElementSource)) {
+                    if (ts.isForOfStatement(bindingElementSource.parent.parent)) {
+                        const expression = bindingElementSource.parent.parent.expression;
+                        if (ts.isArrayBindingPattern(declaration.parent)) {
+                            const i = declaration.parent.elements.indexOf(declaration);
+                            return getElementOfArrayLiteralValue({ node: expression, env: idConfig.env }, i, fixed_eval);
+                        }
+                    }
+
                     const initializer = bindingElementSource.initializer;
                     if (initializer === undefined) {
                         return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)

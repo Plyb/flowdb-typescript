@@ -89,6 +89,21 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
     });
 }
 
+export function getElementOfArrayLiteralValue(config: Config, i: number, fixed_eval: FixedEval) {
+    const conses = fixed_eval(config);
+    return configSetJoinMap(conses, consConfig => {
+        const { node: cons, env: consEnv } = consConfig;
+        if (!ts.isArrayLiteralExpression(cons)) {
+            return unimplementedBottom(`Cannot get ith element of a non-array literal`);
+        }
+
+        return singleConfig({
+            node: cons.elements[i],
+            env: consEnv,
+        });
+    })
+}
+
 export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): ConfigSet {
     const conses = fixed_eval(config);
     return configSetJoinMap(conses, consConfig => {
