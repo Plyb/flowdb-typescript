@@ -39,7 +39,7 @@ analyzeFormbricks()
 // analyzePlayground()
 
 function analyzePlayground() {
-  console.log((runAnalysis('../../examples/playground', './test.ts', 7, 0, 3)).elements)
+  printResults(runAnalysis('../../examples/playground', './test.ts', 7, 0, 3))
 }
 
 function analyzeInboxZero() {

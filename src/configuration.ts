@@ -4,7 +4,7 @@ import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { List, listReduce, toList, unimplemented } from './util';
+import { consList, List, listReduce, toList, unimplemented } from './util';
 import ts from 'typescript';
 
 export type ConfigSet<N extends Cursor = Cursor> = StructuralSet<Config<N>>;
@@ -164,5 +164,14 @@ export function envValue(env: Environment): ConfigSet {
 
 export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
     const refinedEnvironments = fix_run(envKeyFunc, { node: dummy, env: config.env });
-    return setMap(refinedEnvironments, ({ env }) => ({ node: config.node, env } as Config));
+    const directRefinedEnvs = setMap(refinedEnvironments, ({ env }) => ({ node: config.node, env } as Config));
+
+    const refinedTails: ConfigSet = config.env.tail !== undefined
+        ? getRefinementsOf({ node: dummy, env: config.env.tail}, fix_run)
+        : empty();
+    const transitiveRefinedEnvs = configSetJoinMap(refinedTails, tail =>
+        getRefinementsOf({ node: config.node, env: consList(config.env.head, tail.env)}, fix_run)
+    );
+
+    return union(directRefinedEnvs, transitiveRefinedEnvs);
 }
