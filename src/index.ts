@@ -6,7 +6,7 @@ import { StructuralSet } from './structural-set';
 import { Config, ConfigSet, printConfig } from './configuration';
 import { preprocess } from './preprocess';
 import { getRootFolder } from './util';
-import { prepareNextCrm } from './prepareExamples';
+import { prepareFormbricks, prepareNextCrm } from './prepareExamples';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
   const rootFolder = getRootFolder(pathString);
@@ -30,9 +30,11 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeInboxZero()
 // analyzeNextCrm()
 // analyzePapermark()
-analyzeHoppscotch()
+// analyzeHoppscotch()
+analyzeFormbricks()
 
 // prepareNextCrm()
+// prepareFormbricks();
 
 // analyzePlayground()
 
@@ -43,23 +45,24 @@ function analyzePlayground() {
 function analyzeInboxZero() {
   printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
 }
-
 function analyzeNextCrm() {
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
-
 function analyzePapermark() {
   printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
-
 function analyzeHoppscotch() {
   printResults(runAnalysis('../../examples/hoppscotch/packages/hoppscotch-backend', './src/infra-config/helper.ts', 279, 13, 3))
+}
+function analyzeFormbricks() {
+  printResults(runAnalysis('../../examples/formbricks/apps/web', './modules/ee/contacts/api/v1/client/[environmentId]/identify/contacts/[userId]/lib/segments.ts', 29, 35, 3));
 }
 
 // runTests();
 
 
 function printResults(results: StructuralSet<{ table: string, method: string, argument: ConfigSet | undefined }>) {
+  console.log('RESULTS:')
   for (const result of results.elements) {
     console.log(
 `table: ${result.table}

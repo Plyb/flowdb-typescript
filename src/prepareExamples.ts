@@ -12,3 +12,9 @@ export function prepareNextCrm() {
     const tsConfigPath = getTsConfigPath(distRootFolder);
     preprocess(tsConfigPath);
 }
+
+export function prepareFormbricks() {
+    const sourceRootFolder = getRootFolder('../../examples/formbricks/apps/web');
+    const tsConfigPath = getTsConfigPath(sourceRootFolder);
+    preprocess(tsConfigPath);
+}
