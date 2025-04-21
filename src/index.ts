@@ -3,7 +3,7 @@ import { analyze } from './analysis';
 import { getService } from './ts-utils';
 import { runTests } from './tests';
 import { StructuralSet } from './structural-set';
-import { ConfigSet, printConfig } from './configuration';
+import { Config, ConfigSet, printConfig } from './configuration';
 import { preprocess } from './preprocess';
 import { getRootFolder } from './util';
 import { prepareNextCrm } from './prepareExamples';
@@ -29,7 +29,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 
 // analyzeInboxZero()
 // analyzeNextCrm()
-analyzePapermark()
+// analyzePapermark()
+analyzeHoppscotch()
 
 // prepareNextCrm()
 
@@ -51,15 +52,19 @@ function analyzePapermark() {
   printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 
+function analyzeHoppscotch() {
+  printResults(runAnalysis('../../examples/hoppscotch/packages/hoppscotch-backend', './src/infra-config/helper.ts', 279, 13, 3))
+}
+
 // runTests();
 
 
-function printResults(results: StructuralSet<{ table: string, method: string, argument: ConfigSet}>) {
+function printResults(results: StructuralSet<{ table: string, method: string, argument: ConfigSet | undefined }>) {
   for (const result of results.elements) {
     console.log(
 `table: ${result.table}
 method: ${result.method}
-arg: ${result.argument.elements.map(printConfig).join('\n')}
+arg: ${result.argument?.elements.map(printConfig).join('\n')}
 ---------------------
 `);
   }

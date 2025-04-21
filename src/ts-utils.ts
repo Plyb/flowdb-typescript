@@ -120,10 +120,10 @@ export function* findAll(node: ts.Node, predicate: (node: ts.Node) => boolean): 
     }
 }
 
-type PrismaQueryExpression = {
+export type PrismaQueryExpression = {
     table: string,
     method: string,
-    argument: ts.Node
+    argument: ts.Node | undefined
 };
 
 export function findAllPrismaQueryExpressions(node: ts.Node): SimpleSet<PrismaQueryExpression> {
@@ -140,7 +140,7 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
         return false;
     }
 
-    if (node.arguments.length !== 1) {
+    if (node.arguments.length > 1) {
         return false;
     }
 

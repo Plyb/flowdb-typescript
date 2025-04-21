@@ -38,6 +38,8 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
     return setMap(prismaQueryExpressionsConfigs, ({ qExp, env }) => ({
         table: qExp.table,
         method: qExp.method,
-        argument: fixed_eval({ node: qExp.argument, env })
+        argument: qExp.argument !== undefined
+            ? fixed_eval({ node: qExp.argument, env })
+            : qExp.argument
     }))
 }

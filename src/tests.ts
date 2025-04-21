@@ -17,7 +17,7 @@ export function runTests() {
     const oldConsoleInfo = console.info;
     console.info = () => undefined;
 
-    const results = setFlatMap(analyze(service, file, 8, 6, 1), res => setMap(res.argument, config => config.node));
+    const results = setFlatMap(analyze(service, file, 8, 6, 1), res => setMap(res.argument!, config => config.node));
 
     const testFile = service.getProgram()!.getSourceFile(file)!;
     const librFile = service.getProgram()!.getSourceFile(path.resolve(rootFolder, './lib.ts'))!;
