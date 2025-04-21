@@ -31,7 +31,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
-analyzeFormbricks()
+// analyzeFormbricks()
+analyzeDocumenso()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -56,6 +57,9 @@ function analyzeHoppscotch() {
 }
 function analyzeFormbricks() {
   printResults(runAnalysis('../../examples/formbricks/apps/web', './modules/ee/contacts/api/v1/client/[environmentId]/identify/contacts/[userId]/lib/segments.ts', 29, 35, 3));
+}
+function analyzeDocumenso() {
+  printResults(runAnalysis('../../examples/documenso/packages/lib', './server-only/recipient/set-document-recipients.ts', 42, 42, 3))
 }
 
 // runTests();
