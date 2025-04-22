@@ -142,7 +142,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return singleConfig(config);
                 } else if (isPropertyAccessConfig(config)) {
                     if (!ts.isIdentifier(config.node.name)) {
-                        return unimplementedBottom(`Expected simple identifier property access: ${config.node.name}`);
+                        return unimplementedBottom(`Expected simple identifier property access: ${printNodeAndPos(config.node.name)}`);
                     }
         
                     return getObjectProperty(config, fixed_eval, targetFunction);
