@@ -70,6 +70,9 @@ export function listReduce<T, R>(list: List<T>, combine: (acc: R, curr: T) => R,
 export function getRootFolder(relativePath: string) {
     return path.resolve(__dirname, relativePath);
 }
+export function getTsConfigAppPath(rootFolder: string) {
+    return path.join(rootFolder, 'tsconfig.app.json');
+}
 export function getTsConfigPath(rootFolder: string) {
     return path.join(rootFolder, 'tsconfig.json');
 }

@@ -6,7 +6,7 @@ import fs from 'fs';
 import { Cursor, isExtern } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment } from './configuration';
-import { getTsConfigPath, toList, unimplemented } from './util';
+import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
 import { stackBottom } from './context';
 
 
@@ -200,7 +200,9 @@ export const Ambient = 2**25;
 
 
 export function getService(rootFolder: string) {
-    const configFile = ts.readConfigFile(getTsConfigPath(rootFolder), ts.sys.readFile);
+    const configFile = fs.existsSync(getTsConfigAppPath(rootFolder))
+        ? ts.readConfigFile(getTsConfigAppPath(rootFolder), ts.sys.readFile)
+        : ts.readConfigFile(getTsConfigPath(rootFolder), ts.sys.readFile);
     const { options, fileNames } = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootFolder);
 
     const files: ts.MapLike<{version: number}> = Object
