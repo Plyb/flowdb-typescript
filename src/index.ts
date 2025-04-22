@@ -20,7 +20,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  console.info = () => undefined
+  // console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -32,7 +32,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
-analyzeDocumenso()
+// analyzeDocumenso()
+analyzeDittofeed()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -60,6 +61,9 @@ function analyzeFormbricks() {
 }
 function analyzeDocumenso() {
   printResults(runAnalysis('../../examples/documenso/packages/lib', './server-only/recipient/set-document-recipients.ts', 42, 42, 3))
+}
+function analyzeDittofeed() {
+  printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
 }
 
 // runTests();
