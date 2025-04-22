@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
@@ -61,7 +61,7 @@ export function* getStatements<T extends ts.Node>(node: ts.Node, predicate: (nod
 }
 
 export type SimpleFunctionLikeDeclaration =
-    (FunctionDeclaration | FunctionExpression | ArrowFunction)
+    (FunctionDeclaration | FunctionExpression | ArrowFunction | MethodDeclaration)
     & { body: ConciseBody }
 type SimpleFunctionLikeDeclarationAsync = SimpleFunctionLikeDeclaration
     & { modifiers: [AsyncKeyword]}
@@ -70,7 +70,7 @@ export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionL
         return false;
     }
 
-    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
+    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node) || ts.isMethodDeclaration(node)) {
         if (node.body === undefined) {
             throw new Error('should not have undefined function body');
         }
