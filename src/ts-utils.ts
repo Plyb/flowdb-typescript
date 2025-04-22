@@ -154,10 +154,7 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
         return false;
     }
 
-    if (!(ts.isIdentifier(prismaTable.expression)
-        && (prismaTable.expression.text === 'prisma'
-            || prismaTable.expression.text === 'prismadb')
-    )) {
+    if (!isPrimsaShaped(prismaTable.expression)) {
         return false;
     }
 
@@ -166,6 +163,26 @@ export function getPrismaQuery(node: ts.Node) : false | PrismaQueryExpression {
         method: querySignature.name.text,
         argument: node.arguments[0],
     }
+}
+
+function isPrimsaShaped(node: ts.Node) {
+    if (ts.isIdentifier(node)
+        && (node.text === 'prisma'
+            || node.text === 'prismadb')
+    ) {
+        return true;
+    }
+
+    if (ts.isPropertyAccessExpression(node)
+        && node.name.text === 'query'
+        && ts.isCallExpression(node.expression)
+        && ts.isIdentifier(node.expression.expression)
+        && node.expression.expression.text === 'db'
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 export function isPrismaQuery(node: ts.Node): boolean {
