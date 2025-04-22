@@ -34,7 +34,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
-analyzeRevert()
+// analyzeRevert()
+analyzeAbby()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -68,6 +69,9 @@ function analyzeDittofeed() {
 }
 function analyzeRevert() {
   printResults(runAnalysis('../../examples/revert/packages/backend', './routes/v1/fieldMapping.ts', 79, 32, 3))
+}
+function analyzeAbby() {
+  printResults(runAnalysis('../../examples/abby/apps/web', './src/server/services/ConfigService.ts', 68, 13, 3))
 }
 
 // runTests();
