@@ -33,7 +33,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
-analyzeDittofeed()
+// analyzeDittofeed()
+analyzeRevert()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -64,6 +65,9 @@ function analyzeDocumenso() {
 }
 function analyzeDittofeed() {
   printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
+}
+function analyzeRevert() {
+  printResults(runAnalysis('../../examples/revert/packages/backend', './routes/v1/fieldMapping.ts', 79, 32, 3))
 }
 
 // runTests();
