@@ -35,7 +35,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDocumenso()
 // analyzeDittofeed()
 // analyzeRevert()
-analyzeAbby()
+// analyzeAbby()
+analyzeTriggerDev()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -72,6 +73,9 @@ function analyzeRevert() {
 }
 function analyzeAbby() {
   printResults(runAnalysis('../../examples/abby/apps/web', './src/server/services/ConfigService.ts', 68, 13, 3))
+}
+function analyzeTriggerDev() {
+  printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/presenters/v3/EnvironmentVariablesPresenter.server.ts', 17, 19, 3))
 }
 
 // runTests();
