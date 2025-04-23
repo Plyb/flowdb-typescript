@@ -37,7 +37,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeRevert()
 // analyzeAbby()
 // analyzeTriggerDev()
-analyzeScholarsome()
+// analyzeScholarsome()
+analyzeDyrectorio()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -80,6 +81,9 @@ function analyzeTriggerDev() {
 }
 function analyzeScholarsome() {
   printResults(runAnalysis('../../examples/scholarsome/apps/api', './src/app/sets/sets.controller.ts', 317, 17, 3))
+}
+function analyzeDyrectorio() {
+  printResults(runAnalysis('../../examples/dyrectorio/web/crux', './src/app/notification/notification.service.ts', 54, 26, 3))
 }
 
 // runTests();
