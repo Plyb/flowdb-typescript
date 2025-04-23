@@ -39,7 +39,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeTriggerDev()
 // analyzeScholarsome()
 // analyzeDyrectorio()
-analyzeLinenDev()
+// analyzeLinenDev()
+analyzeDub()
 
 // prepareNextCrm()
 // prepareFormbricks();
