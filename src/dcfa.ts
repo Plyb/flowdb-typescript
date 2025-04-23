@@ -97,7 +97,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 opConfig,
                                 fixed_eval, targetFunction
                             );
-                            return resultOfCalling[builtInValue](config, { fixed_eval });
+                            return resultOfCalling[builtInValue](config, { fixed_eval, m });
                         } else {
                             return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                         }
@@ -623,7 +623,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                     env: callSiteEnv
                                 }
                                 : undefined;
-                            return binderGetter.apply(thisConfig, [primopArgIndex, argParameterIndex, { fixed_eval, fixed_trace, targetFunction, m }]);
+                            return binderGetter.apply(
+                                thisConfig, [primopArgIndex, argParameterIndex, { node: callSiteWhereArg, env: callSiteEnv },
+                                { fixed_eval, fixed_trace, targetFunction, m }]
+                            );
                         });
                     }
                 );

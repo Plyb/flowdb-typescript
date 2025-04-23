@@ -7,7 +7,7 @@ import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern } from './configuration';
+import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ts.ElementAccessExpression;
 
@@ -25,6 +25,7 @@ const builtInValuesObject = {
     'Array#join()': true,
     'Array#map': true,
     'Array#map()': true,
+    'Array#reduce': true,
     'Array#slice': true,
     'Array#slice()': true,
     'Array#some': true,
@@ -187,11 +188,26 @@ export function isBuiltInConstructorShapedConfig(config: Config): config is Conf
 }
 
 function uncallable(name: BuiltInValue) { return () => unimplementedBottom(`No result of calling ${name}`)}
-type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval }) => ConfigSet
+type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval, m: number }) => ConfigSet
 const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
     node: callConfig.node.arguments[0],
     env: callConfig.env,
 })
+const arrayReduceCallGetter: CallGetter = (callConfig, { fixed_eval, m }) => {
+    const accumulatorConses = fixed_eval({ node: callConfig.node.arguments[0], env: callConfig.env });
+    const initialConses = fixed_eval({ node: callConfig.node.arguments[1], env: callConfig.env });
+
+    
+    const accumulatorResults = configSetJoinMap(accumulatorConses, accumulatorCons => {
+        if (!isFunctionLikeDeclaration(accumulatorCons.node)) {
+            return unimplementedBottom(`Expected a function ${printNodeAndPos(accumulatorCons.node)}`)
+        }
+        
+        return fixed_eval({ node: accumulatorCons.node.body, env: consList(pushContext(callConfig.node, callConfig.env, m), accumulatorCons.env) });
+    })
+
+    return join(initialConses, accumulatorResults);
+}
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
     'Array#filter': singleConfig,
@@ -206,6 +222,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array#join()': uncallable('Array#join()'),
     'Array#map': singleConfig,
     'Array#map()': uncallable('Array#map()'),
+    'Array#reduce': arrayReduceCallGetter,
     'Array#slice': singleConfig,
     'Array#slice()': uncallable('Array#slice()'),
     'Array#some': singleConfig,
@@ -313,6 +330,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Array#join()': builtInProtoMethod('String'),
     'Array#map': inaccessibleProperty,
     'Array#map()': builtInProtoMethod('Array'),
+    'Array#reduce': inaccessibleProperty,
     'Array#slice': inaccessibleProperty,
     'Array#slice()': builtInProtoMethod('Array'),
     'Array#some': inaccessibleProperty,
@@ -458,6 +476,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Array#join()': inaccessibleElement,
     'Array#map': inaccessibleElement,
     'Array#map()': arrayMapEAG,
+    'Array#reduce': inaccessibleElement,
     'Array#slice': inaccessibleElement,
     'Array#slice()': inaccessibleElement, // TODO
     'Array#some': inaccessibleElement,
@@ -569,9 +588,36 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
 }
 
 
-type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet;
+type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet;
 type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
 const notSupported = (name: BuiltInValue) => () => unimplementedBottom(`Unimplemented function arg param binder getter for ${name}`);
+const arrayMapABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, _, { fixed_eval, fixed_trace, targetFunction, m }): ConfigSet {
+    if (this === undefined) {
+        throw new Error();
+    }
+    
+    if (primopArgIndex != 0 || argParameterIndex != 0) {
+        return empty();
+    }
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m });
+}
+const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, targetFunction, m }) {
+    if (this === undefined) {
+        return unimplementedBottom(`Cannot call reduce on undefined`);
+    }
+
+    if (primopArgIndex !== 0) {
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array#reduce`);
+    }
+
+    if (argParameterIndex === 0) {
+        return fixed_eval(callSite);
+    } else if (argParameterIndex === 1) {
+        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m })
+    } else {
+        return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
+    }
+}
 export const primopBinderGetters: PrimopBinderGetters = {
     'Array': notSupported('Array'),
     'Array#filter': notSupported('Array#filter'),
@@ -586,6 +632,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Array#join()': notSupported('Array#join()'),
     'Array#map': arrayMapABG,
     'Array#map()': notSupported('Array'),
+    'Array#reduce': arrayReduceABG,
     'Array#slice': notSupported('Array#slice'),
     'Array#slice()': notSupported('Array#slice()'),
     'Array#some': notSupported('Array#some'),
@@ -647,16 +694,6 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'parseFloat': notSupported('parseFloat'),
     'undefined': notSupported('undefined'),
     '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
-}
-function arrayMapABG(this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }): ConfigSet {
-    if (this === undefined) {
-        throw new Error();
-    }
-    
-    if (primopArgIndex != 0 || argParameterIndex != 0) {
-        return empty();
-    }
-    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m });
 }
 
 function isParamSourced(config: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
