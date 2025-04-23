@@ -20,7 +20,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  // console.info = () => undefined
+  console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -36,7 +36,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDittofeed()
 // analyzeRevert()
 // analyzeAbby()
-analyzeTriggerDev()
+// analyzeTriggerDev()
+analyzeScholarsome()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -76,6 +77,9 @@ function analyzeAbby() {
 }
 function analyzeTriggerDev() {
   printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/presenters/v3/EnvironmentVariablesPresenter.server.ts', 17, 19, 3))
+}
+function analyzeScholarsome() {
+  printResults(runAnalysis('../../examples/scholarsome/apps/api', './src/app/sets/sets.controller.ts', 317, 17, 3))
 }
 
 // runTests();
