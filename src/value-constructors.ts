@@ -6,8 +6,8 @@ import { Cursor, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
-import { getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom } from './configuration';
+import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
+import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
 
@@ -52,6 +52,8 @@ const builtInValuesObject = {
     'Object.entries()': true,
     'Object.freeze': true,
     'Object.keys': true,
+    'Object.values': true,
+    'Object.values()': true,
     'Promise': true,
     'Promise.all': true,
     'Promise.all()': true,
@@ -212,6 +214,8 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Object.entries()': uncallable('Object.entries()'),
     'Object.freeze': uncallable('Object.freeze'), // TODO
     'Object.keys': singleConfig,
+    'Object.values': singleConfig,
+    'Object.values()': uncallable('Object.values()'),
     'Promise': uncallable('Promise'),
     'Promise.all': singleConfig,
     'Promise.all()': uncallable('Promise.all()'),
@@ -312,12 +316,14 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Math': builtInStaticMethod('Math.floor'),
     'Math.floor': inaccessibleProperty('Math.floor'),
     'Math.floor()': inaccessibleProperty('Math.floor()'),
-    'Object': builtInStaticMethods('Object.assign', 'Object.entries', 'Object.freeze', 'Object.keys'),
+    'Object': builtInStaticMethods('Object.assign', 'Object.entries', 'Object.freeze', 'Object.keys', 'Object.values'),
     'Object.assign': inaccessibleProperty('Object.assign'),
     'Object.entries': inaccessibleProperty('Object.entries'),
     'Object.entries()': builtInProtoMethod('Array'),
     'Object.freeze': inaccessibleProperty('Object.freeze'),
     'Object.keys': inaccessibleProperty('Object.keys'),
+    'Object.values': inaccessibleProperty('Object.values'),
+    'Object.values()': builtInProtoMethod('Array'),
     'Promise': builtInStaticMethods('Promise.all', 'Promise.allSettled'),
     'Promise.all': inaccessibleProperty('Promise.all'),
     'Promise.all()': inaccessibleProperty('Promise.all()'),
@@ -381,6 +387,24 @@ const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, 
         return fixed_eval({ node: keyArg, env: siteConfig.env });
     });
 }
+const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, targetFunction }) => {
+    if (!ts.isCallExpression(consConfig.node)) {
+        return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
+    }
+
+    if (consConfig.node.arguments.length !== 1) {
+        return unimplementedBottom(`Expected a single argument ${printNodeAndPos(consConfig.node)}`)
+    }
+
+    const argConfig = { node: consConfig.node.arguments[0], env: consConfig.env };
+    return configSetJoinMap(fixed_eval(argConfig), objectConsConfig => {
+        if (!isObjectLiteralExpressionConfig(objectConsConfig)) {
+            return unimplementedBottom(`Expected an object literal ${printNodeAndPos(objectConsConfig.node)}`)
+        }
+        return getAllValuesOf(objectConsConfig, fixed_eval, targetFunction);
+    })
+
+}
 function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval, targetFunction }: { fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
     const { node: cons, env } = consConfig;
     if (!ts.isCallExpression(cons)) {
@@ -437,6 +461,8 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Object.entries': inaccessibleElement,
     'Object.entries()': inaccessibleElement, // TODO
     'Object.keys': inaccessibleElement,
+    'Object.values': inaccessibleElement,
+    'Object.values()': objectValuesEAG,
     'Promise': inaccessibleElement,
     'Promise.all': inaccessibleElement,
     'Promise.all()': inaccessibleElement, // TODO
@@ -561,6 +587,8 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Object.entries': notSupported('Object.entries'),
     'Object.entries()': notSupported('Object.entries()'),
     'Object.keys': notSupported('Object.keys'), // TODO
+    'Object.values': notSupported('Object.values'),
+    'Object.values()': notSupported('Object.values()'),
     'Promise': notSupported('Promise'),
     'Promise.all': notSupported('Promise.all'),
     'Promise.all()': notSupported('Promise.all()'),

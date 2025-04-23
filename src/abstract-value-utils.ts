@@ -161,7 +161,7 @@ export function getElementOfArrayOfTuples(config: Config, i: number, idConfigToP
     })
 }
 
-function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration) {
+export function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration) {
     const setOfProperties = new SimpleSet(structuralComparator, ...objectCons.node.properties)
                 
     return setFlatMap(setOfProperties, prop => {
