@@ -398,6 +398,10 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, targetFu
 
     const argConfig = { node: consConfig.node.arguments[0], env: consConfig.env };
     return configSetJoinMap(fixed_eval(argConfig), objectConsConfig => {
+        if (isBuiltInConstructorShapedConfig(objectConsConfig) && isParamSourced(objectConsConfig, fixed_eval, targetFunction)) {
+            return singleConfig(objectConsConfig) // this is not correct, but I don't have a better way atm
+        }
+
         if (!isObjectLiteralExpressionConfig(objectConsConfig)) {
             return unimplementedBottom(`Expected an object literal ${printNodeAndPos(objectConsConfig.node)}`)
         }

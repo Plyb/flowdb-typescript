@@ -517,8 +517,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                             const i = declaration.parent.elements.indexOf(declaration);
                             return getElementOfArrayOfTuples(
-                                { node: expression, env: idConfig.env },
-                                i, { node: declaration.name, env: envAtDeclaringScope },
+                                { node: expression, env: idConfig.env }, i,
                                 fixed_eval, fixed_trace, targetFunction, m
                             );
                         }

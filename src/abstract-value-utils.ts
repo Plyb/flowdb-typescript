@@ -117,7 +117,7 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
 
 // Arrays are sometimes used as tuples in JS. For it to make sense to treat an array as a tuple, it should never be mutated
 // and it should be straightforward to find the ith element.
-export function getElementOfArrayOfTuples(config: Config, i: number, idConfigToPopulate: Config<ts.Identifier>, fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number) {
+export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number) {
     const arrayConses = fixed_eval(config);
     return configSetJoinMap(arrayConses, arrayConsConfig => {
         if (isBuiltInConstructorShapedConfig(arrayConsConfig)) {
@@ -141,7 +141,7 @@ export function getElementOfArrayOfTuples(config: Config, i: number, idConfigToP
                     return getAllValuesOf(objectLiteralCons, fixed_eval, targetFunction);
                 })
             } else if (builtInValue === '%ParameterSourced') {
-                return singleConfig(idConfigToPopulate);
+                return singleConfig(arrayConsConfig); // This is not correct, but I don't have a good way to do it correctly right now and nothing really depends on this since it's param sourced
             }
         }
 
