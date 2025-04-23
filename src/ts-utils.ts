@@ -293,10 +293,10 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
             return declaration.parent;
         }
         throw new Error(`Unknown kind of variable declaration for finding scope: ${printNodeAndPos(declaration)}`)
-    } else if (ts.isFunctionDeclaration(declaration)) {
+    } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
         const declarationParent = declaration.parent;
         if (!(ts.isBlock(declarationParent) || ts.isSourceFile(declarationParent))) {
-            throw new Error(`Expected a function declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
+            throw new Error(`Expected a function/class declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
         }
         return declarationParent;
     } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
@@ -311,6 +311,8 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
             throw new Error(`Unable to find higher level declaration of shorthand property assignment ${printNodeAndPos(declaration)}`)
         }
         return getDeclaringScope(higherLevelDeclaration, typeChecker);
+    } else if (ts.isMethodDeclaration(declaration) && ts.isClassDeclaration(declaration.parent)) {
+        return getDeclaringScope(declaration.parent, typeChecker);
     }
     return unimplemented(`Unknown declaring scope for ${printNodeAndPos(declaration)}`, declaration.getSourceFile());
 }

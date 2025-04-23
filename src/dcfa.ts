@@ -145,7 +145,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return unimplementedBottom(`Expected simple identifier property access: ${printNodeAndPos(config.node.name)}`);
                     }
         
-                    return getObjectProperty(config, fixed_eval, targetFunction);
+                    return getObjectProperty(config, typeChecker, fixed_eval, targetFunction);
                 } else if (ts.isAwaitExpression(node)) {
                     return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
                 } else if (ts.isArrayLiteralExpression(node)) {
@@ -181,6 +181,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return fix_run(abstractEval, { node: node.expression, env });
                 } else if (node.kind === SyntaxKind.AsyncKeyword) {
                     return singleConfig(config);
+                } else if (ts.isClassDeclaration(node)) {
+                    return singleConfig(config);
                 }
                 return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
             }
@@ -210,6 +212,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
+            const fixed_trace = (config: Config) => fix_run(getWhereValueReturned, config);
+
             const { node, env } = config;
             if (isExtern(node)) {
                 return empty();
@@ -238,9 +242,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 const refs = getReferences({ node: parent.name, env })
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-            } else if (ts.isFunctionDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
+            } else if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
-                    return unimplementedBottom('function declaration should have name')
+                    return unimplementedBottom('function/class declaration should have name')
                 }
     
                 const refs = getReferences({ node: node.name, env });
@@ -248,8 +252,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isForOfStatement(parent) && parent.expression === node) {
                 return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
             } else if (ts.isPropertyAccessExpression(parent)) {
-                if (node != parent.expression) {
-                    return unimplementedBottom(`Unknown situation for getWhereValueReturned: where to trace a child of propertyAccessExpression that isn't the expression for ${printNodeAndPos(node)} `)
+                if (node != parent.name) {
+                    return fixed_trace({ node: parent, env });
                 }
 
                 return empty();
@@ -291,6 +295,20 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return getReferences({ node: parent.name, env });
             } else if (ts.isPropertySignature(parent)) {
                 return empty(); // spurious reference
+            } else if (ts.isClassDeclaration(parent) && ts.isMethodDeclaration(node)) {
+                if (node.name === undefined || !ts.isIdentifier(node.name)) {
+                    return unimplementedBottom('method declaration should have name')
+                }
+
+                const refs = getReferences({ node: node.name, env });
+                const propertyAccessesAtRefs = configSetJoinMap(refs, ref => {
+                    if (!ts.isPropertyAccessExpression(ref.node.parent) || ref.node.parent.name !== ref.node) {
+                        return unimplementedBottom(`Expected ref to be the name of a property access expression ${printNodeAndPos(ref.node)}`);
+                    }
+
+                    return singleConfig({ node: ref.node.parent, env: ref.env });
+                })
+                return configSetJoinMap(propertyAccessesAtRefs, ref => fix_run(getWhereValueReturned, ref));
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
@@ -482,7 +500,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         env: envAtDeclaringScope,
                     });
                 }
-            } else if (ts.isFunctionDeclaration(declaration)) {
+            } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
                 return singleton<Config>({
                     node: declaration,
                     env: envAtDeclaringScope,

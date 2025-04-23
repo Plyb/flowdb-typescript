@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts, { SyntaxKind } from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
@@ -7,10 +7,15 @@ import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
+import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
 
 
-export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
+export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
     const { node: access, env } = accessConfig;
+    if (isDependencyAccessExpression(access)) {
+        return getDependencyInjected({ node: access, env}, typeChecker, fixed_eval);
+    }
+
     const expressionConses = fixed_eval({ node: access.expression, env });
     const property = access.name;
     return configSetJoinMap(expressionConses, consConfig => {
@@ -50,6 +55,19 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
     } else if (isBuiltInConstructorShapedConfig(consConfig)) {
         const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
         return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
+    } else if (isDecoratorIndicatingDependencyInjectable(consConfig.node)) {
+        const classDeclaration = consConfig.node.parent;
+        if (!ts.isClassDeclaration(classDeclaration)) {
+            return unimplementedBottom(`Expected ${printNodeAndPos(classDeclaration)} to be a class declaration`);
+        }
+
+        const reversedMembers = [...classDeclaration.members].reverse();
+        for (const member of reversedMembers) {
+            if (member.name !== undefined && ts.isIdentifier(member.name) && member.name.text === property.text) {
+                return singleConfig({ node: member, env: consEnv });
+            }
+        }
+        return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
     } else {
         const proto = getProtoOf(cons);
         if (proto === null) {
