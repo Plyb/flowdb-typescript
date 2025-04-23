@@ -32,6 +32,10 @@ export function getDependencyInjected(dependencyAccess: Config<DependencyAccessE
         return unimplementedBottom(`Unable to find the corresponding parameter to ${printNodeAndPos(dependencyAccess.node.name)}`);
     }
     if (!ts.isParameter(dependencyParam)) {
+        if (ts.isMethodDeclaration(dependencyParam)) {
+            return singleConfig({ node: dependencyParam, env: consList(stackBottom, emptyList) });
+        }
+
         return getInitializersFromConstructor(dependencyParam, classDeclaration, fixed_eval);
     }
 
