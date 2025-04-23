@@ -174,17 +174,24 @@ function isPrimsaShaped(node: ts.Node) {
     }
 
     if (ts.isPropertyAccessExpression(node)
-        && node.name.text === 'query'
         && ts.isCallExpression(node.expression)
         && ts.isIdentifier(node.expression.expression)
         && node.expression.expression.text === 'db'
+        && node.name.text === 'query'
     ) {
         return true;
     }
 
     if (ts.isPropertyAccessExpression(node)
-        && node.name.text === '#prismaClient'
         && node.expression.kind === SyntaxKind.ThisKeyword
+        && node.name.text === '#prismaClient'
+    ) {
+        return true;
+    }
+
+    if (ts.isPropertyAccessExpression(node)
+        && node.expression.kind === SyntaxKind.ThisKeyword
+        && node.name.text === 'prisma'
     ) {
         return true;
     }
