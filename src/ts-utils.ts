@@ -272,7 +272,7 @@ export function* getParentChain(node: ts.Node) {
     }
 }
 
-type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile | ts.CatchClause;
+type Scope = SimpleFunctionLikeDeclaration | ts.Block | ts.SourceFile | ts.CatchClause | ts.ForOfStatement;
 export function getDeclaringScope(declaration: Declaration, typeChecker: ts.TypeChecker): Scope {
     if (ts.isParameter(declaration)) {
         if (!isFunctionLikeDeclaration(declaration.parent)) {
@@ -282,19 +282,14 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
     } else if (ts.isVariableDeclaration(declaration)) {
         if (ts.isVariableDeclarationList(declaration.parent)
         ) {
-            if (ts.isVariableStatement(declaration.parent.parent)
-                || (ts.isForOfStatement(declaration.parent.parent)
-                    && !ts.isBlock(declaration.parent.parent.statement))
-            ) {
+            if (ts.isVariableStatement(declaration.parent.parent)) {
                 const variableStatementParent = declaration.parent.parent.parent;
                 if (!(ts.isBlock(variableStatementParent) || ts.isSourceFile(variableStatementParent))) {
                     throw new Error(`Expected a statement to be in a block or sf: ${printNodeAndPos(variableStatementParent)}`);
                 }
                 return variableStatementParent;
-            } else if (ts.isForOfStatement(declaration.parent.parent)
-                && ts.isBlock(declaration.parent.parent.statement)
-            ) {
-                return declaration.parent.parent.statement;
+            } else if (ts.isForOfStatement(declaration.parent.parent)) {
+                return declaration.parent.parent;
             }
         } else if (ts.isCatchClause(declaration.parent)) {
             return declaration.parent;

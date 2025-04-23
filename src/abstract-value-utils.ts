@@ -1,11 +1,11 @@
-import ts, { SyntaxKind } from 'typescript';
+import ts, { isObjectLiteralExpression, SyntaxKind } from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
-import { empty, setMap, setSift } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern } from './configuration';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
 
@@ -23,7 +23,7 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     })
 }
 
-function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
+function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): ConfigSet {
     const { node: cons, env: consEnv } = consConfig;
     if (ts.isObjectLiteralExpression(cons)) {
         for (const prop of [...cons.properties].reverse()) {
@@ -53,6 +53,10 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         }
         return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
     } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+        if (originalAccessConfig === undefined) {
+            return unimplementedBottom(`To access a built in constructor of an object, the original access must be defined: ${printNodeAndPos(cons)}`)
+        }
+
         const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction);
         return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
     } else if (isDecoratorIndicatingDependencyInjectable(consConfig.node)) {
@@ -69,6 +73,10 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         }
         return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
     } else {
+        if (originalAccessConfig === undefined) {
+            return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
+        }
+
         const proto = getProtoOf(cons);
         if (proto === null) {
             return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(originalAccessConfig.node)}`);
@@ -107,19 +115,69 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
     });
 }
 
-export function getElementOfArrayLiteralValue(config: Config, i: number, fixed_eval: FixedEval) {
-    const conses = fixed_eval(config);
-    return configSetJoinMap(conses, consConfig => {
-        const { node: cons, env: consEnv } = consConfig;
-        if (!ts.isArrayLiteralExpression(cons)) {
-            return unimplementedBottom(`Cannot get ith element of a non-array literal`);
+// Arrays are sometimes used as tuples in JS. For it to make sense to treat an array as a tuple, it should never be mutated
+// and it should be straightforward to find the ith element.
+export function getElementOfArrayOfTuples(config: Config, i: number, idConfigToPopulate: Config<ts.Identifier>, fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number) {
+    const arrayConses = fixed_eval(config);
+    return configSetJoinMap(arrayConses, arrayConsConfig => {
+        if (isBuiltInConstructorShapedConfig(arrayConsConfig)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(arrayConsConfig, fixed_eval, targetFunction);
+            if (builtInValue === 'Object.entries()') {
+                if (!ts.isCallExpression(arrayConsConfig.node) || !ts.isPropertyAccessExpression(arrayConsConfig.node.expression)) {
+                    return unimplementedBottom(`Expected ${printNodeAndPos(arrayConsConfig.node)} to be of the shape (....).entries(....)`);
+                }
+    
+                if (i !== 1) {
+                    return unimplementedBottom(`Getting anything but the values from Object#entries() is not yet implemented ${printNodeAndPos(config.node)}`)
+                }
+    
+                const objectConses = fixed_eval({ node: arrayConsConfig.node.expression.expression, env: arrayConsConfig.env });
+                const objectLiteralConses = configSetFilter(objectConses, isObjectLiteralExpressionConfig)
+                return configSetJoinMap(objectLiteralConses, objectLiteralCons => {
+                    if (isConfigExtern(objectLiteralCons)) {
+                        return singleConfig(objectLiteralCons);
+                    }
+    
+                    return getAllValuesOf(objectLiteralCons, fixed_eval, targetFunction);
+                })
+            } else if (builtInValue === '%ParameterSourced') {
+                return singleConfig(idConfigToPopulate);
+            }
         }
 
-        return singleConfig({
-            node: cons.elements[i],
-            env: consEnv,
-        });
+
+        const arrayElementNodes = getElementNodesOfArrayValuedNode(arrayConsConfig, { fixed_eval, fixed_trace, targetFunction, m });
+        const arrayElementConses = configSetJoinMap(arrayElementNodes, fixed_eval);
+        return configSetJoinMap(arrayElementConses, ({ node: elementCons, env: elementEnv }) => {
+            if (!ts.isArrayLiteralExpression(elementCons)) {
+                return unimplementedBottom(`Cannot get ith element of a non-array literal ${printNodeAndPos(elementCons)}`);
+            }
+    
+            return singleConfig({
+                node: elementCons.elements[i],
+                env: elementEnv,
+            });
+        })
     })
+}
+
+function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration) {
+    const setOfProperties = new SimpleSet(structuralComparator, ...objectCons.node.properties)
+                
+    return setFlatMap(setOfProperties, prop => {
+        if (ts.isSpreadAssignment(prop)) {
+            const expressionConses = fixed_eval({ node: prop.expression, env: objectCons.env });
+            const expressionObjectLiteralConses = setFilter(expressionConses, isObjectLiteralExpressionConfig);
+
+            return configSetJoinMap(expressionObjectLiteralConses, cons => getAllValuesOf(cons, fixed_eval, targetFunction));
+        }
+
+        if (!ts.isIdentifier(prop.name)) {
+            return unimplementedBottom(`Unkown kind of prop name: ${printNodeAndPos(prop.name)}`)
+        }
+
+        return getPropertyFromObjectCons(objectCons, prop.name, undefined, fixed_eval, targetFunction)
+    }) as ConfigSet;
 }
 
 export function resolvePromisesOfNode(config: Config, fixed_eval: FixedEval): ConfigSet {

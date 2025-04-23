@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLi
 import { Cursor, isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getElementNodesOfArrayValuedNode, getElementOfArrayLiteralValue, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
@@ -511,8 +511,16 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     if (ts.isForOfStatement(bindingElementSource.parent.parent)) {
                         const expression = bindingElementSource.parent.parent.expression;
                         if (ts.isArrayBindingPattern(declaration.parent)) {
+                            if (!ts.isIdentifier(declaration.name)) {
+                                return unimplementedBottom(`Expected name to be an identifier ${printNodeAndPos(declaration.name)}`)
+                            }
+
                             const i = declaration.parent.elements.indexOf(declaration);
-                            return getElementOfArrayLiteralValue({ node: expression, env: idConfig.env }, i, fixed_eval);
+                            return getElementOfArrayOfTuples(
+                                { node: expression, env: idConfig.env },
+                                i, { node: declaration.name, env: envAtDeclaringScope },
+                                fixed_eval, fixed_trace, targetFunction, m
+                            );
                         }
                     }
 

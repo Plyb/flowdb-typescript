@@ -112,8 +112,12 @@ export function isPropertyAccessConfig(config: ConfigNoExtern): config is Config
 }
 export function isCallConfig(config: ConfigNoExtern): config is Config<ts.CallExpression> {
     return ts.isCallExpression(config.node);
-}export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block> {
+}
+export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block> {
     return ts.isBlock(config.node);
+}
+export function isObjectLiteralExpressionConfig(config: Config): config is Config<ts.ObjectLiteralExpression> {
+    return !isExtern(config.node) && ts.isObjectLiteralExpression(config.node)
 }
 
 export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
