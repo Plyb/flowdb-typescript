@@ -86,7 +86,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
 
 }
 
-export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }): ConfigSet {
+export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, targetFunction, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }, accessConfig?: Config<ts.ElementAccessExpression>): ConfigSet {
     const conses = fixed_eval(config);
     return configSetJoinMap(conses, consConfig => {
         const { node: cons, env: consEnv } = consConfig;
@@ -108,7 +108,7 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
             })
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval, targetFunction)
-            return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, targetFunction, m });
+            return resultOfElementAccess[builtInValue](consConfig, { accessConfig, fixed_eval, fixed_trace, targetFunction, m });
         } else {
             return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
         }

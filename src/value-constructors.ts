@@ -1,15 +1,15 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { empty, setFilter, singleton } from './setUtil';
+import { empty, setFilter, setFlatMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { Cursor, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
-import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig } from './configuration';
+import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern } from './configuration';
 
-type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression;
+type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ts.ElementAccessExpression;
 
 const builtInValuesObject = {
     'Array': true,
@@ -65,6 +65,7 @@ const builtInValuesObject = {
     'String#includes()': true,
     'String#split': true,
     'String#split()': true,
+    'String#split()[]': true,
     'String#substring': true,
     'String#substring()': true,
     'String#toLowerCase': true,
@@ -119,6 +120,22 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
         assertNotUndefined(builtInValue);
         return builtInValue;
+    } else if (ts.isElementAccessExpression(builtInConstructor)) {
+        const expressionConses = fixed_eval({ node: builtInConstructor.expression, env });
+        const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
+            if (isConfigExtern(expressionCons)) {
+                return empty<BuiltInValue>();
+            }
+
+            if (!isBuiltInConstructorShapedConfig(expressionCons)) {
+                return empty<BuiltInValue>();
+            }
+
+            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval, targetFunction));
+        });
+        const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.elements.some(biv => biv === expressionBuiltIn + '[]'));
+        assertNotUndefined(builtInValue);
+        return builtInValue;
     } else { // call expression
         const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
         const builtInValue = builtInValues.elements.find(val =>
@@ -161,7 +178,8 @@ export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstru
 
     return ts.isPropertyAccessExpression(node)
         || ts.isIdentifier(node)
-        || ts.isCallExpression(node);
+        || ts.isCallExpression(node)
+        || ts.isElementAccessExpression(node);
 }
 export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
     return isBuiltInConstructorShaped(config.node);
@@ -229,6 +247,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'String#match()': uncallable('String#match()'),
     'String#split': singleConfig,
     'String#split()': uncallable('String#split()'),
+    'String#split()[]': uncallable('String#split()[]'),
     'String#substring': singleConfig,
     'String#substring()': uncallable('String#substring()'),
     'String#toLowerCase': singleConfig,
@@ -337,6 +356,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'String#match()': inaccessibleProperty('String#match()'),
     'String#split': inaccessibleProperty('String#split'),
     'String#split()': builtInProtoMethod('Array'),
+    'String#split()[]': builtInProtoMethod('String'),
     'String#substring': inaccessibleProperty('String#substring'),
     'String#substring()': builtInProtoMethod('String'),
     'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
@@ -356,7 +376,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     '%ParameterSourced': singleConfig,
 }
 
-type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet
+type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { accessConfig: Config<ts.ElementAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet
 const inaccessibleElement: ElementAccessGetter = ({ node }) =>
     unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
@@ -479,7 +499,8 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#match': inaccessibleElement,
     'String#match()': inaccessibleElement,
     'String#split': inaccessibleElement,
-    'String#split()': inaccessibleElement,
+    'String#split()': (_, { accessConfig }) => accessConfig === undefined ? unimplementedBottom(`Need an element access`) : singleConfig(accessConfig),
+    'String#split()[]': inaccessibleElement,
     'String#substring': inaccessibleElement,
     'String#substring()': inaccessibleElement,
     'String#toLowerCase': inaccessibleElement,
@@ -496,7 +517,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'fetch': inaccessibleElement,
     'parseFloat': inaccessibleElement,
     'undefined': inaccessibleElement,
-    '%ParameterSourced': inaccessibleElement, // TODO
+    '%ParameterSourced': (_, { accessConfig }) => accessConfig === undefined ? unimplementedBottom(`Need an element access`) : singleConfig(accessConfig),
 }
 
 /**
@@ -606,6 +627,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'String#match()': notSupported('String#match()'),
     'String#split': notSupported('String#split'),
     'String#split()': notSupported('String#split()'),
+    'String#split()[]': notSupported('String#split()[]'),
     'String#substring': notSupported('String#substring'),
     'String#substring()': notSupported('String#substring()'),
     'String#toLowerCase': notSupported('String#toLowerCase'),
