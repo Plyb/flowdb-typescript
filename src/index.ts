@@ -89,6 +89,9 @@ function analyzeDyrectorio() {
 function analyzeLinenDev() {
   printResults(runAnalysis('../../examples/linen.dev/packages/typesense', './src/setup.ts', 16, 13, 3))
 }
+function analyzeDub() {
+  printResults(runAnalysis('../../examples/dub/apps/web', './scripts/sync-link-clicks.ts', 16, 20, 3))
+}
 
 // runTests();
 
