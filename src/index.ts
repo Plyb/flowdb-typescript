@@ -40,7 +40,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeScholarsome()
 // analyzeDyrectorio()
 // analyzeLinenDev()
-analyzeDub()
+// analyzeDub()
+analyzeUmami()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -92,6 +93,10 @@ function analyzeLinenDev() {
 }
 function analyzeDub() {
   printResults(runAnalysis('../../examples/dub/apps/web', './scripts/sync-link-clicks.ts', 16, 20, 3))
+}
+function analyzeUmami() {
+  // note that this *will* have a warning for not finding a binding for acc
+  printResults(runAnalysis('../../examples/umami', './src/queries/sql/sessions/saveSessionData.ts', 21, 13, 3))
 }
 
 // runTests();
