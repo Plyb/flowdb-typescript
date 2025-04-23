@@ -38,7 +38,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeAbby()
 // analyzeTriggerDev()
 // analyzeScholarsome()
-analyzeDyrectorio()
+// analyzeDyrectorio()
+analyzeLinenDev()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -84,6 +85,9 @@ function analyzeScholarsome() {
 }
 function analyzeDyrectorio() {
   printResults(runAnalysis('../../examples/dyrectorio/web/crux', './src/app/notification/notification.service.ts', 54, 26, 3))
+}
+function analyzeLinenDev() {
+  printResults(runAnalysis('../../examples/linen.dev/packages/typesense', './src/setup.ts', 16, 13, 3))
 }
 
 // runTests();
