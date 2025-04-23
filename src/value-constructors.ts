@@ -274,21 +274,18 @@ export function idIsBuiltIn(id: ts.Identifier): boolean {
 }
 
 type PropertyAccessGetter = (propertyAccessConfig: Config<PropertyAccessExpression>, args: { fixed_eval: FixedEval }) => ConfigSet;
-function inaccessibleProperty(name: BuiltInValue | BuiltInProto): PropertyAccessGetter {
-    return ({ node: pa }) => unimplementedBottom(`Unable to get property ${name}.${pa.name.text}`) 
-}
+const inaccessibleProperty: PropertyAccessGetter = ({ node: pa }) => unimplementedBottom(`Unable to get property ${printNodeAndPos(pa)}`) ;
 function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
-    const [typeName, methodName] = name.split('.');
+    const [_, methodName] = name.split('.');
     return (pac, { fixed_eval}) => pac.node.name.text === methodName
         ? singleConfig(pac)
-        : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
+        : inaccessibleProperty(pac, { fixed_eval });
 }
 function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
-    const [typeName] = names[0].split('.');
     const methodNames = names.map(name => name.split('.')[1]);
     return (pac, { fixed_eval }) => methodNames.some(methodName => pac.node.name.text === methodName)
         ? singleConfig(pac)
-        : inaccessibleProperty(typeName as BuiltInValue)(pac, { fixed_eval });
+        : inaccessibleProperty(pac, { fixed_eval });
 }
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pac, { fixed_eval }) => {
@@ -299,82 +296,82 @@ function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
         )
         return isBuiltInProtoMethod
             ? singleConfig(pac)
-            : inaccessibleProperty(typeName)(pac, { fixed_eval });
+            : inaccessibleProperty(pac, { fixed_eval });
     }
 }
 export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
     'Array': builtInStaticMethod('Array.from'),
-    'Array#filter': inaccessibleProperty('Array#filter'),
+    'Array#filter': inaccessibleProperty,
     'Array#filter()': builtInProtoMethod('Array'),
-    'Array#find': inaccessibleProperty('Array#find'),
-    'Array#forEach': inaccessibleProperty('Array#forEach'),
-    'Array#includes': inaccessibleProperty('Array#includes'),
-    'Array#includes()': inaccessibleProperty('Array#includes()'),
-    'Array#indexOf': inaccessibleProperty('Array#indexOf'),
-    'Array#indexOf()': inaccessibleProperty('Array#indexOf()'),
-    'Array#join': inaccessibleProperty('Array#join'),
+    'Array#find': inaccessibleProperty,
+    'Array#forEach': inaccessibleProperty,
+    'Array#includes': inaccessibleProperty,
+    'Array#includes()': inaccessibleProperty,
+    'Array#indexOf': inaccessibleProperty,
+    'Array#indexOf()': inaccessibleProperty,
+    'Array#join': inaccessibleProperty,
     'Array#join()': builtInProtoMethod('String'),
-    'Array#map': inaccessibleProperty('Array#map'),
+    'Array#map': inaccessibleProperty,
     'Array#map()': builtInProtoMethod('Array'),
-    'Array#slice': inaccessibleProperty('Array#slice'),
+    'Array#slice': inaccessibleProperty,
     'Array#slice()': builtInProtoMethod('Array'),
-    'Array#some': inaccessibleProperty('Array#some'),
-    'Array#some()': inaccessibleProperty('Array#some()'),
-    'Array.from': inaccessibleProperty('Array.from'),
+    'Array#some': inaccessibleProperty,
+    'Array#some()': inaccessibleProperty,
+    'Array.from': inaccessibleProperty,
     'Buffer': builtInStaticMethod('Buffer.from'),
-    'Buffer.from': inaccessibleProperty('Buffer.from'),
+    'Buffer.from': inaccessibleProperty,
     'Date': builtInStaticMethod('Date.now'),
-    'Date.now': inaccessibleProperty('Date.now'),
-    'Date.now()': inaccessibleProperty('Date.now()'),
+    'Date.now': inaccessibleProperty,
+    'Date.now()': inaccessibleProperty,
     'JSON': builtInStaticMethods('JSON.parse', 'JSON.stringify'),
-    'JSON.parse': inaccessibleProperty('JSON.parse'),
-    'JSON.stringify': inaccessibleProperty('JSON.stringify'),
+    'JSON.parse': inaccessibleProperty,
+    'JSON.stringify': inaccessibleProperty,
     'JSON.stringify()': builtInProtoMethod('String'),
-    'Map#get': inaccessibleProperty('Map#get'),
-    'Map#keys': inaccessibleProperty('Map#keys'),
+    'Map#get': inaccessibleProperty,
+    'Map#keys': inaccessibleProperty,
     'Map#keys()': builtInProtoMethod('Array'),
-    'Map#set': inaccessibleProperty('Map#set'),
+    'Map#set': inaccessibleProperty,
     'Math': builtInStaticMethod('Math.floor'),
-    'Math.floor': inaccessibleProperty('Math.floor'),
-    'Math.floor()': inaccessibleProperty('Math.floor()'),
+    'Math.floor': inaccessibleProperty,
+    'Math.floor()': inaccessibleProperty,
     'Object': builtInStaticMethods('Object.assign', 'Object.entries', 'Object.freeze', 'Object.keys', 'Object.values'),
-    'Object.assign': inaccessibleProperty('Object.assign'),
-    'Object.entries': inaccessibleProperty('Object.entries'),
+    'Object.assign': inaccessibleProperty,
+    'Object.entries': inaccessibleProperty,
     'Object.entries()': builtInProtoMethod('Array'),
-    'Object.freeze': inaccessibleProperty('Object.freeze'),
-    'Object.keys': inaccessibleProperty('Object.keys'),
-    'Object.values': inaccessibleProperty('Object.values'),
+    'Object.freeze': inaccessibleProperty,
+    'Object.keys': inaccessibleProperty,
+    'Object.values': inaccessibleProperty,
     'Object.values()': builtInProtoMethod('Array'),
     'Promise': builtInStaticMethods('Promise.all', 'Promise.allSettled'),
-    'Promise.all': inaccessibleProperty('Promise.all'),
-    'Promise.all()': inaccessibleProperty('Promise.all()'),
-    'Promise.allSettled': inaccessibleProperty('Promise.allSettled'),
-    'Promise.allSettled()': inaccessibleProperty('Promise.allSettled()'),
-    'RegExp#test': inaccessibleProperty('RegExp#test'),
-    'RegExp#test()': inaccessibleProperty('RegExp#test()'),
-    'String#includes': inaccessibleProperty('String#includes'),
-    'String#includes()': inaccessibleProperty('String#includes()'),
-    'String#match': inaccessibleProperty('String#match'),
-    'String#match()': inaccessibleProperty('String#match()'),
-    'String#split': inaccessibleProperty('String#split'),
+    'Promise.all': inaccessibleProperty,
+    'Promise.all()': inaccessibleProperty,
+    'Promise.allSettled': inaccessibleProperty,
+    'Promise.allSettled()': inaccessibleProperty,
+    'RegExp#test': inaccessibleProperty,
+    'RegExp#test()': inaccessibleProperty,
+    'String#includes': inaccessibleProperty,
+    'String#includes()': inaccessibleProperty,
+    'String#match': inaccessibleProperty,
+    'String#match()': inaccessibleProperty,
+    'String#split': inaccessibleProperty,
     'String#split()': builtInProtoMethod('Array'),
     'String#split()[]': builtInProtoMethod('String'),
-    'String#substring': inaccessibleProperty('String#substring'),
+    'String#substring': inaccessibleProperty,
     'String#substring()': builtInProtoMethod('String'),
-    'String#toLowerCase': inaccessibleProperty('String#toLowerCase'),
+    'String#toLowerCase': inaccessibleProperty,
     'String#toLowerCase()': builtInProtoMethod('String'),
-    'String#trim': inaccessibleProperty('String#trim'),
+    'String#trim': inaccessibleProperty,
     'String#trim()': builtInProtoMethod('String'),
     'console': builtInStaticMethods('console.log', 'console.error', 'console.table', 'console.warn'),
-    'console.log': inaccessibleProperty('console.log'),
-    'console.log()': inaccessibleProperty('console.log()'),
-    'console.error': inaccessibleProperty('console.error'),
-    'console.error()': inaccessibleProperty('console.error()'),
-    'console.table': inaccessibleProperty('console.table'),
-    'console.warn': inaccessibleProperty('console.warn'),
-    'console.warn()': inaccessibleProperty('console.warn()'),
-    'fetch': inaccessibleProperty('fetch'),
-    'parseFloat': inaccessibleProperty('parseFloat'),
+    'console.log': inaccessibleProperty,
+    'console.log()': inaccessibleProperty,
+    'console.error': inaccessibleProperty,
+    'console.error()': inaccessibleProperty,
+    'console.table': inaccessibleProperty,
+    'console.warn': inaccessibleProperty,
+    'console.warn()': inaccessibleProperty,
+    'fetch': inaccessibleProperty,
+    'parseFloat': inaccessibleProperty,
     'undefined': () => empty(),
     '%ParameterSourced': singleConfig,
 }
