@@ -20,7 +20,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  // console.info = () => undefined
+  console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -46,7 +46,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeTypebotIo()
 // analyzeRallly()
 // analyzeTeable()
-analyzeCalCom()
+// analyzeCalCom()
+analyzeLetterpad()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -121,6 +122,9 @@ function analyzeTeable() {
 function analyzeCalCom() {
   // manually replaces a usage of `this` in a static function with the Class it refered to
   printResults(runAnalysis('../../examples/cal.com/packages/trpc', './server/routers/viewer/slots/isAvailable.handler.ts', 24, 40, 3))
+}
+function analyzeLetterpad() {
+  printResults(runAnalysis('../../examples/letterpad/apps/admin', './src/graphql/resolvers/author.ts', 262, 27, 3))
 }
 
 // runTests();
