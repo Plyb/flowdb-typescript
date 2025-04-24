@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
@@ -101,6 +101,12 @@ export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunc
 }
 export function isNullLiteral(node: ts.Node): node is NullLiteral {
     return node.kind === SyntaxKind.NullKeyword;
+}
+function isStaticKeyword(node: ts.Node | undefined): node is StaticKeyword {
+    return node?.kind === SyntaxKind.StaticKeyword
+}
+export function isStatic(node: SimpleFunctionLikeDeclaration) {
+    return node.modifiers?.some(isStaticKeyword) ?? false;
 }
 
 export function* findAll(node: ts.Node, predicate: (node: ts.Node) => boolean): Iterable<ts.Node> {

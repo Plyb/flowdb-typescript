@@ -4,7 +4,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isAsyncKeyword, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
@@ -72,6 +72,18 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
             }
         }
         return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
+    } else if (ts.isClassDeclaration(consConfig.node)) {
+        const staticProperty = consConfig.node.members.find(member =>
+            member.name !== undefined
+            && ts.isIdentifier(member.name)
+            && member.name.text === property.text
+            && isFunctionLikeDeclaration(member)
+            && isStatic(member)
+        );
+        if (staticProperty === undefined) {
+            return unimplementedBottom(`Unable to find static property ${printNodeAndPos(property)} on class ${printNodeAndPos(consConfig.node)}`);
+        }
+        return singleConfig({ node: staticProperty, env: consConfig.env });
     } else {
         if (originalAccessConfig === undefined) {
             return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
