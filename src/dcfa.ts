@@ -564,7 +564,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 }
 
                                 const tupleConfig = { node: awaitExpressionCons.node.arguments[0], env: awaitExpressionCons.env };
-                                return getElementOfTuple(tupleConfig, i, fixed_eval);
+                                const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval);
+                                return configSetJoinMap(tupleElementResults, tupleElementCons => resolvePromisesOfNode(tupleElementCons, fixed_eval))
                             })
                         }
                     }
