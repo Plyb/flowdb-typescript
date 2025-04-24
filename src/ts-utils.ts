@@ -208,6 +208,16 @@ function isPrimsaShaped(node: ts.Node) {
     ) {
         return true;
     }
+    
+    if (ts.isCallExpression(node)
+        && ts.isPropertyAccessExpression(node.expression)
+        && ts.isPropertyAccessExpression(node.expression.expression)
+        && node.expression.expression.expression.kind === SyntaxKind.ThisKeyword
+        && node.expression.expression.name.text === 'prismaService'
+        && node.expression.name.text === 'txClient'
+    ) {
+        return true;
+    }
 
     return false;
 }
