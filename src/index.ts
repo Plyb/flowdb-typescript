@@ -44,7 +44,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
-analyzeRallly()
+// analyzeRallly()
+analyzeTeable()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -112,6 +113,9 @@ function analyzeTypebotIo() {
 }
 function analyzeRallly() {
   printResults(runAnalysis('../../examples/rallly/apps/web', './src/trpc/routers/polls/participants.ts', 139, 20, 3))
+}
+function analyzeTeable() {
+  printResults(runAnalysis('../../examples/teable/apps/nestjs-backend', './src/features/field/field.service.ts', 147, 30, 3))
 }
 
 // runTests();
