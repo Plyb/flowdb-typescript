@@ -5,7 +5,7 @@ import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
-import { isBareSpecifier, consList, unimplemented } from './util';
+import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
@@ -585,11 +585,11 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     throw new Error('Module specifier must be a string literal');
                 }
     
-                if (isBareSpecifier(moduleSpecifier.text)) {
+                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
+                if (aliasedSymbol.flags & Ambient) {
                     return justExtern;
                 }
 
-                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
                 return getBoundExprsOfSymbol(aliasedSymbol, idConfig, fix_run);
             } else if (ts.isShorthandPropertyAssignment(declaration)) {
                 const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
