@@ -43,7 +43,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDub()
 // analyzeUmami()
 // analyzeGhostfolio()
-analyzeTypebotIo()
+// analyzeTypebotIo()
+analyzeRallly()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -108,6 +109,9 @@ function analyzeGhostfolio() {
 function analyzeTypebotIo() {
   // manually removed nested destructuring
   printResults(runAnalysis('../../examples/typebot.io/apps/builder', './src/features/telemetry/api/trackClientEvents.ts', 21, 18, 3))
+}
+function analyzeRallly() {
+  printResults(runAnalysis('../../examples/rallly/apps/web', './src/trpc/routers/polls/participants.ts', 139, 20, 3))
 }
 
 // runTests();
