@@ -147,17 +147,21 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
 
 
         const arrayElementNodes = getElementNodesOfArrayValuedNode(arrayConsConfig, { fixed_eval, fixed_trace, targetFunction, m });
-        const arrayElementConses = configSetJoinMap(arrayElementNodes, fixed_eval);
-        return configSetJoinMap(arrayElementConses, ({ node: elementCons, env: elementEnv }) => {
-            if (!ts.isArrayLiteralExpression(elementCons)) {
-                return unimplementedBottom(`Cannot get ith element of a non-array literal ${printNodeAndPos(elementCons)}`);
-            }
-    
-            return singleConfig({
-                node: elementCons.elements[i],
-                env: elementEnv,
-            });
-        })
+        return configSetJoinMap(arrayElementNodes, tupleConfig => getElementOfTuple(tupleConfig, i, fixed_eval));
+    })
+}
+
+export function getElementOfTuple(tupleConfig: Config, i: number, fixed_eval: FixedEval) {
+    const tupleConses = fixed_eval(tupleConfig);
+    return configSetJoinMap(tupleConses, ({ node: tupleCons, env: tupleEnv }) => {
+        if (!ts.isArrayLiteralExpression(tupleCons)) {
+            return unimplementedBottom(`Cannot get ith element of a non-array literal ${printNodeAndPos(tupleCons)}`);
+        }
+
+        return singleConfig({
+            node: tupleCons.elements[i],
+            env: tupleEnv,
+        });
     })
 }
 

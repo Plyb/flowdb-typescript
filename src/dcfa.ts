@@ -7,7 +7,7 @@ import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLi
 import { Cursor, isExtern } from './abstract-values';
 import { isBareSpecifier, consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
+import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
@@ -546,8 +546,28 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     //     return resolvePromisesOfNode(arg, fixed_eval);
                     // }
     
-                    const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
-                    return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
+                    if (ts.isObjectBindingPattern(declaration.parent)) {
+                        const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
+                        return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
+                    } else if (ts.isArrayBindingPattern(declaration.parent)) {
+                        const i = declaration.parent.elements.indexOf(declaration);
+                        if (ts.isAwaitExpression(initializer)) {
+                            const consesOfExpressionOfAwait = fixed_eval({ node: initializer.expression, env: envAtDeclaringScope });
+                            return configSetJoinMap(consesOfExpressionOfAwait, awaitExpressionCons => {
+                                if (!isBuiltInConstructorShapedConfig(awaitExpressionCons)
+                                    || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval, targetFunction) !== 'Promise.all()'
+                                ) {
+                                    return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
+                                }
+                                if (!ts.isCallExpression(awaitExpressionCons.node)) {
+                                    return unimplementedBottom(`Expected call expression ${printNodeAndPos(awaitExpressionCons.node)}`);
+                                }
+
+                                const tupleConfig = { node: awaitExpressionCons.node.arguments[0], env: awaitExpressionCons.env };
+                                return getElementOfTuple(tupleConfig, i, fixed_eval);
+                            })
+                        }
+                    }
                 } else if (ts.isParameter(bindingElementSource)) {
                     if (bindingElementSource.parent === targetFunction) {
                         return singleConfig({ node: declaration.name, env: envAtDeclaringScope });
