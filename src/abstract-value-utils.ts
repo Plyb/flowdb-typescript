@@ -143,7 +143,7 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
                     return unimplementedBottom(`Getting anything but the values from Object#entries() is not yet implemented ${printNodeAndPos(config.node)}`)
                 }
     
-                const objectConses = fixed_eval({ node: arrayConsConfig.node.expression.expression, env: arrayConsConfig.env });
+                const objectConses = fixed_eval({ node: arrayConsConfig.node.arguments[0], env: arrayConsConfig.env });
                 const objectLiteralConses = configSetFilter(objectConses, isObjectLiteralExpressionConfig)
                 return configSetJoinMap(objectLiteralConses, objectLiteralCons => {
                     if (isConfigExtern(objectLiteralCons)) {
