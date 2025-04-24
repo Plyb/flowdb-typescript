@@ -91,7 +91,6 @@ const builtInValuesObject = {
     'isNaN': true,
     'parseFloat': true,
     'undefined': true,
-    '%ParameterSourced': true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
 const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
@@ -111,11 +110,8 @@ type BuiltInProto = keyof typeof builtInProtosObject;
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  * Note that this assumes there are no methods that share a name.
  */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): BuiltInValue {
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
     const { node: builtInConstructor, env } = builtInConstructorConfig;
-    if (isParamSourced(builtInConstructorConfig, fixed_eval, targetFunction)) {
-        return '%ParameterSourced';
-    }
 
     if (ts.isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
@@ -139,7 +135,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
                 return empty<BuiltInValue>();
             }
 
-            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval, targetFunction));
+            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval));
         });
         const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.elements.some(biv => biv === expressionBuiltIn + '[]'));
         assertNotUndefined(builtInValue);
@@ -166,7 +162,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
         const expressionConstructor = builtInConstructorsForExpression.elements[0];
-        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval, targetFunction);
+        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval);
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
@@ -294,7 +290,6 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'isNaN': singleConfig,
     'parseFloat': singleConfig,
     'undefined': uncallable('undefined'),
-    '%ParameterSourced': singleConfig
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
@@ -407,10 +402,9 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'isNaN': inaccessibleProperty,
     'parseFloat': inaccessibleProperty,
     'undefined': () => empty(),
-    '%ParameterSourced': singleConfig,
 }
 
-type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { accessConfig: Config<ts.ElementAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet
+type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { accessConfig: Config<ts.ElementAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const inaccessibleElement: ElementAccessGetter = ({ node }) =>
     unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
@@ -427,21 +421,21 @@ const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
         return fixed_eval({ node: func.body, env: consList(pushContext(cons, env, m), funcEnv)});
     })
 }
-const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, targetFunction, m }) => {
-    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval, targetFunction });
-    return configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, targetFunction, m }));
+const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
+    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval });
+    return configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
 }
-const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, targetFunction }) => {
-    const thisMapConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Map#keys', { fixed_eval, targetFunction });
+const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }) => {
+    const thisMapConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Map#keys', { fixed_eval });
     const setSiteConfigs = configSetJoinMap(thisMapConsConfigs, mapConsConfig =>
-        getMapSetCalls(fixed_trace(mapConsConfig), { fixed_eval, targetFunction })
+        getMapSetCalls(fixed_trace(mapConsConfig), { fixed_eval })
     );
     return configSetJoinMap(setSiteConfigs, siteConfig => {
         const keyArg = (siteConfig.node as CallExpression).arguments[0];
         return fixed_eval({ node: keyArg, env: siteConfig.env });
     });
 }
-const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, targetFunction }) => {
+const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval }) => {
     if (!ts.isCallExpression(consConfig.node)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
     }
@@ -452,18 +446,14 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, targetFu
 
     const argConfig = { node: consConfig.node.arguments[0], env: consConfig.env };
     return configSetJoinMap(fixed_eval(argConfig), objectConsConfig => {
-        if (isBuiltInConstructorShapedConfig(objectConsConfig) && isParamSourced(objectConsConfig, fixed_eval, targetFunction)) {
-            return singleConfig(objectConsConfig) // this is not correct, but I don't have a better way atm
-        }
-
         if (!isObjectLiteralExpressionConfig(objectConsConfig)) {
             return unimplementedBottom(`Expected an object literal ${printNodeAndPos(objectConsConfig.node)}`)
         }
-        return getAllValuesOf(objectConsConfig, fixed_eval, targetFunction);
+        return getAllValuesOf(objectConsConfig, fixed_eval);
     })
 
 }
-function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval, targetFunction }: { fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration }): ConfigSet {
+function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval }: { fixed_eval: FixedEval }): ConfigSet {
     const { node: cons, env } = consConfig;
     if (!ts.isCallExpression(cons)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
@@ -471,7 +461,7 @@ function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructo
     const funcExpression = cons.expression;
     const funcConfigs = fixed_eval({ node: funcExpression, env });
     return configSetJoinMap(funcConfigs, funcConfig => {
-        if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval, targetFunction) !== val) {
+        if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval) !== val) {
             return empty();
         }
         const { node: cons, env: funcEnv } = funcConfig;
@@ -558,7 +548,6 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'isNaN': inaccessibleElement,
     'parseFloat': inaccessibleElement,
     'undefined': inaccessibleElement,
-    '%ParameterSourced': (_, { accessConfig }) => accessConfig === undefined ? unimplementedBottom(`Need an element access`) : singleConfig(accessConfig),
 }
 
 /**
@@ -609,10 +598,10 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
 }
 
 
-type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, targetFunction: SimpleFunctionLikeDeclaration, m: number }) => ConfigSet;
+type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet;
 type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
 const notSupported = (name: BuiltInValue) => () => unimplementedBottom(`Unimplemented function arg param binder getter for ${name}`);
-const arrayMapABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, _, { fixed_eval, fixed_trace, targetFunction, m }): ConfigSet {
+const arrayMapABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, _, { fixed_eval, fixed_trace, m }): ConfigSet {
     if (this === undefined) {
         throw new Error();
     }
@@ -620,9 +609,9 @@ const arrayMapABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex,
     if (primopArgIndex != 0 || argParameterIndex != 0) {
         return empty();
     }
-    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m });
+    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m });
 }
-const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, targetFunction, m }) {
+const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
     if (this === undefined) {
         return unimplementedBottom(`Cannot call reduce on undefined`);
     }
@@ -634,7 +623,7 @@ const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgInd
     if (argParameterIndex === 0) {
         return fixed_eval(callSite);
     } else if (argParameterIndex === 1) {
-        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, targetFunction, m })
+        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
     } else {
         return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
     }
@@ -719,22 +708,4 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'isNaN': notSupported('isNaN'),
     'parseFloat': notSupported('parseFloat'),
     'undefined': notSupported('undefined'),
-    '%ParameterSourced': notSupported('%ParameterSourced'), // TODO
-}
-
-function isParamSourced(config: Config<BuiltInConstructor>, fixed_eval: FixedEval, targetFunction: SimpleFunctionLikeDeclaration): boolean {
-    const { node, env } = config
-    if (ts.isIdentifier(node)) {
-        return (ts.isParameter(node.parent) && node.parent.parent === targetFunction)
-            || (ts.isParameter(node.parent.parent.parent) && node.parent.parent.parent.parent === targetFunction);
-    } else {
-        const expressionConses = fixed_eval({ node: node.expression, env });
-        const builtInExpressionConses = setFilter(expressionConses, isBuiltInConstructorShapedConfig);
-        if (builtInExpressionConses.size() === 0) {
-            return false;
-        } else if (builtInExpressionConses.size() > 1) {
-            return unimplemented(`Currently only handling single built in cons here`, false);
-        }
-        return isParamSourced(builtInExpressionConses.elements[0], fixed_eval, targetFunction);
-    }
 }

@@ -95,7 +95,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         } else if (isBuiltInConstructorShapedConfig(opConfig)) {
                             const builtInValue = getBuiltInValueOfBuiltInConstructor(
                                 opConfig,
-                                fixed_eval, targetFunction
+                                fixed_eval
                             );
                             return resultOfCalling[builtInValue](config, { fixed_eval, m });
                         } else {
@@ -103,20 +103,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         }
                     });
                 } else if (isIdentifierConfig(config)) {
-                    if (ts.isParameter(node.parent)) {
-                        // I believe we will only get here if the node is the parameter of the target function,
-                        // but let's do a sanity check just to make sure.
-                        if (node.parent.parent !== targetFunction) {
-                            return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
-                        }
-                        return singleConfig(config);
-                    } else if (ts.isParameter(node.parent.parent.parent)) {
-                        if (node.parent.parent.parent.parent !== targetFunction) {
-                            return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a parameter of the target function, but it was not`);
-                        }
-                        return singleConfig(config);
-                    }
-
                     const boundExprs = getBoundExprs(config, fix_run);
                     if (boundExprs.size() > 0) {
                         return configSetJoinMap(boundExprs, fixed_eval);
@@ -145,7 +131,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return unimplementedBottom(`Expected simple identifier property access: ${printNodeAndPos(config.node.name)}`);
                     }
         
-                    return getObjectProperty(config, typeChecker, fixed_eval, targetFunction);
+                    return getObjectProperty(config, typeChecker, fixed_eval);
                 } else if (ts.isAwaitExpression(node)) {
                     return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
                 } else if (ts.isArrayLiteralExpression(node)) {
@@ -153,7 +139,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 } else if (ts.isElementAccessExpression(node)) {
                     const elementExpressions = getElementNodesOfArrayValuedNode(
                         { node: node.expression, env },
-                        { fixed_eval, fixed_trace, targetFunction, m },
+                        { fixed_eval, fixed_trace, m },
                         { node, env },
                     );
                     return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
@@ -464,7 +450,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             if (ts.isParameter(declaration)) {
                 if (declaration.parent === targetFunction) {
-                    return singleton<Config>({ node: declaration.name, env: envAtDeclaringScope });
+                    return justExtern
                 }
 
                 return getArgumentsForParameter(declaration, envAtDeclaringScope);
@@ -475,7 +461,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                     return getElementNodesOfArrayValuedNode(
                         { node: expression, env: envAtDeclaringScope },
-                        { fixed_eval, fixed_trace, targetFunction, m }
+                        { fixed_eval, fixed_trace, m }
                     );
                 } else if (ts.isCatchClause(declaration.parent)) {
                     const tryBlock = declaration.parent.parent.tryBlock;
@@ -519,7 +505,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             const i = declaration.parent.elements.indexOf(declaration);
                             return getElementOfArrayOfTuples(
                                 { node: expression, env: idConfig.env }, i,
-                                fixed_eval, fixed_trace, targetFunction, m
+                                fixed_eval, fixed_trace, m
                             );
                         }
                     }
@@ -555,7 +541,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             const consesOfExpressionOfAwait = fixed_eval({ node: initializer.expression, env: envAtDeclaringScope });
                             return configSetJoinMap(consesOfExpressionOfAwait, awaitExpressionCons => {
                                 if (!isBuiltInConstructorShapedConfig(awaitExpressionCons)
-                                    || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval, targetFunction) !== 'Promise.all()'
+                                    || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval) !== 'Promise.all()'
                                 ) {
                                     return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
                                 }
@@ -571,7 +557,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
                 } else if (ts.isParameter(bindingElementSource)) {
                     if (bindingElementSource.parent === targetFunction) {
-                        return singleConfig({ node: declaration.name, env: envAtDeclaringScope });
+                        return justExtern
                     }
                     const argConfigs = getArgumentsForParameter(bindingElementSource, envAtDeclaringScope);
                     
@@ -634,7 +620,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 return empty();
                             }
 
-                            const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval, targetFunction);
+                            const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval);
                             const binderGetter = primopBinderGetters[builtInValue];
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
@@ -646,7 +632,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 : undefined;
                             return binderGetter.apply(
                                 thisConfig, [primopArgIndex, argParameterIndex, { node: callSiteWhereArg, env: callSiteEnv },
-                                { fixed_eval, fixed_trace, targetFunction, m }]
+                                { fixed_eval, fixed_trace, m }]
                             );
                         });
                     }
