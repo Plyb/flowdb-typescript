@@ -20,7 +20,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  console.info = () => undefined
+  // console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -41,7 +41,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
-analyzeUmami()
+// analyzeUmami()
+analyzeGhostfolio()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -97,6 +98,11 @@ function analyzeDub() {
 function analyzeUmami() {
   // note that this *will* have a warning for not finding a binding for acc
   printResults(runAnalysis('../../examples/umami', './src/queries/sql/sessions/saveSessionData.ts', 21, 13, 3))
+}
+function analyzeGhostfolio() {
+  // AND is not found because mutation isn't implemented yet.
+  // filters and tags are not found because they are intentionally nullable in the code
+  printResults(runAnalysis('../../examples/ghostfolio/apps/api', './src/app/import/import.service.ts', 137, 21, 3))
 }
 
 // runTests();
