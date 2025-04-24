@@ -196,6 +196,13 @@ function isPrimsaShaped(node: ts.Node) {
         return true;
     }
 
+    if (ts.isPropertyAccessExpression(node)
+        && node.expression.kind === SyntaxKind.ThisKeyword
+        && node.name.text === 'prismaService'
+    ) {
+        return true;
+    }
+
     return false;
 }
 
