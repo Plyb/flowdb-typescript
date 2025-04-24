@@ -573,7 +573,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
     
                 const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
-                if (aliasedSymbol.flags & Ambient) {
+                if (aliasedSymbol.flags & Ambient || aliasedSymbol.valueDeclaration?.getSourceFile().fileName.includes('node_modules')) {
                     return justExtern;
                 }
 
