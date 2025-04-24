@@ -20,7 +20,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  // console.info = () => undefined
+  console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -42,7 +42,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeLinenDev()
 // analyzeDub()
 // analyzeUmami()
-analyzeGhostfolio()
+// analyzeGhostfolio()
+analyzeTypebotIo()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -103,6 +104,10 @@ function analyzeGhostfolio() {
   // AND is not found because mutation isn't implemented yet.
   // filters and tags are not found because they are intentionally nullable in the code
   printResults(runAnalysis('../../examples/ghostfolio/apps/api', './src/app/import/import.service.ts', 137, 21, 3))
+}
+function analyzeTypebotIo() {
+  // manually removed nested destructuring
+  printResults(runAnalysis('../../examples/typebot.io/apps/builder', './src/features/telemetry/api/trackClientEvents.ts', 21, 18, 3))
 }
 
 // runTests();
