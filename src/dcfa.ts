@@ -320,6 +320,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isTypeReferenceNode(parent)) {
                 return empty();
+            } else if (ts.isNewExpression(parent) && ts.isIdentifier(parent.expression) && parent.expression.text === 'PortfolioChangedEvent') {
+                return empty(); // special case, since PortfolioChangedEvent doesn't have any mutable fields
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
