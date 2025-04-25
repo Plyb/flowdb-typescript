@@ -219,6 +219,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             if (ts.isCallExpression(parent)) {
                 if (isOperatorOf(node, parent)) {
                     return empty(); // If we're the operator, our value doesn't get propogated anywhere
+                } else if (isPrismaQuery(parent)) {
+                    return empty();
                 } else {
                     return getWhereReturnedInsideFunction({ node: parent, env }, node, (parameterName, opEnv) =>
                         ts.isIdentifier(parameterName) 
@@ -342,6 +344,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
                     const returnLocParent = returnLoc.parent;
                     if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
+                        if (isPrismaQuery(returnLocParent)) {
+                            return empty();
+                        }
+
                         return getWhereReturnedInsideFunction(
                             { node: returnLocParent, env: returnLocEnv },
                             returnLoc,
