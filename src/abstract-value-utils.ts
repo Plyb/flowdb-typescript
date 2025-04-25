@@ -27,7 +27,21 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
 function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
     return join(getPropertyFromSourceConstructor(), getPropertyFromMutations());
 
-    function getPropertyFromMutations() {
+    function getPropertyFromMutations(): ConfigSet {
+        // assumption: we're not going to be mutating an error that we threw
+        if (ts.isThrowStatement(consConfig.node.parent)
+            && ts.isNewExpression(consConfig.node)
+            && ts.isIdentifier(consConfig.node.expression)
+            && consConfig.node.expression.text === 'Error'
+        ) {
+            return empty(); 
+        } else if (ts.isNewExpression(consConfig.node.parent)
+            && ts.isIdentifier(consConfig.node.parent.expression)
+            && consConfig.node.parent.expression.text === 'Error'
+        ) {
+            return empty()
+        }
+
         const tracedSites = setFilter(fixed_trace(consConfig), isConfigNoExtern);
         const refGrandparents = setMap(tracedSites, ref => ({ node: ref.node.parent.parent, env: ref.env }));
         const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
