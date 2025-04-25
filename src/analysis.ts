@@ -18,7 +18,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         throw new Error('no node at that position')
     }
     if (!isFunctionLikeDeclaration(node)) {
-        throw new Error(`expected function declaration $${printNodeAndPos(node)}`);
+        throw new Error(`expected function declaration ${printNodeAndPos(node)}`);
     }
 
     const { fixed_eval, push_cache } = makeDcfaComputer(service, node, m);

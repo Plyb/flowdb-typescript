@@ -553,6 +553,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval);
                                 return configSetJoinMap(tupleElementResults, tupleElementCons => resolvePromisesOfNode(tupleElementCons, fixed_eval))
                             })
+                        } else {
+                            const initializerConses = fixed_eval({ node: initializer, env: envAtDeclaringScope });
+                            return configSetJoinMap(initializerConses, _ => unimplementedBottom(`Unknown tuple destructuring ${printNodeAndPos(initializer)}`)) // right now this only handles extern nodes
                         }
                     }
                 } else if (ts.isParameter(bindingElementSource)) {
