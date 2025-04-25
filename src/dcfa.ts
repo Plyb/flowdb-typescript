@@ -503,7 +503,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return join(thrownNodeConfigs, justExtern); 
                     } else { // it's a standard variable delcaration
                         if (declaration.initializer === undefined) {
-                            return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                            return empty();
                         }
             
                         return singleton<Config>({
@@ -536,7 +536,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                         const initializer = bindingElementSource.initializer;
                         if (initializer === undefined) {
-                            return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                            return empty();
                         }
 
                         // // special case for Promise.allSettled
