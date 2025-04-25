@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isAssignmentExpression, isAssignmentExpressionConfig } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isAssignmentExpression, isAssignmentExpressionConfig, isOnLhsOfAssignmentExpression } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -135,7 +135,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return unimplementedBottom(`Expected simple identifier property access: ${printNodeAndPos(config.node.name)}`);
                     }
         
-                    return getObjectProperty(config, typeChecker, fixed_eval);
+                    return getObjectProperty(config, typeChecker, fixed_eval, fixed_trace);
                 } else if (ts.isAwaitExpression(node)) {
                     return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
                 } else if (ts.isArrayLiteralExpression(node)) {
@@ -243,8 +243,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (ts.isForOfStatement(parent) && parent.expression === node) {
                 return empty(); // we're effectively "destructuring" the expression here, so the original value is gone
             } else if (ts.isPropertyAccessExpression(parent)) {
-                if (node != parent.name) {
-                    return fixed_trace({ node: parent, env });
+                if (node == parent.name) {
+                    return unimplementedBottom(`Unknown situation: tracing a property access's name: ${printNodeAndPos(parent)}`)
                 }
 
                 return empty();
@@ -300,6 +300,18 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return singleConfig({ node: ref.node.parent, env: ref.env });
                 })
                 return configSetJoinMap(propertyAccessesAtRefs, ref => fix_run(getWhereValueReturned, ref));
+            } else if (isOnLhsOfAssignmentExpression(config.node)) {
+                return empty();
+            } else if (ts.isPropertyAssignment(parent)) {
+                const propName = parent.name;
+                if (!ts.isIdentifier(propName)) {
+                    return unimplementedBottom(`Unimplemented property name type: ${printNodeAndPos(propName)}`);
+                }
+                const parentObjectSites = fixed_trace({ node: parent.parent, env });
+                const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }))
+                const parentObjectAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
+                const parentObjectAccessesWithMatchingName = setFilter(parentObjectAccesses, access => access.node.name.text === propName.text);
+                return parentObjectAccessesWithMatchingName;
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
@@ -453,7 +465,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             function getBindingsFromMutatingAssignments(): ConfigSet {
                 const refs = getReferences(idConfig);
                 const refParents = setMap(refs, ref => ({ node: ref.node.parent, env: ref.env }));
-                const refAssignments = setFilter(refParents, parent => isAssignmentExpressionConfig(parent));
+                const refAssignments = setFilter(refParents, isAssignmentExpressionConfig);
                 return setFlatMap(refAssignments, assignmentExpression => {
                     if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
                         return unimplementedBottom(`Unknown assignment operator kind: ${printNodeAndPos(assignmentExpression.node.operatorToken)}`);

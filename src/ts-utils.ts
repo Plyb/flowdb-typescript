@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { Cursor, isExtern } from './abstract-values';
+import { Cursor, extern, isExtern } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment, isConfigExtern, isConfigNoExtern } from './configuration';
 import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
@@ -111,12 +111,29 @@ export function isStatic(node: SimpleFunctionLikeDeclaration) {
 const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken, SyntaxKind.MinusEqualsToken, SyntaxKind.AsteriskAsteriskEqualsToken, SyntaxKind.AsteriskEqualsToken, SyntaxKind.SlashEqualsToken, SyntaxKind.PercentEqualsToken, SyntaxKind.AmpersandEqualsToken, SyntaxKind.BarEqualsToken, SyntaxKind.CaretEqualsToken, SyntaxKind.LessThanLessThanEqualsToken, SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, SyntaxKind.GreaterThanGreaterThanEqualsToken, SyntaxKind.BarBarEqualsToken, SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.QuestionQuestionEqualsToken];
 export function isAssignmentExpression(node: ts.Node): node is AssignmentExpression<AssignmentOperatorToken> {
     return ts.isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
-}export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
+}
+export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
     if (!isConfigNoExtern(config)) {
         return false;
     }
 
     return isAssignmentExpression(config.node);
+}
+
+export function isOnLhsOfAssignmentExpression(node: Cursor): boolean {
+    if (isExtern(node)) {
+        return false;
+    }
+
+    const parents = getParentChain(node);
+    let child = node;
+    for (const parent of parents) {
+        if (isAssignmentExpression(parent) && parent.left === child) {
+            return true;
+        }
+        child = parent;
+    }
+    return false;
 }
 
 export function* findAll(node: ts.Node, predicate: (node: ts.Node) => boolean): Iterable<ts.Node> {

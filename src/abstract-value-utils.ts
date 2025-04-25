@@ -4,13 +4,13 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern } from './configuration';
+import { isAssignmentExpressionConfig, isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
 
 
-export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval): ConfigSet {
+export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
     const { node: access, env } = accessConfig;
     if (isDependencyAccessExpression(access)) {
         return getDependencyInjected({ node: access, env}, typeChecker, fixed_eval);
@@ -19,84 +19,100 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     const expressionConses = fixed_eval({ node: access.expression, env });
     const property = access.name;
     return configSetJoinMap(expressionConses, consConfig => {
-        return getPropertyFromObjectCons(consConfig, property, accessConfig, fixed_eval);
+        return getPropertyFromObjectCons(consConfig, property, accessConfig, fixed_eval, fixed_trace);
     })
 }
 
-function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval): ConfigSet {
-    const { node: cons, env: consEnv } = consConfig;
-    if (ts.isObjectLiteralExpression(cons)) {
-        for (const prop of [...cons.properties].reverse()) {
-            if (ts.isSpreadAssignment(prop)) {
-                const spreadConses = fixed_eval({ node: prop.expression, env: consConfig.env });
-                return configSetJoinMap(spreadConses, spreadCons =>
-                    getPropertyFromObjectCons(spreadCons, property, originalAccessConfig, fixed_eval)
-                );
+function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
+    return join(getPropertyFromSourceConstructor(), getPropertyFromMutations());
+
+    function getPropertyFromMutations() {
+        const tracedSites = setFilter(fixed_trace(consConfig), isConfigNoExtern);
+        const refGrandparents = setMap(tracedSites, ref => ({ node: ref.node.parent.parent, env: ref.env }));
+        const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
+        return setFlatMap(refAssignments, assignmentExpression => {
+            if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
+                return unimplementedBottom(`Unknown assignment operator kind: ${printNodeAndPos(assignmentExpression.node.operatorToken)}`);
             }
 
-            if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
-                console.warn(`Expected identifier for property`);
-                continue;
-            }
-
-            if (prop.name.text !== property.text) {
-                continue;
-            }
-
-            if (ts.isPropertyAssignment(prop)) {
-                return fixed_eval({ node: prop.initializer, env: consEnv });
-            } else if (ts.isShorthandPropertyAssignment(prop)) {
-                return fixed_eval({ node: prop.name, env: consEnv })
-            } else {
-                console.warn(`Unknown object property assignment`)
-            }
-        }
-        return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
-    } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-        if (originalAccessConfig === undefined) {
-            return unimplementedBottom(`To access a built in constructor of an object, the original access must be defined: ${printNodeAndPos(cons)}`)
-        }
-
-        const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval);
-        return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
-    } else if (isDecoratorIndicatingDependencyInjectable(consConfig.node)) {
-        const classDeclaration = consConfig.node.parent;
-        if (!ts.isClassDeclaration(classDeclaration)) {
-            return unimplementedBottom(`Expected ${printNodeAndPos(classDeclaration)} to be a class declaration`);
-        }
-
-        const reversedMembers = [...classDeclaration.members].reverse();
-        for (const member of reversedMembers) {
-            if (member.name !== undefined && ts.isIdentifier(member.name) && member.name.text === property.text) {
-                return singleConfig({ node: member, env: consEnv });
-            }
-        }
-        return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
-    } else if (ts.isClassDeclaration(consConfig.node)) {
-        const staticProperty = consConfig.node.members.find(member =>
-            member.name !== undefined
-            && ts.isIdentifier(member.name)
-            && member.name.text === property.text
-            && isFunctionLikeDeclaration(member)
-            && isStatic(member)
-        );
-        if (staticProperty === undefined) {
-            return unimplementedBottom(`Unable to find static property ${printNodeAndPos(property)} on class ${printNodeAndPos(consConfig.node)}`);
-        }
-        return singleConfig({ node: staticProperty, env: consConfig.env });
-    } else {
-        if (originalAccessConfig === undefined) {
-            return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
-        }
-
-        const proto = getProtoOf(cons);
-        if (proto === null) {
-            return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(originalAccessConfig.node)}`);
-        }
-        return getPropertyOfProto(proto, property.text, consConfig, originalAccessConfig, fixed_eval);
+            return singleConfig({ node: assignmentExpression.node.right, env: assignmentExpression.env });
+        })
     }
 
-}
+    function getPropertyFromSourceConstructor() {
+        const { node: cons, env: consEnv } = consConfig;
+        if (ts.isObjectLiteralExpression(cons)) {
+            for (const prop of [...cons.properties].reverse()) {
+                if (ts.isSpreadAssignment(prop)) {
+                    const spreadConses = fixed_eval({ node: prop.expression, env: consConfig.env });
+                    return configSetJoinMap(spreadConses, spreadCons =>
+                        getPropertyFromObjectCons(spreadCons, property, originalAccessConfig, fixed_eval, fixed_trace)
+                    );
+                }
+    
+                if (prop.name === undefined || !ts.isIdentifier(prop.name)) {
+                    console.warn(`Expected identifier for property`);
+                    continue;
+                }
+    
+                if (prop.name.text !== property.text) {
+                    continue;
+                }
+    
+                if (ts.isPropertyAssignment(prop)) {
+                    return fixed_eval({ node: prop.initializer, env: consEnv });
+                } else if (ts.isShorthandPropertyAssignment(prop)) {
+                    return fixed_eval({ node: prop.name, env: consEnv })
+                } else {
+                    console.warn(`Unknown object property assignment`)
+                }
+            }
+            return unimplementedBottom(`Unable to find object property ${printNodeAndPos(property)}`)
+        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+            if (originalAccessConfig === undefined) {
+                return unimplementedBottom(`To access a built in constructor of an object, the original access must be defined: ${printNodeAndPos(cons)}`)
+            }
+    
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval);
+            return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
+        } else if (isDecoratorIndicatingDependencyInjectable(consConfig.node)) {
+            const classDeclaration = consConfig.node.parent;
+            if (!ts.isClassDeclaration(classDeclaration)) {
+                return unimplementedBottom(`Expected ${printNodeAndPos(classDeclaration)} to be a class declaration`);
+            }
+    
+            const reversedMembers = [...classDeclaration.members].reverse();
+            for (const member of reversedMembers) {
+                if (member.name !== undefined && ts.isIdentifier(member.name) && member.name.text === property.text) {
+                    return singleConfig({ node: member, env: consEnv });
+                }
+            }
+            return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
+        } else if (ts.isClassDeclaration(consConfig.node)) {
+            const staticProperty = consConfig.node.members.find(member =>
+                member.name !== undefined
+                && ts.isIdentifier(member.name)
+                && member.name.text === property.text
+                && isFunctionLikeDeclaration(member)
+                && isStatic(member)
+            );
+            if (staticProperty === undefined) {
+                return unimplementedBottom(`Unable to find static property ${printNodeAndPos(property)} on class ${printNodeAndPos(consConfig.node)}`);
+            }
+            return singleConfig({ node: staticProperty, env: consConfig.env });
+        } else {
+            if (originalAccessConfig === undefined) {
+                return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
+            }
+    
+            const proto = getProtoOf(cons);
+            if (proto === null) {
+                return unimplementedBottom(`No constructors found for property access ${printNodeAndPos(originalAccessConfig.node)}`);
+            }
+            return getPropertyOfProto(proto, property.text, consConfig, originalAccessConfig, fixed_eval);
+        }
+    }
+} 
 
 export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }, accessConfig?: Config<ts.ElementAccessExpression>): ConfigSet {
     const conses = fixed_eval(config);
@@ -150,7 +166,7 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
                         return singleConfig(objectLiteralCons);
                     }
     
-                    return getAllValuesOf(objectLiteralCons, fixed_eval);
+                    return getAllValuesOf(objectLiteralCons, fixed_eval, fixed_trace);
                 })
             }
         }
@@ -175,7 +191,7 @@ export function getElementOfTuple(tupleConfig: Config, i: number, fixed_eval: Fi
     })
 }
 
-export function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, fixed_eval: FixedEval) {
+export function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, fixed_eval: FixedEval, fixed_trace: FixedTrace) {
     const setOfProperties = new SimpleSet(structuralComparator, ...objectCons.node.properties)
                 
     return setFlatMap(setOfProperties, prop => {
@@ -183,14 +199,14 @@ export function getAllValuesOf(objectCons: Config<ts.ObjectLiteralExpression>, f
             const expressionConses = fixed_eval({ node: prop.expression, env: objectCons.env });
             const expressionObjectLiteralConses = setFilter(expressionConses, isObjectLiteralExpressionConfig);
 
-            return configSetJoinMap(expressionObjectLiteralConses, cons => getAllValuesOf(cons, fixed_eval));
+            return configSetJoinMap(expressionObjectLiteralConses, cons => getAllValuesOf(cons, fixed_eval, fixed_trace));
         }
 
         if (!ts.isIdentifier(prop.name)) {
             return unimplementedBottom(`Unkown kind of prop name: ${printNodeAndPos(prop.name)}`)
         }
 
-        return getPropertyFromObjectCons(objectCons, prop.name, undefined, fixed_eval)
+        return getPropertyFromObjectCons(objectCons, prop.name, undefined, fixed_eval, fixed_trace)
     }) as ConfigSet;
 }
 

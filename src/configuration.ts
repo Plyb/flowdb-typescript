@@ -107,7 +107,11 @@ export function isIdentifierConfig(config: Config): config is Config<ts.Identifi
 export function isFunctionLikeDeclarationConfig(config: Config): config is Config<SimpleFunctionLikeDeclaration> {
     return isConfigNoExtern(config) && isFunctionLikeDeclaration(config.node);
 }
-export function isPropertyAccessConfig(config: ConfigNoExtern): config is Config<ts.PropertyAccessExpression> {
+export function isPropertyAccessConfig(config: Config): config is Config<ts.PropertyAccessExpression> {
+    if (isExtern(config.node)) {
+        return false;
+    }
+
     return ts.isPropertyAccessExpression(config.node);
 }
 export function isCallConfig(config: ConfigNoExtern): config is Config<ts.CallExpression> {

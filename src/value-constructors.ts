@@ -435,7 +435,7 @@ const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }
         return fixed_eval({ node: keyArg, env: siteConfig.env });
     });
 }
-const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval }) => {
+const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }) => {
     if (!ts.isCallExpression(consConfig.node)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
     }
@@ -449,7 +449,7 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval }) => {
         if (!isObjectLiteralExpressionConfig(objectConsConfig)) {
             return unimplementedBottom(`Expected an object literal ${printNodeAndPos(objectConsConfig.node)}`)
         }
-        return getAllValuesOf(objectConsConfig, fixed_eval);
+        return getAllValuesOf(objectConsConfig, fixed_eval, fixed_trace);
     })
 
 }
