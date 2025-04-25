@@ -343,6 +343,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isBinaryExpression(parent) && (parent.operatorToken.kind === SyntaxKind.BarBarToken)) {
                 return fixed_trace({ node: parent, env });
+            } else if (ts.isSpreadElement(parent)) {
+                return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 
