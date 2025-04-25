@@ -1,11 +1,11 @@
-import ts, { ArrowFunction, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
 import { Cursor, isExtern } from './abstract-values';
 import { last } from 'lodash';
-import { Config, Environment } from './configuration';
+import { Config, Environment, isConfigExtern, isConfigNoExtern } from './configuration';
 import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
 import { stackBottom } from './context';
 
@@ -107,6 +107,16 @@ function isStaticKeyword(node: ts.Node | undefined): node is StaticKeyword {
 }
 export function isStatic(node: SimpleFunctionLikeDeclaration) {
     return node.modifiers?.some(isStaticKeyword) ?? false;
+}
+const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken, SyntaxKind.MinusEqualsToken, SyntaxKind.AsteriskAsteriskEqualsToken, SyntaxKind.AsteriskEqualsToken, SyntaxKind.SlashEqualsToken, SyntaxKind.PercentEqualsToken, SyntaxKind.AmpersandEqualsToken, SyntaxKind.BarEqualsToken, SyntaxKind.CaretEqualsToken, SyntaxKind.LessThanLessThanEqualsToken, SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, SyntaxKind.GreaterThanGreaterThanEqualsToken, SyntaxKind.BarBarEqualsToken, SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.QuestionQuestionEqualsToken];
+export function isAssignmentExpression(node: ts.Node): node is AssignmentExpression<AssignmentOperatorToken> {
+    return ts.isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
+}export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
+    if (!isConfigNoExtern(config)) {
+        return false;
+    }
+
+    return isAssignmentExpression(config.node);
 }
 
 export function* findAll(node: ts.Node, predicate: (node: ts.Node) => boolean): Iterable<ts.Node> {

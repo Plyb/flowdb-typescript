@@ -1,14 +1,14 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody, BindingName } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setFlatMap, setOf, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setOf, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isAssignmentExpression, isAssignmentExpressionConfig } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
@@ -364,7 +364,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
         
         // "find"
-        function getReferences(idConfig: Config<ts.Identifier>): ConfigSet {
+        function getReferences(idConfig: Config<ts.Identifier>): ConfigSetNoExtern {
             const { node: id, env: idEnv } = idConfig;
             const symbol = typeChecker.getSymbolAtLocation(id);
             const declaration = symbol?.valueDeclaration
@@ -386,7 +386,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 ref.textSpan!.start,
                 ref.textSpan!.length,
             )!);
-            const refNodeConfigs: Config[] = refNodes.flatMap(refNode => {
+            const refNodeConfigs: ConfigNoExtern[] = refNodes.flatMap(refNode => {
                 const parents = getParentChain(refNode);
                 const bindersForEnvOfRef: SimpleFunctionLikeDeclaration[] = [];
                 let foundScope = false;
@@ -415,7 +415,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     env: refEnv,
                 }]
             });
-            return new SimpleSet<Config>(structuralComparator, ...refNodeConfigs);
+            return new SimpleSet<ConfigNoExtern>(structuralComparator, ...refNodeConfigs);
         }
         
         // "bind"
@@ -444,155 +444,172 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
             const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
 
-            const declaration = symbol.valueDeclaration
-                ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
-            if (declaration === undefined) {
-                return unimplemented(`could not find declaration: ${symbol.name}`, empty());
+            return join(getBindingsFromDelcaration(), getBindingsFromMutatingAssignments());
+
+            function getBindingsFromMutatingAssignments(): ConfigSet {
+                const refs = getReferences(idConfig);
+                const refParents = setMap(refs, ref => ({ node: ref.node.parent, env: ref.env }));
+                const refAssignments = setFilter(refParents, parent => isAssignmentExpressionConfig(parent));
+                return setFlatMap(refAssignments, assignmentExpression => {
+                    if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
+                        return unimplementedBottom(`Unknown assignment operator kind: ${printNodeAndPos(assignmentExpression.node.operatorToken)}`);
+                    }
+
+                    return singleConfig({ node: assignmentExpression.node.right, env: assignmentExpression.env });
+                })
             }
-            const declaringScope = getDeclaringScope(declaration, typeChecker);
-            const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
-            if (ts.isParameter(declaration)) {
-                if (declaration.parent === targetFunction) {
-                    return justExtern
+            function getBindingsFromDelcaration(): ConfigSet {
+                const declaration = symbol.valueDeclaration
+                    ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
+                if (declaration === undefined) {
+                    return unimplemented(`could not find declaration: ${symbol.name}`, empty());
                 }
+                const declaringScope = getDeclaringScope(declaration, typeChecker);
+                const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
-                return getArgumentsForParameter(declaration, envAtDeclaringScope);
-            } else if (ts.isVariableDeclaration(declaration)) {
-                if (ts.isForOfStatement(declaration.parent.parent)) {
-                    const forOfStatement = declaration.parent.parent;
-                    const expression = forOfStatement.expression;
-    
-                    return getElementNodesOfArrayValuedNode(
-                        { node: expression, env: envAtDeclaringScope },
-                        { fixed_eval, fixed_trace, m }
-                    );
-                } else if (ts.isCatchClause(declaration.parent)) {
-                    const tryBlock = declaration.parent.parent.tryBlock;
-                    const reachableBlocks = getReachableBlocks({ node: tryBlock, env: envAtDeclaringScope }, m, fixed_eval, push_cache);
-                    const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
-                        const throwStatements = getThrowStatements(blockConfig.node);
-                        return [...throwStatements].map(throwStatement => ({
-                            node: throwStatement.expression,
-                            env: blockConfig.env,
-                        } as Config<ts.Expression>));
-                    }));
-                    // the `justExtern` here is a bit of an overapproximation, but it's pretty
-                    // likely that *something* in the catch block could throw an exception that
-                    // isn't syntactically represented
-                    return join(thrownNodeConfigs, justExtern); 
-                } else { // it's a standard variable delcaration
-                    if (declaration.initializer === undefined) {
-                        return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
-                    }
-        
-                    return singleton<Config>({
-                        node: declaration.initializer,
-                        env: envAtDeclaringScope,
-                    });
-                }
-            } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
-                return singleton<Config>({
-                    node: declaration,
-                    env: envAtDeclaringScope,
-                });
-            } else if (ts.isBindingElement(declaration)) {
-                const bindingElementSource = declaration.parent.parent;
-                if (ts.isVariableDeclaration(bindingElementSource)) {
-                    if (ts.isForOfStatement(bindingElementSource.parent.parent)) {
-                        const expression = bindingElementSource.parent.parent.expression;
-                        if (ts.isArrayBindingPattern(declaration.parent)) {
-                            if (!ts.isIdentifier(declaration.name)) {
-                                return unimplementedBottom(`Expected name to be an identifier ${printNodeAndPos(declaration.name)}`)
-                            }
-
-                            const i = declaration.parent.elements.indexOf(declaration);
-                            return getElementOfArrayOfTuples(
-                                { node: expression, env: idConfig.env }, i,
-                                fixed_eval, fixed_trace, m
-                            );
-                        }
-                    }
-
-                    const initializer = bindingElementSource.initializer;
-                    if (initializer === undefined) {
-                        return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
-                    }
-
-                    // // special case for Promise.allSettled
-                    // if (ts.isArrayBindingPattern(declaration.parent)
-                    //     && ts.isAwaitExpression(initializer)
-                    //     && ts.isCallExpression(initializer.expression)
-                    //     && ts.isPropertyAccessExpression(initializer.expression.expression)
-                    //     && ts.isIdentifier(initializer.expression.expression.expression)
-                    //     && initializer.expression.expression.expression.text === 'Promise'
-                    //     && initializer.expression.expression.name.text === 'allSettled'
-                    //     && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
-                    // ) {
-                    //     const index = declaration.parent.elements.indexOf(declaration);
-                    //     const arrayNode = initializer.expression.arguments[0];
-                    //     const arg = arrayNode.elements[index];
-                    //     // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
-                    //     return resolvePromisesOfNode(arg, fixed_eval);
-                    // }
-    
-                    if (ts.isObjectBindingPattern(declaration.parent)) {
-                        const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
-                        return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
-                    } else if (ts.isArrayBindingPattern(declaration.parent)) {
-                        const i = declaration.parent.elements.indexOf(declaration);
-                        if (ts.isAwaitExpression(initializer)) {
-                            const consesOfExpressionOfAwait = fixed_eval({ node: initializer.expression, env: envAtDeclaringScope });
-                            return configSetJoinMap(consesOfExpressionOfAwait, awaitExpressionCons => {
-                                if (!isBuiltInConstructorShapedConfig(awaitExpressionCons)
-                                    || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval) !== 'Promise.all()'
-                                ) {
-                                    return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
-                                }
-                                if (!ts.isCallExpression(awaitExpressionCons.node)) {
-                                    return unimplementedBottom(`Expected call expression ${printNodeAndPos(awaitExpressionCons.node)}`);
-                                }
-
-                                const tupleConfig = { node: awaitExpressionCons.node.arguments[0], env: awaitExpressionCons.env };
-                                const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval);
-                                return configSetJoinMap(tupleElementResults, tupleElementCons => resolvePromisesOfNode(tupleElementCons, fixed_eval))
-                            })
-                        } else {
-                            const initializerConses = fixed_eval({ node: initializer, env: envAtDeclaringScope });
-                            return configSetJoinMap(initializerConses, _ => unimplementedBottom(`Unknown tuple destructuring ${printNodeAndPos(initializer)}`)) // right now this only handles extern nodes
-                        }
-                    }
-                } else if (ts.isParameter(bindingElementSource)) {
-                    if (bindingElementSource.parent === targetFunction) {
+                if (ts.isParameter(declaration)) {
+                    if (declaration.parent === targetFunction) {
                         return justExtern
                     }
-                    const argConfigs = getArgumentsForParameter(bindingElementSource, envAtDeclaringScope);
-                    
-                    const argsValues = configSetJoinMap(argConfigs, argConfig => fix_run(abstractEval, argConfig));
 
-                    return getObjectsPropertyInitializers(argsValues, symbol.name);
-                }
-            } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
-                const moduleSpecifier = getModuleSpecifier(declaration);
-    
-                if (!ts.isStringLiteral(moduleSpecifier)) {
-                    throw new Error('Module specifier must be a string literal');
-                }
-    
-                const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
-                if (aliasedSymbol.flags & Ambient || aliasedSymbol.valueDeclaration?.getSourceFile().isDeclarationFile) {
-                    return justExtern;
-                }
+                    return getArgumentsForParameter(declaration, envAtDeclaringScope);
+                } else if (ts.isVariableDeclaration(declaration)) {
+                    if (ts.isForOfStatement(declaration.parent.parent)) {
+                        const forOfStatement = declaration.parent.parent;
+                        const expression = forOfStatement.expression;
+        
+                        return getElementNodesOfArrayValuedNode(
+                            { node: expression, env: envAtDeclaringScope },
+                            { fixed_eval, fixed_trace, m }
+                        );
+                    } else if (ts.isCatchClause(declaration.parent)) {
+                        const tryBlock = declaration.parent.parent.tryBlock;
+                        const reachableBlocks = getReachableBlocks({ node: tryBlock, env: envAtDeclaringScope }, m, fixed_eval, push_cache);
+                        const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
+                            const throwStatements = getThrowStatements(blockConfig.node);
+                            return [...throwStatements].map(throwStatement => ({
+                                node: throwStatement.expression,
+                                env: blockConfig.env,
+                            } as Config<ts.Expression>));
+                        }));
+                        // the `justExtern` here is a bit of an overapproximation, but it's pretty
+                        // likely that *something* in the catch block could throw an exception that
+                        // isn't syntactically represented
+                        return join(thrownNodeConfigs, justExtern); 
+                    } else { // it's a standard variable delcaration
+                        if (declaration.initializer === undefined) {
+                            return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        }
+            
+                        return singleton<Config>({
+                            node: declaration.initializer,
+                            env: envAtDeclaringScope,
+                        });
+                    }
+                } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
+                    return singleton<Config>({
+                        node: declaration,
+                        env: envAtDeclaringScope,
+                    });
+                } else if (ts.isBindingElement(declaration)) {
+                    const bindingElementSource = declaration.parent.parent;
+                    if (ts.isVariableDeclaration(bindingElementSource)) {
+                        if (ts.isForOfStatement(bindingElementSource.parent.parent)) {
+                            const expression = bindingElementSource.parent.parent.expression;
+                            if (ts.isArrayBindingPattern(declaration.parent)) {
+                                if (!ts.isIdentifier(declaration.name)) {
+                                    return unimplementedBottom(`Expected name to be an identifier ${printNodeAndPos(declaration.name)}`)
+                                }
 
-                return getBoundExprsOfSymbol(aliasedSymbol, idConfig, fix_run);
-            } else if (ts.isShorthandPropertyAssignment(declaration)) {
-                const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
-                if (shorthandValueSymbol === undefined) {
-                    throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
+                                const i = declaration.parent.elements.indexOf(declaration);
+                                return getElementOfArrayOfTuples(
+                                    { node: expression, env: idConfig.env }, i,
+                                    fixed_eval, fixed_trace, m
+                                );
+                            }
+                        }
+
+                        const initializer = bindingElementSource.initializer;
+                        if (initializer === undefined) {
+                            return unimplementedBottom(`Variable declaration should have initializer: ${SyntaxKind[declaration.kind]}:${getPosText(declaration)}`)
+                        }
+
+                        // // special case for Promise.allSettled
+                        // if (ts.isArrayBindingPattern(declaration.parent)
+                        //     && ts.isAwaitExpression(initializer)
+                        //     && ts.isCallExpression(initializer.expression)
+                        //     && ts.isPropertyAccessExpression(initializer.expression.expression)
+                        //     && ts.isIdentifier(initializer.expression.expression.expression)
+                        //     && initializer.expression.expression.expression.text === 'Promise'
+                        //     && initializer.expression.expression.name.text === 'allSettled'
+                        //     && ts.isArrayLiteralExpression(initializer.expression.arguments[0])
+                        // ) {
+                        //     const index = declaration.parent.elements.indexOf(declaration);
+                        //     const arrayNode = initializer.expression.arguments[0];
+                        //     const arg = arrayNode.elements[index];
+                        //     // TODO: this isn't actually right, since it is just the raw value, not wrapped in the "settled result" thing
+                        //     return resolvePromisesOfNode(arg, fixed_eval);
+                        // }
+        
+                        if (ts.isObjectBindingPattern(declaration.parent)) {
+                            const objectConsConfigs = fixed_eval({ node: initializer, env: envAtDeclaringScope });
+                            return getObjectsPropertyInitializers(objectConsConfigs, symbol.name);
+                        } else if (ts.isArrayBindingPattern(declaration.parent)) {
+                            const i = declaration.parent.elements.indexOf(declaration);
+                            if (ts.isAwaitExpression(initializer)) {
+                                const consesOfExpressionOfAwait = fixed_eval({ node: initializer.expression, env: envAtDeclaringScope });
+                                return configSetJoinMap(consesOfExpressionOfAwait, awaitExpressionCons => {
+                                    if (!isBuiltInConstructorShapedConfig(awaitExpressionCons)
+                                        || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval) !== 'Promise.all()'
+                                    ) {
+                                        return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
+                                    }
+                                    if (!ts.isCallExpression(awaitExpressionCons.node)) {
+                                        return unimplementedBottom(`Expected call expression ${printNodeAndPos(awaitExpressionCons.node)}`);
+                                    }
+
+                                    const tupleConfig = { node: awaitExpressionCons.node.arguments[0], env: awaitExpressionCons.env };
+                                    const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval);
+                                    return configSetJoinMap(tupleElementResults, tupleElementCons => resolvePromisesOfNode(tupleElementCons, fixed_eval))
+                                })
+                            } else {
+                                const initializerConses = fixed_eval({ node: initializer, env: envAtDeclaringScope });
+                                return configSetJoinMap(initializerConses, _ => unimplementedBottom(`Unknown tuple destructuring ${printNodeAndPos(initializer)}`)) // right now this only handles extern nodes
+                            }
+                        }
+                    } else if (ts.isParameter(bindingElementSource)) {
+                        if (bindingElementSource.parent === targetFunction) {
+                            return justExtern
+                        }
+                        const argConfigs = getArgumentsForParameter(bindingElementSource, envAtDeclaringScope);
+                        
+                        const argsValues = configSetJoinMap(argConfigs, argConfig => fix_run(abstractEval, argConfig));
+
+                        return getObjectsPropertyInitializers(argsValues, symbol.name);
+                    }
+                } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
+                    const moduleSpecifier = getModuleSpecifier(declaration);
+        
+                    if (!ts.isStringLiteral(moduleSpecifier)) {
+                        throw new Error('Module specifier must be a string literal');
+                    }
+        
+                    const aliasedSymbol = typeChecker.getAliasedSymbol(symbol);
+                    if (aliasedSymbol.flags & Ambient || aliasedSymbol.valueDeclaration?.getSourceFile().isDeclarationFile) {
+                        return justExtern;
+                    }
+
+                    return getBoundExprsOfSymbol(aliasedSymbol, idConfig, fix_run);
+                } else if (ts.isShorthandPropertyAssignment(declaration)) {
+                    const shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(declaration);
+                    if (shorthandValueSymbol === undefined) {
+                        throw new Error(`Should have gotten value symbol for shortand assignment: ${symbol.name} @ ${getPosText(declaration)}`)
+                    }
+                    return getBoundExprsOfSymbol(shorthandValueSymbol, idConfig, fix_run);
                 }
-                return getBoundExprsOfSymbol(shorthandValueSymbol, idConfig, fix_run);
+                return unimplementedBottom(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
             }
-            return unimplementedBottom(`getBoundExprs not yet implemented for ${ts.SyntaxKind[declaration.kind]}:${getPosText(declaration)}`);
     
             function getArgumentsForParameter(declaration: ParameterDeclaration, envAtDeclaredScope: Environment): ConfigSet {
                 const declaringFunction = declaration.parent;
