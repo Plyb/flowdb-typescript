@@ -387,6 +387,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 ref.textSpan!.length,
             )!);
             const refNodeConfigs: ConfigNoExtern[] = refNodes.flatMap(refNode => {
+                if (refNode.getSourceFile().isDeclarationFile) {
+                    return [];
+                }
+
                 const parents = getParentChain(refNode);
                 const bindersForEnvOfRef: SimpleFunctionLikeDeclaration[] = [];
                 let foundScope = false;
