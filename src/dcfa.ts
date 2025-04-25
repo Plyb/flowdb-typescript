@@ -326,6 +326,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty(); // special case, since PortfolioChangedEvent doesn't have any mutable fields
             } else if (ts.isSpreadAssignment(parent)) {
                 return empty();
+            } else if (ts.isQualifiedName(parent)) {
+                return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
