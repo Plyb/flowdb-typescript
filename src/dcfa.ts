@@ -8,7 +8,7 @@ import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
@@ -324,6 +324,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isNewExpression(parent) && ts.isIdentifier(parent.expression) && parent.expression.text === 'PortfolioChangedEvent') {
                 return empty(); // special case, since PortfolioChangedEvent doesn't have any mutable fields
+            } else if (ts.isSpreadAssignment(parent)) {
+                return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
@@ -339,6 +341,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const indexConses = fixed_eval({ node: access.node.argumentExpression, env: access.env });
                     return setSome(indexConses, cons => subsumes(cons.node, name));
                 })
+
+                const parentObjectSpreads = setFilter(parentObjectsParents, isSpreadAssignmentConfig);
+                const parentObjectSpreadTo = setFlatMap(parentObjectSpreads, spread => fixed_eval({ node: spread.node.parent, env: spread.env }));
+                const propertyReturnedFromSpreadToObject = configSetJoinMap(parentObjectSpreadTo, site => getWherePropertyReturned(site, name));
 
                 const propertyReturnedInFunctionAt = configSetJoinMap(parentObjectSites, returnLocConfig => {
                     const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
@@ -378,7 +384,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 });
 
 
-                return joinAll(parentObjectPropertyAccessesWithMatchingName, parentObjectElementAccessesWithMatchingName, propertyReturnedInFunctionAt);
+                return joinAll(
+                    parentObjectPropertyAccessesWithMatchingName,
+                    parentObjectElementAccessesWithMatchingName,
+                    propertyReturnedInFunctionAt,
+                    propertyReturnedFromSpreadToObject
+                );
             }
 
             function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {

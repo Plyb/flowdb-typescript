@@ -137,6 +137,13 @@ export function isAssignmentExpressionConfig(config: Config): config is Config<A
 
     return isAssignmentExpression(config.node);
 }
+export function isSpreadAssignmentConfig(config: Config): config is Config<ts.SpreadAssignment> {
+    if (isExtern(config.node)) {
+        return false;
+    }
+
+    return ts.isSpreadAssignment(config.node);
+}
 
 export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
