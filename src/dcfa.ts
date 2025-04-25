@@ -347,6 +347,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (isAssignmentExpression(parent) && parent.right === node) {
                 return fixed_trace({ node: parent.left, env });
+            } else if (ts.isConditionalExpression(parent)) {
+                return fixed_trace({ node: parent, env });
+            } else if (ts.isTemplateSpan(parent)) {
+                return empty()
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
