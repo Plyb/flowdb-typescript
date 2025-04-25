@@ -4,10 +4,11 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isAssignmentExpressionConfig, isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join } from './configuration';
+import { isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
+import { Cursor, isExtern } from './abstract-values';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -255,4 +256,20 @@ export function getMapSetCalls(returnSiteConfigs: ConfigSet, { fixed_eval }: { f
         return { node: call, env: siteConfig.env };
     });
     return setSift(callSitesOrFalses);
+}
+
+export function subsumes(node: Cursor, str: string): boolean {
+    if (isExtern(node)) {
+        return true;
+    }
+
+    if (ts.isIdentifier(node)) {
+        return node.text === str;
+    }
+
+    if (ts.isStringLiteral(node)) {
+        return JSON.parse(node.text) === str;
+    }
+
+    return unimplemented(`Unknown type for subsumes: ${printNodeAndPos(node)}`, false);
 }

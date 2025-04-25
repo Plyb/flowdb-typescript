@@ -1,14 +1,14 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody, BindingName } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
-import { empty, setFilter, setFlatMap, setMap, setOf, singleton, union } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isAssignmentExpression, isAssignmentExpressionConfig, isOnLhsOfAssignmentExpression } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
-import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern } from './configuration';
+import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
@@ -196,6 +196,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturned(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
+            if (!isExtern(config.node) && config.node.getSourceFile().fileName.includes('.test.ts')) {
+                return empty();
+            }
+
             return join(
                 join(singleConfig(config), getWhereValueReturnedElsewhere(config, fix_run, push_cache)),
                 setFlatMap(getRefinementsOf(config, fix_run), refinedConfig => fix_run(getWhereValueReturned, refinedConfig))
@@ -203,6 +207,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         }
     
         function getWhereValueReturnedElsewhere(config: Config, fix_run: FixRunFunc<Config, ConfigSet>, push_cache: DcfaCachePusher): ConfigSet {
+            const fixed_eval = (config: Config) => fix_run(abstractEval, config);
             const fixed_trace = (config: Config) => fix_run(getWhereValueReturned, config);
 
             const { node, env } = config;
@@ -223,7 +228,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 }
             } else if (isFunctionLikeDeclaration(parent) && isBodyOf(node, parent)) {
                 const closedOverSites = fix_run(getWhereClosed, config);
-                return configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
+                const transitiveSites = configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
+
+                if (!isAsync(parent)) {
+                    return transitiveSites;
+                } else {
+                    const sitesWhereAwaited = configSetFilter(transitiveSites, site => ts.isAwaitExpression(site.node.parent));
+                    return configSetMap(sitesWhereAwaited, site => ({ node: site.node.parent, env: site.env }))
+                }
             } else if (ts.isParenthesizedExpression(parent)) {
                 return fix_run(getWhereValueReturned, { node: parent, env });
             } else if (ts.isVariableDeclaration(parent)) {
@@ -308,10 +320,27 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return unimplementedBottom(`Unimplemented property name type: ${printNodeAndPos(propName)}`);
                 }
                 const parentObjectSites = fixed_trace({ node: parent.parent, env });
-                const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }))
-                const parentObjectAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
-                const parentObjectAccessesWithMatchingName = setFilter(parentObjectAccesses, access => access.node.name.text === propName.text);
-                return parentObjectAccessesWithMatchingName;
+                const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }));
+
+                const parentObjectPropertyAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
+                const parentObjectPropertyAccessesWithMatchingName = setFilter(parentObjectPropertyAccesses, access => access.node.name.text === propName.text);
+
+                const parentObjectElementAccesses = setFilter(parentObjectsParents, isElementAccessConfig);
+                const parentObjectElementAccessesWithMatchingName = setFilter(parentObjectElementAccesses, access => {
+                    const indexConses = fixed_eval(access);
+                    return setSome(indexConses, cons => subsumes(cons.node, propName.text));
+                })
+
+                return join<Cursor>(parentObjectPropertyAccessesWithMatchingName, parentObjectElementAccessesWithMatchingName);
+            } else if (ts.isReturnStatement(parent)) {
+                const functionBlock = getFunctionBlockOf(parent);
+                return fixed_trace({ node: functionBlock, env });
+            } else if (ts.isTypeQueryNode(parent)) {
+                return empty();
+            } else if (ts.isAsExpression(parent)) {
+                return fixed_trace({ node: parent, env });
+            } else if (ts.isAwaitExpression(parent)) {
+                return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
 

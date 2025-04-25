@@ -3,9 +3,9 @@ import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackB
 import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
-import { findAllParameterBinders, getPosText, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { findAllParameterBinders, getPosText, isAssignmentExpression, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { consList, List, listReduce, toList, unimplemented } from './util';
-import ts from 'typescript';
+import ts, { AssignmentExpression, AssignmentOperatorToken } from 'typescript';
 
 export type ConfigSet<N extends Cursor = Cursor> = StructuralSet<Config<N>>;
 
@@ -122,6 +122,20 @@ export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block
 }
 export function isObjectLiteralExpressionConfig(config: Config): config is Config<ts.ObjectLiteralExpression> {
     return !isExtern(config.node) && ts.isObjectLiteralExpression(config.node)
+}
+export function isElementAccessConfig(config: Config): config is Config<ts.ElementAccessExpression> {
+    if (isExtern(config.node)) {
+        return false;
+    }
+
+    return ts.isElementAccessExpression(config.node);
+}
+export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
+    if (!isConfigNoExtern(config)) {
+        return false;
+    }
+
+    return isAssignmentExpression(config.node);
 }
 
 export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {

@@ -112,12 +112,15 @@ const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken,
 export function isAssignmentExpression(node: ts.Node): node is AssignmentExpression<AssignmentOperatorToken> {
     return ts.isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
 }
-export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
-    if (!isConfigNoExtern(config)) {
-        return false;
-    }
 
-    return isAssignmentExpression(config.node);
+export function getFunctionBlockOf(statement: ts.Node): ts.Block & { parent: SimpleFunctionLikeDeclaration } {
+    const parents = getParentChain(statement);
+    for (const parent of parents) {
+        if (ts.isBlock(parent) && isFunctionLikeDeclaration(parent.parent)) {
+            return parent as ts.Block & { parent: SimpleFunctionLikeDeclaration };
+        }
+    }
+    throw new Error(`Unable to find function block for ${printNodeAndPos(statement)}`);
 }
 
 export function isOnLhsOfAssignmentExpression(node: Cursor): boolean {
