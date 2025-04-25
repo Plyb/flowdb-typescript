@@ -341,7 +341,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return fixed_trace({ node: parent, env });
             } else if (ts.isAwaitExpression(parent)) {
                 return empty();
-            } else if (ts.isBinaryExpression(parent) && (parent.operatorToken.kind === SyntaxKind.BarBarToken)) {
+            } else if (ts.isBinaryExpression(parent)
+                && (parent.operatorToken.kind === SyntaxKind.BarBarToken
+                    || parent.operatorToken.kind === SyntaxKind.QuestionQuestionToken)
+            ) {
                 return fixed_trace({ node: parent, env });
             } else if (ts.isSpreadElement(parent)) {
                 return empty();
