@@ -327,7 +327,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 const parentObjectElementAccesses = setFilter(parentObjectsParents, isElementAccessConfig);
                 const parentObjectElementAccessesWithMatchingName = setFilter(parentObjectElementAccesses, access => {
-                    const indexConses = fixed_eval(access);
+                    const indexConses = fixed_eval({ node: access.node.argumentExpression, env: access.env });
                     return setSome(indexConses, cons => subsumes(cons.node, propName.text));
                 })
 

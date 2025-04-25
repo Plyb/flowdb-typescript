@@ -2,7 +2,7 @@ import ts, { isObjectLiteralExpression, SyntaxKind } from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
-import { empty, setFilter, setFlatMap, setMap, setSift, singleton } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } from './setUtil';
 import { unimplemented } from './util';
 import { isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig } from './configuration';
@@ -22,6 +22,16 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     return configSetJoinMap(expressionConses, consConfig => {
         return getPropertyFromObjectCons(consConfig, property, accessConfig, fixed_eval, fixed_trace);
     })
+}
+
+function nameMatches(lhs: ConfigNoExtern, name: string, fixed_eval: FixedEval): boolean {
+    if (ts.isPropertyAccessExpression(lhs.node)) {
+        return lhs.node.name.text === name;
+    } else if (ts.isElementAccessExpression(lhs.node)) {
+        const indexConses = fixed_eval({ node: lhs.node.argumentExpression, env: lhs.env });
+        return setSome(indexConses, cons => subsumes(cons.node, name));
+    }
+    throw new Error(`Unknown left hand side: ${printNodeAndPos(lhs.node)}`)
 }
 
 function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -45,7 +55,12 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         const tracedSites = setFilter(fixed_trace(consConfig), isConfigNoExtern);
         const refGrandparents = setMap(tracedSites, ref => ({ node: ref.node.parent.parent, env: ref.env }));
         const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
-        return setMap(refAssignments, assignmentExpression => {
+        const refAssignmentsWithMatching = setFilter(refAssignments, assignment => 
+            nameMatches(
+                { node: assignment.node.left, env: assignment.env}, property.text,fixed_eval
+            )
+        );
+        return setMap(refAssignmentsWithMatching, assignmentExpression => {
             if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
                 return assignmentExpression;
             }
