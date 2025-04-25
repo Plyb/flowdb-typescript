@@ -358,6 +358,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isElementAccessExpression(parent)) {
                 return empty();
+            } else if (ts.isClassDeclaration(parent) && (ts.isDecorator(node))) {
+                return empty(); // assumption: we're not mutating injectable services
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
