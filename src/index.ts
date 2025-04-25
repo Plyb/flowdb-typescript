@@ -41,10 +41,10 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
-analyzeUmami()
+// analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
-// analyzeRallly()
+analyzeRallly()
 // analyzeTeable()
 // analyzeCalCom()
 // analyzeLetterpad()
@@ -108,6 +108,7 @@ function analyzeUmami() {
 function analyzeGhostfolio() {
   // AND is not found because mutation isn't implemented yet.
   // filters and tags are not found because they are intentionally nullable in the code
+  // activitiesDto and activity are filled in later
   printResults(runAnalysis('../../examples/ghostfolio/apps/api', './src/app/import/import.service.ts', 137, 21, 3))
 }
 function analyzeTypebotIo() {
