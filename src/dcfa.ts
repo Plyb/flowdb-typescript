@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression } from './ts-utils';
 import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
@@ -345,8 +345,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return fixed_trace({ node: parent, env });
             } else if (ts.isSpreadElement(parent)) {
                 return empty();
+            } else if (isAssignmentExpression(parent) && parent.right === node) {
+                return fixed_trace({ node: parent.left, env });
             }
-            return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${SyntaxKind[parent.kind]}:${getPosText(parent)}`);
+            return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
             function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
                 const parent = parentConfig.node;
