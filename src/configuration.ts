@@ -131,7 +131,7 @@ export function isElementAccessConfig(config: Config): config is Config<ts.Eleme
     return ts.isElementAccessExpression(config.node);
 }
 export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
-    if (!isConfigNoExtern(config)) {
+    if (config.node === undefined || !isConfigNoExtern(config)) {
         return false;
     }
 
