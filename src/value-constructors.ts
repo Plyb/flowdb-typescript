@@ -1,6 +1,6 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { empty, setFilter, setFlatMap, singleton } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { Cursor, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
@@ -158,11 +158,13 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
             expressionConses,
             isBuiltInConstructorShapedConfig
         );
-        if (builtInConstructorsForExpression.size() !== 1) {
+        const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
+            getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval)
+        );
+        if (builtInValues.size() !== 1) {
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
-        const expressionConstructor = builtInConstructorsForExpression.elements[0];
-        return getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval);
+        return builtInValues.elements[0];
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
