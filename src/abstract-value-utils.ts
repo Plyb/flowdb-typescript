@@ -45,12 +45,12 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         const tracedSites = setFilter(fixed_trace(consConfig), isConfigNoExtern);
         const refGrandparents = setMap(tracedSites, ref => ({ node: ref.node.parent.parent, env: ref.env }));
         const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
-        return setFlatMap(refAssignments, assignmentExpression => {
+        return setMap(refAssignments, assignmentExpression => {
             if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
-                return unimplementedBottom(`Unknown assignment operator kind: ${printNodeAndPos(assignmentExpression.node.operatorToken)}`);
+                return assignmentExpression;
             }
 
-            return singleConfig({ node: assignmentExpression.node.right, env: assignmentExpression.env });
+            return { node: assignmentExpression.node.right, env: assignmentExpression.env };
         })
     }
 
