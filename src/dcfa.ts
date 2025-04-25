@@ -261,39 +261,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 return empty();
             } else if (ts.isShorthandPropertyAssignment(parent)) {
-                const parentObjectReturnedAt = fix_run(getWhereValueReturned, { node: parent.parent, env });
-                return configSetJoinMap(parentObjectReturnedAt, returnLocConfig => {
-                    const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
-                    const returnLocParent = returnLoc.parent;
-                    if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
-                        return getWhereReturnedInsideFunction(
-                            { node: returnLocParent, env: returnLocEnv },
-                            returnLoc,
-                            (parameterName, opEnv) => {
-                                if (!ts.isObjectBindingPattern(parameterName)) {
-                                    return empty();
-                                }
-                                const destructedName = parameterName.elements.find(elem => 
-                                    ts.isIdentifier(elem.name)
-                                        ? elem.name.text === parent.name.text
-                                        : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
-                                )?.name;
-                                if (destructedName === undefined) {
-                                    return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
-                                }
-                                if (!ts.isIdentifier(destructedName)) {
-                                    return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
-                                }
-
-                                return getReferences({
-                                    node: destructedName,
-                                    env: consList(pushContext(returnLocParent, returnLocEnv, m), opEnv),
-                                });
-                            }
-                        )
-                    }
-                    return unimplementedBottom(`Unknown value for obtaining ${parent.name.text} from object at ${printNodeAndPos(returnLocParent)}`);
-                })
+                return getWherePropertyReturned({ node: parent.parent, env }, parent.name.text);
             } else if (ts.isImportSpecifier(parent)) {
                 return getReferences({ node: parent.name, env });
             } else if (ts.isPropertySignature(parent)) {
@@ -319,19 +287,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (!ts.isIdentifier(propName)) {
                     return unimplementedBottom(`Unimplemented property name type: ${printNodeAndPos(propName)}`);
                 }
-                const parentObjectSites = fixed_trace({ node: parent.parent, env });
-                const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }));
-
-                const parentObjectPropertyAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
-                const parentObjectPropertyAccessesWithMatchingName = setFilter(parentObjectPropertyAccesses, access => access.node.name.text === propName.text);
-
-                const parentObjectElementAccesses = setFilter(parentObjectsParents, isElementAccessConfig);
-                const parentObjectElementAccessesWithMatchingName = setFilter(parentObjectElementAccesses, access => {
-                    const indexConses = fixed_eval({ node: access.node.argumentExpression, env: access.env });
-                    return setSome(indexConses, cons => subsumes(cons.node, propName.text));
-                })
-
-                return join<Cursor>(parentObjectPropertyAccessesWithMatchingName, parentObjectElementAccessesWithMatchingName);
+                return getWherePropertyReturned({ node: parent.parent, env }, propName.text)
             } else if (ts.isReturnStatement(parent)) {
                 const functionBlock = getFunctionBlockOf(parent);
                 return fixed_trace({ node: functionBlock, env });
@@ -364,6 +320,56 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
+
+            function getWherePropertyReturned(parentObjectConfig: Config, name: string) {
+                const parentObjectSites = fixed_trace({ node: parentObjectConfig.node, env: parentObjectConfig.env });
+                const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }));
+
+                const parentObjectPropertyAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
+                const parentObjectPropertyAccessesWithMatchingName = setFilter(parentObjectPropertyAccesses, access => access.node.name.text === name);
+
+                const parentObjectElementAccesses = setFilter(parentObjectsParents, isElementAccessConfig);
+                const parentObjectElementAccessesWithMatchingName = setFilter(parentObjectElementAccesses, access => {
+                    const indexConses = fixed_eval({ node: access.node.argumentExpression, env: access.env });
+                    return setSome(indexConses, cons => subsumes(cons.node, name));
+                })
+
+                const propertyReturnedInFunctionAt = configSetJoinMap(parentObjectSites, returnLocConfig => {
+                    const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
+                    const returnLocParent = returnLoc.parent;
+                    if (ts.isCallExpression(returnLocParent) && !isOperatorOf(returnLoc, returnLocParent)) {
+                        return getWhereReturnedInsideFunction(
+                            { node: returnLocParent, env: returnLocEnv },
+                            returnLoc,
+                            (parameterName, opEnv) => {
+                                if (!ts.isObjectBindingPattern(parameterName)) {
+                                    return empty();
+                                }
+                                const destructedName = parameterName.elements.find(elem => 
+                                    ts.isIdentifier(elem.name)
+                                        ? elem.name.text === name
+                                        : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
+                                )?.name;
+                                if (destructedName === undefined) {
+                                    return unimplemented(`Unable to find destructed identifier in ${printNodeAndPos(parameterName)}`, empty())
+                                }
+                                if (!ts.isIdentifier(destructedName)) {
+                                    return unimplemented(`Expected a simple binding name ${printNodeAndPos(destructedName)}`, empty())
+                                }
+
+                                return getReferences({
+                                    node: destructedName,
+                                    env: consList(pushContext(returnLocParent, returnLocEnv, m), opEnv),
+                                });
+                            }
+                        )
+                    }
+                    return empty();
+                });
+
+
+                return joinAll(parentObjectPropertyAccessesWithMatchingName, parentObjectElementAccessesWithMatchingName, propertyReturnedInFunctionAt);
+            }
 
             function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
                 const parent = parentConfig.node;
