@@ -31,7 +31,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
-// analyzeFormbricks()
+analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
 // analyzeRevert()
@@ -47,7 +47,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeRallly()
 // analyzeTeable()
 // analyzeCalCom()
-analyzeLetterpad()
+// analyzeLetterpad()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -71,6 +71,7 @@ function analyzeHoppscotch() {
   printResults(runAnalysis('../../examples/hoppscotch/packages/hoppscotch-backend', './src/infra-config/helper.ts', 279, 13, 3))
 }
 function analyzeFormbricks() {
+  // 'resource' won't have a binding initially since it is a recursive parameter
   printResults(runAnalysis('../../examples/formbricks/apps/web', './modules/ee/contacts/api/v1/client/[environmentId]/identify/contacts/[userId]/lib/segments.ts', 29, 35, 3));
 }
 function analyzeDocumenso() {
