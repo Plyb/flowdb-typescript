@@ -318,6 +318,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty(); // assumption: we're not mutating injectable services
             } else if (ts.isPrefixUnaryExpression(parent)) {
                 return empty();
+            } else if (ts.isTypeReferenceNode(parent)) {
+                return empty();
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
