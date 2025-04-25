@@ -8,7 +8,7 @@ import { Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig } from './configuration';
 import { isEqual } from 'lodash';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
@@ -346,6 +346,18 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const parentObjectSpreadTo = setFlatMap(parentObjectSpreads, spread => fixed_eval({ node: spread.node.parent, env: spread.env }));
                 const propertyReturnedFromSpreadToObject = configSetJoinMap(parentObjectSpreadTo, site => getWherePropertyReturned(site, name));
 
+                const parentObjectAsInitializer = setFilter(parentObjectsParents, isVariableDeclarationConfig);
+                const matchingNames = configSetJoinMap(parentObjectAsInitializer, declaration => {
+                    if (!ts.isObjectBindingPattern(declaration.node.name)) {
+                        return empty();
+                    }
+                    const matchingName = declaration.node.name.elements.find(elem => ts.isIdentifier(elem.name) && elem.name.text === name);
+                    if (matchingName === undefined) {
+                        return empty();
+                    }
+                    return singleConfig({ node: matchingName, env: declaration.env });
+                });
+
                 const propertyReturnedInFunctionAt = configSetJoinMap(parentObjectSites, returnLocConfig => {
                     const { node: returnLoc, env: returnLocEnv } = returnLocConfig;
                     const returnLocParent = returnLoc.parent;
@@ -383,12 +395,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return empty();
                 });
 
-
                 return joinAll(
                     parentObjectPropertyAccessesWithMatchingName,
                     parentObjectElementAccessesWithMatchingName,
                     propertyReturnedInFunctionAt,
-                    propertyReturnedFromSpreadToObject
+                    propertyReturnedFromSpreadToObject,
+                    matchingNames,
                 );
             }
 

@@ -144,6 +144,13 @@ export function isSpreadAssignmentConfig(config: Config): config is Config<ts.Sp
 
     return ts.isSpreadAssignment(config.node);
 }
+export function isVariableDeclarationConfig(config: Config): config is Config<ts.VariableDeclaration> {
+    if (isExtern(config.node)) {
+        return false;
+    }
+
+    return ts.isVariableDeclaration(config.node);
+}
 
 export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
     return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
