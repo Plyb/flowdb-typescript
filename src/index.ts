@@ -31,7 +31,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
-analyzeFormbricks()
+// analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
 // analyzeRevert()
@@ -41,7 +41,7 @@ analyzeFormbricks()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
-// analyzeUmami()
+analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
 // analyzeRallly()
@@ -103,7 +103,7 @@ function analyzeDub() {
 }
 function analyzeUmami() {
   // note that this *will* have a warning for not finding a binding for acc
-  printResults(runAnalysis('../../examples/umami', './src/queries/sql/sessions/saveSessionData.ts', 21, 13, 3))
+  printResults(runAnalysis('../../examples/umami', './src/queries/sql/sessions/saveSessionData.ts', 20, 13, 3))
 }
 function analyzeGhostfolio() {
   // AND is not found because mutation isn't implemented yet.
