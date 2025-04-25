@@ -103,6 +103,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         }
                     });
                 } else if (isIdentifierConfig(config)) {
+                    if (config.node.text === 'globalThis') {
+                        return justExtern;
+                    }
+
                     const boundExprs = getBoundExprs(config, fix_run);
                     if (boundExprs.size() > 0) {
                         return configSetJoinMap(boundExprs, fixed_eval);
