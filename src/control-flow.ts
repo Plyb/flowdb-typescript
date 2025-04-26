@@ -2,13 +2,15 @@ import ts, { ConciseBody } from 'typescript';
 import { DcfaCachePusher, FixedEval } from './dcfa';
 import { FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
-import { findAllCalls, isFunctionLikeDeclaration, isPrismaQuery } from './ts-utils';
+import { findAllCalls, isFunctionLikeDeclaration, isPrismaQuery, printNodeAndPos } from './ts-utils';
 import { StructuralSet } from './structural-set';
-import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap, join, ConfigSet, envKey, envValue } from './configuration';
+import { Config, ConfigNoExtern, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap, join, ConfigSet, envKey, envValue, unimplementedBottom } from './configuration';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { consList } from './util';
 import { newQuestion } from './context';
+import { isExtern } from './abstract-values';
+import { isBuiltInConstructorShaped } from './value-constructors';
 
 export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
     const { valueOf } = makeFixpointComputer(
@@ -32,19 +34,36 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
 
                 const operators = fixed_eval({ node: site.expression, env });
                 return configSetJoinMap(operators, ({ node: op, env: funcEnv }) => {
-                    if (!isFunctionLikeDeclaration(op)) {
-                        return empty(); // built in functions fit this criterion
+                    if (isFunctionLikeDeclaration(op)) {
+                        push_cache(
+                            envKey(consList(newQuestion(op), funcEnv)),
+                            envValue(consList(pushContext(site, env, m), funcEnv))
+                        );
+    
+                        return fix_run(compute, {
+                            node: op.body,
+                            env: consList(pushContext(site, env, m), funcEnv)
+                        })
+
+                    } else if (isBuiltInConstructorShaped(op)) {
+                        const argSet = new SimpleSet(structuralComparator, ...site.arguments);
+                        const argConses = setFlatMap(argSet, arg => fixed_eval({ node: arg, env }));
+                        const functionLikeArgConses = setFilter(argConses, isFunctionLikeDeclarationConfig);
+
+                        return setFlatMap(functionLikeArgConses, ({ node: argNode, env: argEnv }) => {
+                            push_cache(
+                                envKey(consList(newQuestion(argNode), argEnv)),
+                                envValue(consList(pushContext(site, env, m), argEnv))
+                            );
+
+                            return fix_run(compute, {
+                                node: argNode.body,
+                                env: consList(pushContext(site, env, m), argEnv)
+                            });
+                        })
+                    } else {
+                        return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(op)}`)
                     }
-
-                    push_cache(
-                        envKey(consList(newQuestion(op), funcEnv)),
-                        envValue(consList(pushContext(site, env, m), funcEnv))
-                    );
-
-                    return fix_run(compute, {
-                        node: op.body,
-                        env: consList(pushContext(site, env, m), funcEnv)
-                    })
                 });
             }
         ) as ConfigSet<ts.CallExpression>;
