@@ -1,12 +1,12 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { empty, setFilter, setFlatMap, setMap, singleton } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { Cursor, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
-import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls } from './abstract-value-utils';
+import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ts.ElementAccessExpression;
@@ -193,7 +193,7 @@ export function isBuiltInConstructorShapedConfig(config: Config): config is Conf
 }
 
 function uncallable(name: BuiltInValue) { return () => unimplementedBottom(`No result of calling ${name}`)}
-type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval, m: number }) => ConfigSet
+type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
     node: callConfig.node.arguments[0],
     env: callConfig.env,
@@ -212,6 +212,28 @@ const arrayReduceCallGetter: CallGetter = (callConfig, { fixed_eval, m }) => {
     })
 
     return join(initialConses, accumulatorResults);
+}
+const mapGetCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace }) => {
+    const mapConses = fixed_eval({ node: callConfig.node.expression, env: callConfig.env });
+    const getKeyConses = fixed_eval({ node: callConfig.node.arguments[0], env: callConfig.env });
+
+    const setSiteConfigs = configSetJoinMap(mapConses, mapConsConfig =>
+        getMapSetCalls(fixed_trace(mapConsConfig), { fixed_eval })
+    );
+    return configSetJoinMap(setSiteConfigs, siteConfig => {
+        const setKeyArg = (siteConfig.node as CallExpression).arguments[0];
+        const setKeyConses = fixed_eval({ node: setKeyArg, env: siteConfig.env });
+
+        const keyMatch = setSome(getKeyConses, getKeyCons => setSome(setKeyConses, setKeyCons =>
+            subsumes(getKeyCons.node, setKeyCons.node) || subsumes(setKeyCons.node, getKeyCons.node)
+        ))
+        if (keyMatch) {
+            const setValueArg = (siteConfig.node as CallExpression).arguments[1];
+            return fixed_eval({ node: setValueArg, env: siteConfig.env });
+        } else {
+            return empty();
+        }
+    });
 }
 export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array': uncallable('Array'),
@@ -243,7 +265,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'JSON.parse': () => justExtern,
     'JSON.stringify': singleConfig,
     'JSON.stringify()': uncallable('JSON.stringify()'),
-    'Map#get': uncallable('Map#get'), // TODO
+    'Map#get': mapGetCallGetter,
     'Map#keys': singleConfig,
     'Map#keys()': uncallable('Map#keys()'),
     'Map#set': uncallable('Map#set'), // TODO

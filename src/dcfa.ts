@@ -97,7 +97,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 opConfig,
                                 fixed_eval
                             );
-                            return resultOfCalling[builtInValue](config, { fixed_eval, m });
+                            return resultOfCalling[builtInValue](config, { fixed_eval, fixed_trace, m });
                         } else {
                             return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                         }
@@ -263,7 +263,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
                 return empty();
             } else if (ts.isShorthandPropertyAssignment(parent)) {
-                return getWherePropertyReturned({ node: parent.parent, env }, parent.name.text);
+                return getWherePropertyReturned({ node: parent.parent, env }, parent.name);
             } else if (ts.isImportSpecifier(parent)) {
                 return getReferences({ node: parent.name, env });
             } else if (ts.isPropertySignature(parent)) {
@@ -289,7 +289,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (!ts.isIdentifier(propName)) {
                     return unimplementedBottom(`Unimplemented property name type: ${printNodeAndPos(propName)}`);
                 }
-                return getWherePropertyReturned({ node: parent.parent, env }, propName.text)
+                return getWherePropertyReturned({ node: parent.parent, env }, propName)
             } else if (ts.isReturnStatement(parent)) {
                 const functionBlock = getFunctionBlockOf(parent);
                 return fixed_trace({ node: functionBlock, env });
@@ -331,12 +331,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
-            function getWherePropertyReturned(parentObjectConfig: Config, name: string) {
+            function getWherePropertyReturned(parentObjectConfig: Config, name: ts.Identifier) {
                 const parentObjectSites = fixed_trace({ node: parentObjectConfig.node, env: parentObjectConfig.env });
                 const parentObjectsParents = configSetMap(parentObjectSites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }));
 
                 const parentObjectPropertyAccesses = setFilter(parentObjectsParents, isPropertyAccessConfig);
-                const parentObjectPropertyAccessesWithMatchingName = setFilter(parentObjectPropertyAccesses, access => access.node.name.text === name);
+                const parentObjectPropertyAccessesWithMatchingName = setFilter(parentObjectPropertyAccesses, access => access.node.name.text === name.text);
 
                 const parentObjectElementAccesses = setFilter(parentObjectsParents, isElementAccessConfig);
                 const parentObjectElementAccessesWithMatchingName = setFilter(parentObjectElementAccesses, access => {
@@ -353,7 +353,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     if (!ts.isObjectBindingPattern(declaration.node.name)) {
                         return empty();
                     }
-                    const matchingName = declaration.node.name.elements.find(elem => ts.isIdentifier(elem.name) && elem.name.text === name);
+                    const matchingName = declaration.node.name.elements.find(elem => ts.isIdentifier(elem.name) && elem.name.text === name.text);
                     if (matchingName === undefined) {
                         return empty();
                     }
@@ -377,7 +377,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 }
                                 const destructedName = parameterName.elements.find(elem => 
                                     ts.isIdentifier(elem.name)
-                                        ? elem.name.text === name
+                                        ? elem.name.text === name.text
                                         : unimplemented(`Nested binding patterns unimplemented: ${printNodeAndPos(elem)}`, empty())
                                 )?.name;
                                 if (destructedName === undefined) {

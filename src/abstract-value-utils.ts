@@ -24,9 +24,9 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     })
 }
 
-function nameMatches(lhs: ConfigNoExtern, name: string, fixed_eval: FixedEval): boolean {
+function nameMatches(lhs: ConfigNoExtern, name: ts.MemberName, fixed_eval: FixedEval): boolean {
     if (ts.isPropertyAccessExpression(lhs.node)) {
-        return lhs.node.name.text === name;
+        return lhs.node.name.text === name.text;
     } else if (ts.isElementAccessExpression(lhs.node)) {
         const indexConses = fixed_eval({ node: lhs.node.argumentExpression, env: lhs.env });
         return setSome(indexConses, cons => subsumes(cons.node, name));
@@ -61,7 +61,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
         const refAssignmentsWithMatching = setFilter(refAssignments, assignment => 
             nameMatches(
-                { node: assignment.node.left, env: assignment.env}, property.text,fixed_eval
+                { node: assignment.node.left, env: assignment.env}, property, fixed_eval
             )
         );
         return setMap(refAssignmentsWithMatching, assignmentExpression => {
@@ -291,18 +291,26 @@ export function getMapSetCalls(returnSiteConfigs: ConfigSet, { fixed_eval }: { f
     return setSift(callSitesOrFalses);
 }
 
-export function subsumes(node: Cursor, str: string): boolean {
-    if (isExtern(node)) {
+export function subsumes(a: Cursor, b: Cursor): boolean {
+    if (isExtern(a)) {
         return true;
     }
 
+    if (isExtern(b)) {
+        return false;
+    }
+
+    const aString = getStringOf(a);
+    const bString = getStringOf(b);
+    return aString === bString;
+}
+
+function getStringOf(node: ts.Node) {
     if (ts.isIdentifier(node)) {
-        return node.text === str;
+        return node.text;
+    } else if (ts.isStringLiteral(node)) {
+        return JSON.parse(node.text);
+    } else {
+        return unimplemented(`Uknown how to get string of ${printNodeAndPos(node)}`, '')
     }
-
-    if (ts.isStringLiteral(node)) {
-        return JSON.parse(node.text) === str;
-    }
-
-    return unimplemented(`Unknown type for subsumes: ${printNodeAndPos(node)}`, false);
 }
