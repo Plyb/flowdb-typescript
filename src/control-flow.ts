@@ -10,7 +10,7 @@ import { structuralComparator } from './comparators';
 import { consList } from './util';
 import { newQuestion } from './context';
 import { isExtern } from './abstract-values';
-import { isBuiltInConstructorShaped } from './value-constructors';
+import { getBuiltInValueOfBuiltInConstructor, higherOrderArgsOf, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig } from './value-constructors';
 
 export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
     const { valueOf } = makeFixpointComputer(
@@ -33,7 +33,8 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                 }
 
                 const operators = fixed_eval({ node: site.expression, env });
-                return configSetJoinMap(operators, ({ node: op, env: funcEnv }) => {
+                return configSetJoinMap(operators, (opConfig) => {
+                    const { node: op, env: funcEnv } = opConfig;
                     if (isFunctionLikeDeclaration(op)) {
                         push_cache(
                             envKey(consList(newQuestion(op), funcEnv)),
@@ -45,8 +46,11 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                             env: consList(pushContext(site, env, m), funcEnv)
                         })
 
-                    } else if (isBuiltInConstructorShaped(op)) {
-                        const argSet = new SimpleSet(structuralComparator, ...site.arguments);
+                    } else if (isBuiltInConstructorShapedConfig(opConfig)) {
+                        const builtInType = getBuiltInValueOfBuiltInConstructor(opConfig, fixed_eval);
+                        const higherOrderArgIndices = higherOrderArgsOf[builtInType];
+                        const higherOrderArgs = site.arguments.filter((_, i) => higherOrderArgIndices.includes(i));
+                        const argSet = new SimpleSet(structuralComparator, ...higherOrderArgs);
                         const argConses = setFlatMap(argSet, arg => fixed_eval({ node: arg, env }));
                         const functionLikeArgConses = setFilter(argConses, isFunctionLikeDeclarationConfig);
 
