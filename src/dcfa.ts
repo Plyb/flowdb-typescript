@@ -730,7 +730,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     getWhereClosed, { node: declaringFunctionBody, env: envAtDeclaredScope }
                 );
                 const boundFromArgs =  configSetMap(definingFunctionCallSites, (callSite) => ({
-                    node: (callSite.node as CallExpression).arguments[parameterIndex] as Node,
+                    node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
                     env: callSite.env,
                 }));
 
