@@ -114,7 +114,11 @@ export function isPropertyAccessConfig(config: Config): config is Config<ts.Prop
 
     return ts.isPropertyAccessExpression(config.node);
 }
-export function isCallConfig(config: ConfigNoExtern): config is Config<ts.CallExpression> {
+export function isCallConfig(config: Config): config is Config<ts.CallExpression> {
+    if (!isConfigNoExtern(config)) {
+        return false;
+    }
+
     return ts.isCallExpression(config.node);
 }
 export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block> {

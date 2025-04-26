@@ -328,6 +328,24 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isQualifiedName(parent)) {
                 return empty();
+            } else if (ts.isArrayLiteralExpression(parent)) {
+                const parentArraySites = fixed_trace({ node: parent, env });
+                const parentArrayParents = configSetMap(parentArraySites, parentObject => ({ node: parentObject.node.parent, env: parentObject.env }));
+                const parentObjectElementAccesses = setFilter(parentArrayParents, isElementAccessConfig);
+
+                const parentArrayAsInitializer = setFilter(
+                    setFilter(parentArrayParents, isVariableDeclarationConfig),
+                    declaration => ts.isArrayBindingPattern(declaration.node.name)
+                );
+                const parentArrayAsArgument = setFilter(parentArraySites, parentArray =>
+                    isConfigNoExtern(parentArray)
+                    && ts.isCallExpression(parentArray.node.parent)
+                    && parentArray.node.parent.expression !== parentArray.node
+                );
+                if (parentArrayAsInitializer.size() > 0 || parentArrayAsArgument.size() > 0) {
+                    return unimplementedBottom(`Unknown situation: tracing a parent array through a variable declaration or call: ${printNodeAndPos(parent)}`)
+                }
+                return parentObjectElementAccesses;
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
