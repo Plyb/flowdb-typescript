@@ -729,10 +729,25 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 const definingFunctionCallSites = fix_run(
                     getWhereClosed, { node: declaringFunctionBody, env: envAtDeclaredScope }
                 );
-                const boundFromArgs =  configSetMap(definingFunctionCallSites, (callSite) => ({
-                    node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
-                    env: callSite.env,
-                }));
+                const boundFromArgs =  configSetJoinMap(definingFunctionCallSites, (callSite) => {
+                    if (declaration.dotDotDotToken === undefined) {
+                        return singleConfig({
+                            node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
+                            env: callSite.env,
+                        })
+                    } else {
+                        return unimplementedBottom(`Rest parameters are not yet implemented ${printNodeAndPos(declaration)}`)
+                        // This doesn't work because what we really need is some single node that includes all of the rest arguments...
+                        // maybe if we need it, we can modify how the identifiers bound by rest parameters are treated further on.
+                        // For now just put a warning if we run into this.
+                        // const restArguments = (callSite.node as CallExpression).arguments.slice(parameterIndex);
+                        // const restArgsSet = new SimpleSet(structuralComparator, ...restArguments);
+                        // return setMap(restArgsSet, restArg => ({
+                        //     node: restArg,
+                        //     env: callSite.env,
+                        // }));
+                    }
+                });
 
                 const sitesWhereDeclaringFunctionReturned = fixed_trace({ node: declaringFunction, env: envAtDeclaredScope.tail });
                 const boundFromPrimop = configSetJoinMap(
