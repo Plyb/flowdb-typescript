@@ -656,12 +656,27 @@ const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgInd
         return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
     }
 }
+const arrayForEachABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
+    if (this === undefined) {
+        return unimplementedBottom(`Cannot call forEach on undefined`);
+    }
+
+    if (primopArgIndex !== 0) {
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array#forEach`);
+    }
+
+    if (argParameterIndex === 0) {
+        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
+    } else {
+        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array#forEach ${printNodeAndPos(callSite.node)}`)
+    }
+}
 export const primopBinderGetters: PrimopBinderGetters = {
     'Array': notSupported('Array'),
     'Array#filter': notSupported('Array#filter'),
     'Array#filter()': notSupported('Array#filter()'),
     'Array#find': notSupported('Array#find'),
-    'Array#forEach': notSupported('Array#forEach'),
+    'Array#forEach': arrayForEachABG,
     'Array#includes': notSupported('Array#includes'),
     'Array#includes()': notSupported('Array#includes()'),
     'Array#indexOf': notSupported('Array#indexOf'),
