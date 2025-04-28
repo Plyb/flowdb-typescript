@@ -571,13 +571,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         function getBoundExprsOfSymbol(symbol: ts.Symbol, idConfig: Config<ts.Identifier>, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
             const fixed_eval: FixedEval = node => fix_run(abstractEval, node);
             const fixed_trace: FixedTrace = node => fix_run(getWhereValueReturned, node);
+            
+            const declaration = symbol.valueDeclaration
+                ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
+            if (declaration === undefined) {
+                return unimplemented(`could not find declaration: ${symbol.name}`, empty());
+            }
+            const declaringScope = getDeclaringScope(declaration, typeChecker);
+            const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
-            return join(getBindingsFromDelcaration(), getBindingsFromMutatingAssignments());
+            return join(getBindingsFromDelcaration(declaration), getBindingsFromMutatingAssignments(declaration));
 
-            function getBindingsFromMutatingAssignments(): ConfigSet {
-                const refs = getReferences(idConfig);
-                const refParents = setMap(refs, ref => ({ node: ref.node.parent, env: ref.env }));
-                const refAssignments = setFilter(refParents, isAssignmentExpressionConfig);
+            function getBindingsFromMutatingAssignments(declaration: ts.Declaration): ConfigSet {
+                const refs = fixed_trace({ node: declaration, env: envAtDeclaringScope });
+                const refParents = configSetMap(refs, ref => ({ node: ref.node.parent, env: ref.env }));
+                const refAssignments = new SimpleSet(structuralComparator, ...refParents.elements.filter(isAssignmentExpressionConfig));
                 return setFlatMap(refAssignments, assignmentExpression => {
                     if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
                         return unimplementedBottom(`Unknown assignment operator kind: ${printNodeAndPos(assignmentExpression.node.operatorToken)}`);
@@ -587,15 +595,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 })
             }
 
-            function getBindingsFromDelcaration(): ConfigSet {
-                const declaration = symbol.valueDeclaration
-                    ?? symbol?.declarations?.[0]; // it seems like this happens when the declaration is an import clause
-                if (declaration === undefined) {
-                    return unimplemented(`could not find declaration: ${symbol.name}`, empty());
-                }
-                const declaringScope = getDeclaringScope(declaration, typeChecker);
-                const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
-
+            function getBindingsFromDelcaration(declaration: ts.Declaration): ConfigSet {
                 if (ts.isParameter(declaration)) {
                     if (declaration.parent === targetFunction) {
                         return justExtern
