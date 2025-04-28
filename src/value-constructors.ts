@@ -2,7 +2,7 @@ import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typesc
 import { isArrayLiteralExpression, isBinaryExpression, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AnalysisNode, createElementPick, Cursor, ElementPick, isElementPick, isExtern } from './abstract-values';
+import { AnalysisNode, createElementPick, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
@@ -31,6 +31,7 @@ const builtInValuesObject = {
     'Array#some': true,
     'Array#some()': true,
     'Array.from': true,
+    'Array.isArray': true,
     'Buffer': true,
     'Buffer.from': true,
     'Date': true,
@@ -259,6 +260,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array#some': singleConfig,
     'Array#some()': uncallable('Array#some()'),
     'Array.from': arrayFromCallGetter,
+    'Array.isArray': singleConfig,
     'Buffer': uncallable('Buffer'),
     'Buffer.from': singleConfig,
     'Date': uncallable('Date'),
@@ -357,7 +359,7 @@ function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     }
 }
 export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
-    'Array': builtInStaticMethod('Array.from'),
+    'Array': builtInStaticMethods('Array.from', 'Array.isArray'),
     'Array#filter': inaccessibleProperty,
     'Array#filter()': builtInProtoMethod('Array'),
     'Array#find': inaccessibleProperty,
@@ -376,6 +378,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Array#some': inaccessibleProperty,
     'Array#some()': inaccessibleProperty,
     'Array.from': inaccessibleProperty,
+    'Array.isArray': inaccessibleProperty,
     'Buffer': builtInStaticMethod('Buffer.from'),
     'Buffer.from': inaccessibleProperty,
     'Date': builtInStaticMethods('Date.now', 'Date.UTC'),
@@ -527,6 +530,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Array#some': inaccessibleElement,
     'Array#some()': inaccessibleElement,
     'Array.from': inaccessibleElement,
+    'Array.isArray': inaccessibleElement,
     'Buffer': inaccessibleElement,
     'Buffer.from': inaccessibleElement,
     'Date': inaccessibleElement,
@@ -602,7 +606,7 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
         return 'String';
     } else if (isRegularExpressionLiteral(cons)) {
         return 'RegExp';
-    } else if (isArrayLiteralExpression(cons)) {
+    } else if (isArrayLiteralExpression(cons) || isArgumentList(cons)) {
         return 'Array';
     } else if (isNewExpression(cons)) {
         if (ts.isIdentifier(cons.expression)) {
@@ -707,6 +711,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Array#some': standardArrayABG,
     'Array#some()': notSupported('Array#some()'),
     'Array.from': notSupported('Array.from'),
+    'Array.isArray': notSupported('Array.isArray'),
     'Buffer': notSupported('Buffer'),
     'Buffer.from': notSupported('Buffer.from'),
     'Date': notSupported('Date'),
@@ -797,6 +802,7 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'Array#some': zeroth,
     'Array#some()': none,
     'Array.from': none,
+    'Array.isArray': none,
     'Buffer': none,
     'Buffer.from': none,
     'Date': none,
