@@ -134,25 +134,37 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
             }
             return singleConfig({ node: staticProperty, env: consConfig.env });
         } else if (isNewExpression(consConfig.node)) {
-            const expressionRes = fixed_eval({ node: consConfig.node.expression, env: consConfig.env });
-            if (expressionRes.size() === 1
-                && isConfigNoExtern(expressionRes.elements[0])
-                && isIdentifier(expressionRes.elements[0].node)
+            const expressionConses = fixed_eval({ node: consConfig.node.expression, env: consConfig.env });
+            if (expressionConses.size() === 1
+                && isConfigNoExtern(expressionConses.elements[0])
+                && isIdentifier(expressionConses.elements[0].node)
                 && originalAccessConfig !== undefined
             ) {
-                const nameText = expressionRes.elements[0].node.text
+                const nameText = expressionConses.elements[0].node.text
                 if (!isBuiltInProto(nameText)) {
-                    return unimplementedBottom(`Unknown kind of identifier ${printNodeAndPos(expressionRes.elements[0].node)}`)
+                    return unimplementedBottom(`Unknown kind of identifier ${printNodeAndPos(expressionConses.elements[0].node)}`)
                 }
 
                 return getPropertyOfProto(nameText, property.text, consConfig, originalAccessConfig, fixed_eval);
             }
 
-            if (setSome(expressionRes, isConfigNoExtern)) {
-                return unimplementedBottom(`Unknown how to get property of syntactic class ${printNodeAndPos(cons)}`);
-            }
+            return configSetJoinMap(expressionConses, expressionCons => {
+                if (isClassDeclaration(expressionCons.node)) {
+                    const member = expressionCons.node.members.find(member => member.name !== undefined
+                        && ts.isIdentifier(member.name)
+                        && member.name.text === property.text
+                    );
+                    if (member === undefined) {
+                        return unimplementedBottom(`Could not find member ${printNodeAndPos(property)} in ${printNodeAndPos(expressionCons.node)}`)
+                    }
+                    return singleConfig({
+                        node: member,
+                        env: expressionCons.env
+                    });
+                }
 
-            return justExtern;
+                return unimplementedBottom(`Unknown kind for new Expression ${printNodeAndPos(expressionCons.node)}`)
+            });
         } else {
             if (originalAccessConfig === undefined) {
                 return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
