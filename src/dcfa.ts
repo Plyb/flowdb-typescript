@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union 
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression } from './ts-utils';
-import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isExtern } from './abstract-values';
+import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
@@ -144,7 +144,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const elementExpressions = getElementNodesOfArrayValuedNode(
                         { node: node.expression, env },
                         { fixed_eval, fixed_trace, m },
-                        { node, env },
                     );
                     return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
                 } else if (isNewExpression(node)) {
@@ -176,8 +175,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return singleConfig(config);
                 } else if (isArgumentList(node)) {
                     return singleConfig(config)
+                } else if (isElementPick(node)) {
+                    return singleConfig(config);
                 }
-                return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
+                return unimplementedBottom(`abstractEval not yet implemented for: ${AnalysisSyntaxKind[node.kind]}:${getPosText(node)}`);
             }
         }
         
@@ -692,12 +693,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                     ) {
                                         return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
                                     }
-                                    if (!ts.isCallExpression(awaitExpressionCons.node)) {
+                                    if (!isCallExpression(awaitExpressionCons.node)) {
                                         return unimplementedBottom(`Expected call expression ${printNodeAndPos(awaitExpressionCons.node)}`);
                                     }
 
                                     const tupleConfig = { node: awaitExpressionCons.node.arguments[0], env: awaitExpressionCons.env };
-                                    const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval);
+                                    const tupleElementResults = getElementOfTuple(tupleConfig, i, fixed_eval, fixed_trace);
                                     return configSetJoinMap(tupleElementResults, tupleElementCons => resolvePromisesOfNode(tupleElementCons, fixed_eval))
                                 })
                             } else {
@@ -713,7 +714,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         
                         const argsValues = configSetJoinMap(argConfigs, argConfig => fix_run(abstractEval, argConfig));
 
-                        return getObjectsPropertyInitializers(argsValues, symbol.name);
+                        if (ts.isObjectBindingPattern(declaration.parent)) {
+                            return getObjectsPropertyInitializers(argsValues, symbol.name);
+                        } else if (ts.isArrayBindingPattern(declaration.parent)) {
+                            const i = declaration.parent.elements.indexOf(declaration);
+                            return configSetJoinMap(argsValues, argCons => {
+                                return getElementOfTuple(argCons, i, fixed_eval, fixed_trace)
+                            })
+                        }
                     }
                 } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
                     const moduleSpecifier = getModuleSpecifier(declaration);

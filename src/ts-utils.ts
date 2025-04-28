@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { AnalysisNode, Cursor, extern, isArgumentList, isExtern } from './abstract-values';
+import { AnalysisNode, Cursor, extern, isArgumentList, isElementPick, isExtern, isStandard } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment, isConfigExtern, isConfigNoExtern } from './configuration';
 import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
@@ -112,37 +112,37 @@ const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken,
 export function isAssignmentExpression(node: AnalysisNode): node is AssignmentExpression<AssignmentOperatorToken> {
     return isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
 }
-export const isBinaryExpression = notArgumentListAnd(ts.isBinaryExpression)
-export const isBlock = notArgumentListAnd(ts.isBlock)
-export const isFunctionDeclaration = notArgumentListAnd(ts.isFunctionDeclaration)
-export const isFunctionExpression = notArgumentListAnd(ts.isFunctionExpression)
-export const isArrowFunction = notArgumentListAnd(ts.isArrowFunction)
-export const isMethodDeclaration = notArgumentListAnd(ts.isMethodDeclaration)
-export const isIdentifier = notArgumentListAnd(ts.isIdentifier)
-export const isPropertyAccessExpression = notArgumentListAnd(ts.isPropertyAccessExpression)
-export const isCallExpression = notArgumentListAnd(ts.isCallExpression)
-export const isObjectLiteralExpression = notArgumentListAnd(ts.isObjectLiteralExpression)
-export const isElementAccessExpression = notArgumentListAnd(ts.isElementAccessExpression)
-export const isSpreadAssignment = notArgumentListAnd(ts.isSpreadAssignment)
-export const isVariableDeclaration = notArgumentListAnd(ts.isVariableDeclaration)
-export const isNewExpression = notArgumentListAnd(ts.isNewExpression)
-export const isClassDeclaration = notArgumentListAnd(ts.isClassDeclaration)
-export const isArrayLiteralExpression = notArgumentListAnd(ts.isArrayLiteralExpression)
-export const isSpreadElement = notArgumentListAnd(ts.isSpreadElement)
-export const isStringLiteral = notArgumentListAnd(ts.isStringLiteral)
-export const isParenthesizedExpression = notArgumentListAnd(ts.isParenthesizedExpression)
-export const isLiteralExpression = notArgumentListAnd(ts.isLiteralExpression)
-export const isAwaitExpression = notArgumentListAnd(ts.isAwaitExpression)
-export const isTemplateExpression = notArgumentListAnd(ts.isTemplateExpression)
-export const isConditionalExpression = notArgumentListAnd(ts.isConditionalExpression)
-export const isAsExpression = notArgumentListAnd(ts.isAsExpression)
-export const isDecorator = notArgumentListAnd(ts.isDecorator)
-export const isConciseBody = notArgumentListAnd(ts.isConciseBody)
-export const isTemplateLiteral = notArgumentListAnd(ts.isTemplateLiteral)
-export const isRegularExpressionLiteral = notArgumentListAnd(ts.isRegularExpressionLiteral)
+export const isBinaryExpression = isStandardAnd(ts.isBinaryExpression)
+export const isBlock = isStandardAnd(ts.isBlock)
+export const isFunctionDeclaration = isStandardAnd(ts.isFunctionDeclaration)
+export const isFunctionExpression = isStandardAnd(ts.isFunctionExpression)
+export const isArrowFunction = isStandardAnd(ts.isArrowFunction)
+export const isMethodDeclaration = isStandardAnd(ts.isMethodDeclaration)
+export const isIdentifier = isStandardAnd(ts.isIdentifier)
+export const isPropertyAccessExpression = isStandardAnd(ts.isPropertyAccessExpression)
+export const isCallExpression = isStandardAnd(ts.isCallExpression)
+export const isObjectLiteralExpression = isStandardAnd(ts.isObjectLiteralExpression)
+export const isElementAccessExpression = isStandardAnd(ts.isElementAccessExpression)
+export const isSpreadAssignment = isStandardAnd(ts.isSpreadAssignment)
+export const isVariableDeclaration = isStandardAnd(ts.isVariableDeclaration)
+export const isNewExpression = isStandardAnd(ts.isNewExpression)
+export const isClassDeclaration = isStandardAnd(ts.isClassDeclaration)
+export const isArrayLiteralExpression = isStandardAnd(ts.isArrayLiteralExpression)
+export const isSpreadElement = isStandardAnd(ts.isSpreadElement)
+export const isStringLiteral = isStandardAnd(ts.isStringLiteral)
+export const isParenthesizedExpression = isStandardAnd(ts.isParenthesizedExpression)
+export const isLiteralExpression = isStandardAnd(ts.isLiteralExpression)
+export const isAwaitExpression = isStandardAnd(ts.isAwaitExpression)
+export const isTemplateExpression = isStandardAnd(ts.isTemplateExpression)
+export const isConditionalExpression = isStandardAnd(ts.isConditionalExpression)
+export const isAsExpression = isStandardAnd(ts.isAsExpression)
+export const isDecorator = isStandardAnd(ts.isDecorator)
+export const isConciseBody = isStandardAnd(ts.isConciseBody)
+export const isTemplateLiteral = isStandardAnd(ts.isTemplateLiteral)
+export const isRegularExpressionLiteral = isStandardAnd(ts.isRegularExpressionLiteral)
 
-function notArgumentListAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: AnalysisNode) => node is T {
-    return ((node: AnalysisNode) => !isArgumentList(node) && predicate(node)) as (node: AnalysisNode) => node is T
+function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: AnalysisNode) => node is T {
+    return ((node: AnalysisNode) => isStandard(node) && predicate(node)) as (node: AnalysisNode) => node is T
 }
 
 export function getFunctionBlockOf(statement: ts.Node): ts.Block & { parent: SimpleFunctionLikeDeclaration } {
@@ -334,10 +334,15 @@ export function printNodeAndPos(node: Cursor): string {
 }
 function printNode(node: AnalysisNode) {
     if (isArgumentList(node)) {
-        return `(${node.arguments.map(arg => printer.printNode(ts.EmitHint.Unspecified, arg, arg.getSourceFile())).join(', ')})`;
+        return `(${node.arguments.map(arg => printTsNode(arg)).join(', ')})`;
+    } else if (isElementPick(node)) {
+        return `${printNode(node.expression)}[?]`
     }
-
-    return printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
+    return printTsNode(node)
+    
+    function printTsNode(node: ts.Node) {
+        return printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
+    }
 }
 export function getPosText(node: AnalysisNode) {
     const sf = node.getSourceFile();

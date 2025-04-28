@@ -2,14 +2,14 @@ import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typesc
 import { isArrayLiteralExpression, isBinaryExpression, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { AnalysisNode, Cursor, isExtern } from './abstract-values';
+import { AnalysisNode, createElementPick, Cursor, ElementPick, isElementPick, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern } from './configuration';
+import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern, createElementPickConfigSet } from './configuration';
 
-type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ts.ElementAccessExpression;
+type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ElementPick;
 
 const builtInValuesObject = {
     'Array': true,
@@ -52,6 +52,7 @@ const builtInValuesObject = {
     'Object.assign': true,
     'Object.entries': true,
     'Object.entries()': true,
+    'Object.entries()[]': true,
     'Object.freeze': true,
     'Object.keys': true,
     'Object.values': true,
@@ -114,18 +115,18 @@ type BuiltInProto = keyof typeof builtInProtosObject;
 export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
     const { node: builtInConstructor, env } = builtInConstructorConfig;
 
-    if (ts.isPropertyAccessExpression(builtInConstructor)) {
+    if (isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
         const builtInValue = builtInValues.elements.find(val =>
             typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
         );
         assertNotUndefined(builtInValue);
         return builtInValue;
-    } else if (ts.isIdentifier(builtInConstructor)) {
+    } else if (isIdentifier(builtInConstructor)) {
         const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
         assertNotUndefined(builtInValue);
         return builtInValue;
-    } else if (ts.isElementAccessExpression(builtInConstructor)) {
+    } else if (isElementPick(builtInConstructor)) {
         const expressionConses = fixed_eval({ node: builtInConstructor.expression, env });
         const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
             if (isConfigExtern(expressionCons)) {
@@ -140,7 +141,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
         });
         const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.elements.some(biv => biv === expressionBuiltIn + '[]'));
         assertNotUndefined(builtInValue);
-        return builtInValue;
+        return builtInValue + '[]' as BuiltInValue;
     } else { // call expression
         const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
         const builtInValue = builtInValues.elements.find(val =>
@@ -186,7 +187,7 @@ export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstru
     return isPropertyAccessExpression(node)
         || isIdentifier(node)
         || isCallExpression(node)
-        || isElementAccessExpression(node);
+        || isElementPick(node);
 }
 export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
     return isBuiltInConstructorShaped(config.node);
@@ -280,6 +281,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Object.keys': singleConfig,
     'Object.values': singleConfig,
     'Object.values()': uncallable('Object.values()'),
+    'Object.entries()[]': uncallable('Object.entries()[]'),
     'Promise': uncallable('Promise'),
     'Promise#then': singleConfig,
     'Promise.all': singleConfig,
@@ -389,6 +391,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Object.assign': inaccessibleProperty,
     'Object.entries': inaccessibleProperty,
     'Object.entries()': builtInProtoMethod('Array'),
+    'Object.entries()[]': inaccessibleProperty,
     'Object.freeze': inaccessibleProperty,
     'Object.keys': inaccessibleProperty,
     'Object.values': inaccessibleProperty,
@@ -431,12 +434,12 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'undefined': () => empty(),
 }
 
-type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { accessConfig: Config<ts.ElementAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
+type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const inaccessibleElement: ElementAccessGetter = ({ node }) =>
     unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
     const { node: cons, env } = consConfig;
-    if (!ts.isCallExpression(cons)) {
+    if (!isCallExpression(cons)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const argFuncs = fixed_eval({ node: cons.arguments[0], env });
@@ -463,7 +466,7 @@ const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }
     });
 }
 const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }) => {
-    if (!ts.isCallExpression(consConfig.node)) {
+    if (!isCallExpression(consConfig.node)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
     }
 
@@ -482,7 +485,7 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_tr
 }
 function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval }: { fixed_eval: FixedEval }): ConfigSet {
     const { node: cons, env } = consConfig;
-    if (!ts.isCallExpression(cons)) {
+    if (!isCallExpression(cons)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
@@ -536,7 +539,8 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Object.assign': inaccessibleElement,
     'Object.freeze': inaccessibleElement,
     'Object.entries': inaccessibleElement,
-    'Object.entries()': inaccessibleElement, // TODO
+    'Object.entries()': createElementPickConfigSet,
+    'Object.entries()[]': inaccessibleElement,
     'Object.keys': inaccessibleElement,
     'Object.values': inaccessibleElement,
     'Object.values()': objectValuesEAG,
@@ -556,7 +560,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'String#match': inaccessibleElement,
     'String#match()': inaccessibleElement,
     'String#split': inaccessibleElement,
-    'String#split()': (_, { accessConfig }) => accessConfig === undefined ? unimplementedBottom(`Need an element access`) : singleConfig(accessConfig),
+    'String#split()': createElementPickConfigSet,
     'String#split()[]': inaccessibleElement,
     'String#substring': inaccessibleElement,
     'String#substring()': inaccessibleElement,
@@ -716,6 +720,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Object.keys': notSupported('Object.keys'),
     'Object.values': notSupported('Object.values'),
     'Object.values()': notSupported('Object.values()'),
+    'Object.entries()[]': notSupported('Object.entries()[]'),
     'Promise': notSupported('Promise'),
     'Promise#then': notSupported('Promise#then'), // TODO
     'Promise.all': notSupported('Promise.all'),
@@ -798,6 +803,7 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'Object.assign': none,
     'Object.entries': none,
     'Object.entries()': none,
+    'Object.entries()[]': none,
     'Object.freeze': none,
     'Object.keys': none,
     'Object.values': none,

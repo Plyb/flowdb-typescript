@@ -1,4 +1,4 @@
-import { Cursor, extern, Extern, isExtern } from './abstract-values'
+import { createElementPick, Cursor, ElementPick, extern, Extern, isExtern } from './abstract-values'
 import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
 import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
@@ -214,4 +214,15 @@ export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, Con
     );
 
     return union(directRefinedEnvs, transitiveRefinedEnvs);
+}
+
+function createElementPickConfig(config: ConfigNoExtern): Config<ElementPick> {
+    return {
+        node: createElementPick(config.node),
+        env: config.env,
+    }
+}
+
+export function createElementPickConfigSet(config: ConfigNoExtern): ConfigSet {
+    return singleConfig(createElementPickConfig(config))
 }
