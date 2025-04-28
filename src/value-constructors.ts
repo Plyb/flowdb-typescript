@@ -39,6 +39,7 @@ const builtInValuesObject = {
     'Date.now': true,
     'Date.now()': true,
     'Date.UTC': true,
+    'Error': true,
     'JSON': true,
     'JSON.parse': true,
     'JSON.stringify': true,
@@ -115,7 +116,10 @@ const builtInProtosObject = {
     'RegExp': true,
     'String': true,
 }
-type BuiltInProto = keyof typeof builtInProtosObject;
+export type BuiltInProto = keyof typeof builtInProtosObject;
+export function isBuiltInProto(str: string): str is BuiltInProto {
+    return Object.keys(builtInProtosObject).includes(str);
+}
 
 /**
  * Given a node that we already know represents some built-in value, which built in value does it represent?
@@ -273,6 +277,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Date.now': singleConfig,
     'Date.now()': uncallable('Date.now()'),
     'Date.UTC': singleConfig,
+    'Error': uncallable('Error'),
     'JSON': uncallable('JSON'),
     'JSON.parse': () => justExtern,
     'JSON.stringify': singleConfig,
@@ -395,6 +400,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Date.now': inaccessibleProperty,
     'Date.now()': inaccessibleProperty,
     'Date.UTC': inaccessibleProperty,
+    'Error': inaccessibleProperty,
     'JSON': builtInStaticMethods('JSON.parse', 'JSON.stringify'),
     'JSON.parse': inaccessibleProperty,
     'JSON.stringify': inaccessibleProperty,
@@ -551,6 +557,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Date.now': inaccessibleElement,
     'Date.now()': inaccessibleElement,
     'Date.UTC': inaccessibleElement,
+    'Error': inaccessibleElement,
     'JSON': inaccessibleElement,
     'JSON.parse': inaccessibleElement,
     'JSON.stringify': inaccessibleElement,
@@ -738,6 +745,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Date.now': notSupported('Date.now'),
     'Date.now()': notSupported('Date.now()'),
     'Date.UTC': notSupported('Date.UTC'),
+    'Error': notSupported('Error'),
     'JSON': notSupported('JSON'),
     'JSON.parse': notSupported('JSON.parse'),
     'JSON.stringify': notSupported('JSON.stringify'),
@@ -833,6 +841,7 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'Date.UTC': none,
     'Date.now': none,
     'Date.now()': none,
+    'Error': none,
     'JSON': none,
     'JSON.parse': none,
     'JSON.stringify': none,

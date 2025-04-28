@@ -6,7 +6,7 @@ import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } fro
 import { unimplemented } from './util';
 import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
-import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
+import { BuiltInProto, getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, isBuiltInProto, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
 import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 
@@ -138,10 +138,14 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
             if (expressionRes.size() === 1
                 && isConfigNoExtern(expressionRes.elements[0])
                 && isIdentifier(expressionRes.elements[0].node)
-                && expressionRes.elements[0].node.text === 'Map'
                 && originalAccessConfig !== undefined
             ) {
-                return getPropertyOfProto('Map', property.text, consConfig, originalAccessConfig, fixed_eval);
+                const nameText = expressionRes.elements[0].node.text
+                if (!isBuiltInProto(nameText)) {
+                    return unimplementedBottom(`Unknown kind of identifier ${printNodeAndPos(expressionRes.elements[0].node)}`)
+                }
+
+                return getPropertyOfProto(nameText, property.text, consConfig, originalAccessConfig, fixed_eval);
             }
 
             if (setSome(expressionRes, isConfigNoExtern)) {
