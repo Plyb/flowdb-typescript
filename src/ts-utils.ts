@@ -259,6 +259,13 @@ function isPrimsaShaped(node: ts.Node) {
 
     if (ts.isPropertyAccessExpression(node)
         && node.expression.kind === SyntaxKind.ThisKeyword
+        && node.name.text === 'prismaClient'
+    ) {
+        return true;
+    }
+
+    if (ts.isPropertyAccessExpression(node)
+        && node.expression.kind === SyntaxKind.ThisKeyword
         && node.name.text === 'prisma'
     ) {
         return true;

@@ -7,7 +7,7 @@ import { unimplemented } from './util';
 import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
 import { BuiltInProto, builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, isBuiltInProto } from './value-constructors';
-import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
+import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isThisAccessExpression } from './nestjs-dependency-injection';
 import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 
 
@@ -16,8 +16,9 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
     if (access.name.text === '$transaction') {
         return justExtern; // assumption: there are no other "%transaction"s besides the prisma ones
     }
-    if (isDependencyAccessExpression(access)) {
-        return getDependencyInjected({ node: access, env}, typeChecker, fixed_eval);
+    const resultFromDepenencyInjection = isThisAccessExpression(access) && getDependencyInjected({ node: access, env}, typeChecker, fixed_eval);
+    if (resultFromDepenencyInjection) {
+        return resultFromDepenencyInjection;
     }
 
     const expressionConses = fixed_eval({ node: access.expression, env });

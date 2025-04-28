@@ -10,12 +10,12 @@ import { setFlatMap } from './setUtil';
 import { ExpressionStatement } from 'ts-morph';
 import { AnalysisNode } from './abstract-values';
 
-type DependencyAccessExpression = ts.PropertyAccessExpression & { expression: { kind: SyntaxKind.ThisKeyword} }
-export function isDependencyAccessExpression(propertyAccessExpression: ts.PropertyAccessExpression): propertyAccessExpression is DependencyAccessExpression {
+type ThisAccessExpression = ts.PropertyAccessExpression & { expression: { kind: SyntaxKind.ThisKeyword} }
+export function isThisAccessExpression(propertyAccessExpression: ts.PropertyAccessExpression): propertyAccessExpression is ThisAccessExpression {
     return propertyAccessExpression.expression.kind === SyntaxKind.ThisKeyword;
 }
 
-export function getDependencyInjected(dependencyAccess: Config<DependencyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval) {
+export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval) {
     const classSymbol = typeChecker.getSymbolAtLocation(dependencyAccess.node.expression);
     const classDeclaration = classSymbol?.valueDeclaration;
     if (classDeclaration === undefined) {
@@ -24,7 +24,7 @@ export function getDependencyInjected(dependencyAccess: Config<DependencyAccessE
     if (!ts.isClassDeclaration(classDeclaration)
         || !isDependencyInjectable(classDeclaration)
     ) {
-        return unimplementedBottom(`${printNodeAndPos(classDeclaration)} is not a dependency injectable class`);
+        return false;
     }
 
     const dependencyNameSymbol = typeChecker.getSymbolAtLocation(dependencyAccess.node.name);
