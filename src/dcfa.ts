@@ -853,6 +853,14 @@ function isOperatorOf(op: AnalysisNode, call: ts.CallExpression) {
 }
 
 function getArgumentIndex(call: ts.CallExpression, arg: AnalysisNode) {
+    if (isArgumentList(arg)) {
+        if (arg.arguments[0] === undefined) {
+            return -1;
+        }
+
+        return call.arguments.indexOf(arg.arguments[0] as Expression)
+    }
+
     return call.arguments.indexOf(arg as Expression);
 }
 
