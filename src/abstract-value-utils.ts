@@ -135,9 +135,19 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
             return singleConfig({ node: staticProperty, env: consConfig.env });
         } else if (isNewExpression(consConfig.node)) {
             const expressionRes = fixed_eval({ node: consConfig.node.expression, env: consConfig.env });
-            if (setSome(expressionRes, isConfigNoExtern)) {
-                return unimplementedBottom(`Unknown how to get property of syntactic class`);
+            if (expressionRes.size() === 1
+                && isConfigNoExtern(expressionRes.elements[0])
+                && isIdentifier(expressionRes.elements[0].node)
+                && expressionRes.elements[0].node.text === 'Map'
+                && originalAccessConfig !== undefined
+            ) {
+                return getPropertyOfProto('Map', property.text, consConfig, originalAccessConfig, fixed_eval);
             }
+
+            if (setSome(expressionRes, isConfigNoExtern)) {
+                return unimplementedBottom(`Unknown how to get property of syntactic class ${printNodeAndPos(cons)}`);
+            }
+
             return justExtern;
         } else {
             if (originalAccessConfig === undefined) {
