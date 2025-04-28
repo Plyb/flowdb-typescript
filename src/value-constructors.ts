@@ -648,6 +648,8 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
             return fixed_eval({ node: expressionCons.arguments[0], env: expressionConsEnv });
         }
         return empty();
+    } else if (proto === 'String' && propertyName === 'message') {
+        return empty();
     }
     const builtInValueExists = builtInValues.elements.some(val => {
         const [valType, valMethod] = val.split('#');
