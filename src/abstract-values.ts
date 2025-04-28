@@ -11,7 +11,7 @@ export function isExtern(cursor: Cursor): cursor is Extern {
 export type AnalysisNode = ts.Node | ArgumentList
 type ArgumentList = {
     kind: AnalysisNodeKind.ArgumentList
-    arguments: NonEmptyArray<ts.Node>
+    arguments: ts.Node[]
     get parent(): ts.Node
     getSourceFile(): ts.SourceFile
     get pos(): number
@@ -23,4 +23,23 @@ export enum AnalysisNodeKind {
 
 export function isArgumentList(node: AnalysisNode): node is ArgumentList {
     return node.kind === AnalysisNodeKind.ArgumentList;
+}
+
+export function createArgumentList(callSite: ts.CallExpression, start: number): ArgumentList {
+    const args = callSite.arguments.slice(start);
+    return {
+        kind: AnalysisNodeKind.ArgumentList,
+        arguments: args,
+        get parent() { return callSite },
+        getSourceFile() { return callSite.getSourceFile() },
+        get pos() {
+            if (args[0] !== undefined) {
+                return args[0].pos;
+            } else if (callSite.arguments[start - 1] !== undefined) {
+                return callSite.arguments[start - 1].pos
+            } else {
+                return callSite.expression.end
+            }
+        }
+    }
 }

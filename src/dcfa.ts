@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union 
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression } from './ts-utils';
-import { AnalysisNode, Cursor, isExtern } from './abstract-values';
+import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
@@ -174,6 +174,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return singleConfig(config);
                 } else if (isClassDeclaration(node)) {
                     return singleConfig(config);
+                } else if (isArgumentList(node)) {
+                    return singleConfig(config)
                 }
                 return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
             }
@@ -754,16 +756,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             env: callSite.env,
                         })
                     } else {
-                        return unimplementedBottom(`Rest parameters are not yet implemented ${printNodeAndPos(declaration)}`)
-                        // This doesn't work because what we really need is some single node that includes all of the rest arguments...
-                        // maybe if we need it, we can modify how the identifiers bound by rest parameters are treated further on.
-                        // For now just put a warning if we run into this.
-                        // const restArguments = (callSite.node as CallExpression).arguments.slice(parameterIndex);
-                        // const restArgsSet = new SimpleSet(structuralComparator, ...restArguments);
-                        // return setMap(restArgsSet, restArg => ({
-                        //     node: restArg,
-                        //     env: callSite.env,
-                        // }));
+                        return singleConfig({ node: createArgumentList(callSite.node as CallExpression, parameterIndex), env: callSite.env })
                     }
                 });
 

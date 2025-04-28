@@ -8,7 +8,7 @@ import { isArrayLiteralExpression, isAsyncKeyword, isClassDeclaration, isElement
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
-import { AnalysisNode, Cursor, isExtern } from './abstract-values';
+import { AnalysisNode, Cursor, isArgumentList, isExtern } from './abstract-values';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -168,6 +168,22 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
 
                 return singleConfig(elementConfig);
             })
+        } else if (isArgumentList(cons)) {
+            const elements = new SimpleSet(structuralComparator, ...cons.arguments.map(elem => ({
+                node: elem,
+                env: consEnv,
+            } as Config)));
+            return configSetJoinMap(elements, elementConfig => {
+                if (isSpreadElement(elementConfig.node)) {
+                    const subElements = getElementNodesOfArrayValuedNode(
+                        { node: elementConfig.node.expression, env: elementConfig.env },
+                        { fixed_eval, fixed_trace, m }
+                    );
+                    return subElements;
+                }
+
+                return singleConfig(elementConfig);
+            })
         } else if (isBuiltInConstructorShapedConfig(consConfig)) {
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
             return resultOfElementAccess[builtInValue](consConfig, { accessConfig, fixed_eval, fixed_trace, m });
@@ -204,7 +220,6 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
                 })
             }
         }
-
 
         const arrayElementNodes = getElementNodesOfArrayValuedNode(arrayConsConfig, { fixed_eval, fixed_trace, m });
         return configSetJoinMap(arrayElementNodes, tupleConfig => getElementOfTuple(tupleConfig, i, fixed_eval));

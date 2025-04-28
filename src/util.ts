@@ -54,3 +54,9 @@ export function getTsConfigPath(rootFolder: string) {
 }
 
 export type NonEmptyArray<T> = [T, ...T[]];
+export function assertNonEmpty<T>(items: T[]): NonEmptyArray<T> {
+    if (items[0] === undefined) {
+        throw new Error('Expected a non-empty array')
+    }
+    return items as NonEmptyArray<T>;
+}
