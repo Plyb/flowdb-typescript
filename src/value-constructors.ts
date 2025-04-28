@@ -25,6 +25,7 @@ const builtInValuesObject = {
     'Array#join()': true,
     'Array#map': true,
     'Array#map()': true,
+    'Array#push': true,
     'Array#reduce': true,
     'Array#slice': true,
     'Array#slice()': true,
@@ -257,6 +258,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'Array#join()': uncallable('Array#join()'),
     'Array#map': singleConfig,
     'Array#map()': uncallable('Array#map()'),
+    'Array#push': singleConfig,
     'Array#reduce': arrayReduceCallGetter,
     'Array#slice': singleConfig,
     'Array#slice()': uncallable('Array#slice()'),
@@ -377,6 +379,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'Array#join()': builtInProtoMethod('String'),
     'Array#map': inaccessibleProperty,
     'Array#map()': builtInProtoMethod('Array'),
+    'Array#push': inaccessibleProperty,
     'Array#reduce': inaccessibleProperty,
     'Array#slice': inaccessibleProperty,
     'Array#slice()': builtInProtoMethod('Array'),
@@ -531,6 +534,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'Array#join()': inaccessibleElement,
     'Array#map': inaccessibleElement,
     'Array#map()': arrayMapEAG,
+    'Array#push': inaccessibleElement,
     'Array#reduce': inaccessibleElement,
     'Array#slice': inaccessibleElement,
     'Array#slice()': inaccessibleElement, // TODO
@@ -651,7 +655,7 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
     });
     return builtInValueExists
         ? singleton(accessConfig)
-        : empty();
+        : unimplementedBottom(`Could not find proto value ${printNodeAndPos(accessConfig.node)}`);
 }
 
 
@@ -714,6 +718,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Array#join()': notSupported('Array#join()'),
     'Array#map': arrayMapABG,
     'Array#map()': notSupported('Array'),
+    'Array#push': notSupported('Array#push'),
     'Array#reduce': arrayReduceABG,
     'Array#slice': notSupported('Array#slice'),
     'Array#slice()': notSupported('Array#slice()'),
@@ -807,6 +812,7 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'Array#join()': none,
     'Array#map': zeroth,
     'Array#map()': none,
+    'Array#push': none,
     'Array#reduce': zeroth,
     'Array#slice': none,
     'Array#slice()': none,

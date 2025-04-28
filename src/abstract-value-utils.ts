@@ -4,11 +4,11 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isArrayLiteralExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
-import { AnalysisNode, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
+import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -150,45 +150,73 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
 export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }): ConfigSet {
     const conses = fixed_eval(config);
     return configSetJoinMap(conses, consConfig => {
-        const { node: cons, env: consEnv } = consConfig;
-        if (isArrayLiteralExpression(cons)) {
-            const elements = new SimpleSet(structuralComparator, ...cons.elements.map(elem => ({
-                node: elem,
-                env: consEnv,
-            } as Config)));
-            return configSetJoinMap(elements, elementConfig => {
-                if (isSpreadElement(elementConfig.node)) {
-                    const subElements = getElementNodesOfArrayValuedNode(
-                        { node: elementConfig.node.expression, env: elementConfig.env },
-                        { fixed_eval, fixed_trace, m }
-                    );
-                    return subElements;
-                }
+        return join(getElementVauesFromConstructor(), getElementValuesFromMutations());
 
-                return singleConfig(elementConfig);
-            })
-        } else if (isArgumentList(cons)) {
-            const elements = new SimpleSet(structuralComparator, ...cons.arguments.map(elem => ({
-                node: elem,
-                env: consEnv,
-            } as Config)));
-            return configSetJoinMap(elements, elementConfig => {
-                if (isSpreadElement(elementConfig.node)) {
-                    const subElements = getElementNodesOfArrayValuedNode(
-                        { node: elementConfig.node.expression, env: elementConfig.env },
-                        { fixed_eval, fixed_trace, m }
-                    );
-                    return subElements;
-                }
+        function getElementValuesFromMutations(): ConfigSet {
+            const sites = fixed_trace(consConfig);
 
-                return singleConfig(elementConfig);
-            })
-        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
-            return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, m });
-        } else {
-            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
+            return configSetJoinMap(sites, site => {
+                if (isPropertyAccessExpression(site.node)) {
+                    if (site.node.name.text === 'push') {
+                        if (!isCallExpression(site.node.parent)) {
+                            return unimplementedBottom(`Expected a call to push ${printNodeAndPos(site.node.parent)}`);
+                        }
+                        return singleConfig({
+                            node: createArgumentList(site.node.parent, 0),
+                            env: site.env 
+                        });
+                    }
+                } else if (isElementAccessExpression(site.node)
+                    && isAssignmentExpression(site.node.parent)
+                    && site.node.parent.left === site.node
+                ) {
+                    return singleConfig({ node: site.node.parent.right, env: site.env });
+                }
+                return empty();
+            });
         }
+
+        function getElementVauesFromConstructor(): ConfigSet {
+            const { node: cons, env: consEnv } = consConfig;
+            if (isArrayLiteralExpression(cons)) {
+                const elements = new SimpleSet(structuralComparator, ...cons.elements.map(elem => ({
+                    node: elem,
+                    env: consEnv,
+                } as Config)));
+                return configSetJoinMap(elements, elementConfig => {
+                    if (isSpreadElement(elementConfig.node)) {
+                        const subElements = getElementNodesOfArrayValuedNode(
+                            { node: elementConfig.node.expression, env: elementConfig.env },
+                            { fixed_eval, fixed_trace, m }
+                        );
+                        return subElements;
+                    }
+    
+                    return singleConfig(elementConfig);
+                })
+            } else if (isArgumentList(cons)) {
+                const elements = new SimpleSet(structuralComparator, ...cons.arguments.map(elem => ({
+                    node: elem,
+                    env: consEnv,
+                } as Config)));
+                return configSetJoinMap(elements, elementConfig => {
+                    if (isSpreadElement(elementConfig.node)) {
+                        const subElements = getElementNodesOfArrayValuedNode(
+                            { node: elementConfig.node.expression, env: elementConfig.env },
+                            { fixed_eval, fixed_trace, m }
+                        );
+                        return subElements;
+                    }
+    
+                    return singleConfig(elementConfig);
+                })
+            } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+                const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
+                return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, m });
+            } else {
+                return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
+            }
+        };
     });
 }
 
