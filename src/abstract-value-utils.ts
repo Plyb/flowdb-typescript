@@ -13,6 +13,9 @@ import { AnalysisNode, Cursor, isArgumentList, isElementPick, isExtern } from '.
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
     const { node: access, env } = accessConfig;
+    if (access.name.text === '$transaction') {
+        return justExtern; // assumption: there are no other "%transaction"s besides the prisma ones
+    }
     if (isDependencyAccessExpression(access)) {
         return getDependencyInjected({ node: access, env}, typeChecker, fixed_eval);
     }
@@ -35,10 +38,6 @@ function nameMatches(lhs: ConfigNoExtern, name: ts.MemberName, fixed_eval: Fixed
 }
 
 function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.MemberName, originalAccessConfig: Config<ts.PropertyAccessExpression> | undefined, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
-    if (property.text === '$transaction') {
-        return justExtern; // assumption: there are no other "%transaction"s besides the prisma ones
-    }
-    
     return join(getPropertyFromSourceConstructor(), getPropertyFromMutations());
 
     function getPropertyFromMutations(): ConfigSet {
