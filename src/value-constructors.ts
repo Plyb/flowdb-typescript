@@ -11,206 +11,7 @@ import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ElementPick;
 
-const builtInValuesObject = {
-    'Array': true,
-    'Array#filter': true,
-    'Array#filter()': true,
-    'Array#find': true,
-    'Array#forEach': true,
-    'Array#includes': true,
-    'Array#includes()': true,
-    'Array#indexOf': true,
-    'Array#indexOf()': true,
-    'Array#join': true,
-    'Array#join()': true,
-    'Array#map': true,
-    'Array#map()': true,
-    'Array#push': true,
-    'Array#reduce': true,
-    'Array#slice': true,
-    'Array#slice()': true,
-    'Array#some': true,
-    'Array#some()': true,
-    'Array.from': true,
-    'Array.isArray': true,
-    'Buffer': true,
-    'Buffer.from': true,
-    'Date': true,
-    'Date#toISOString': true,
-    'Date#toLocaleDateString': true,
-    'Date#toLocaleDateString()': true,
-    'Date.now': true,
-    'Date.now()': true,
-    'Date.UTC': true,
-    'Error': true,
-    'JSON': true,
-    'JSON.parse': true,
-    'JSON.stringify': true,
-    'JSON.stringify()': true,
-    'Map': true,
-    'Map#get': true,
-    'Map#keys': true,
-    'Map#keys()': true,
-    'Map#set': true,
-    'Math': true,
-    'Math.floor': true,
-    'Math.floor()': true,
-    'Number': true,
-    'Number#toFixed': true,
-    'Number.isNaN': true,
-    'Object': true,
-    'Object.assign': true,
-    'Object.entries': true,
-    'Object.entries()': true,
-    'Object.entries()[]': true,
-    'Object.freeze': true,
-    'Object.keys': true,
-    'Object.values': true,
-    'Object.values()': true,
-    'Promise': true,
-    'Promise#then': true,
-    'Promise.all': true,
-    'Promise.all()': true,
-    'Promise.allSettled': true,
-    'Promise.allSettled()': true,
-    'Promise.resolve': true,
-    'Promise.resolve()': true,
-    'RegExp#test': true,
-    'RegExp#test()': true,
-    'String': true,
-    'String#includes': true,
-    'String#includes()': true,
-    'String#split': true,
-    'String#split()': true,
-    'String#split()[]': true,
-    'String#substring': true,
-    'String#substring()': true,
-    'String#toLowerCase': true,
-    'String#toLowerCase()': true,
-    'String#trim': true,
-    'String#trim()': true,
-    'String#match': true,
-    'String#match()': true,
-    'console': true,
-    'console.log': true,
-    'console.log()': true,
-    'console.error': true,
-    'console.error()': true,
-    'console.table': true,
-    'console.warn': true,
-    'console.warn()': true,
-    'fetch': true,
-    'isNaN': true,
-    'parseInt': true,
-    'parseFloat': true,
-    'parseFloat()': true,
-    'undefined': true,
-}
-type BuiltInValue = keyof typeof builtInValuesObject;
-const builtInValues = new SimpleSet<BuiltInValue>(structuralComparator, ...[...Object.keys(builtInValuesObject) as Iterable<BuiltInValue>]);
-
-const builtInProtosObject = {
-    'Array': true,
-    'Date': true,
-    'Error': true,
-    'Map': true,
-    'Number': true,
-    'Object': true,
-    'Promise': true,
-    'RegExp': true,
-    'String': true,
-}
-export type BuiltInProto = keyof typeof builtInProtosObject;
-export function isBuiltInProto(str: string): str is BuiltInProto {
-    return Object.keys(builtInProtosObject).includes(str);
-}
-
-/**
- * Given a node that we already know represents some built-in value, which built in value does it represent?
- * Note that this assumes there are no methods that share a name.
- */
-export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
-    const { node: builtInConstructor, env } = builtInConstructorConfig;
-
-    if (isPropertyAccessExpression(builtInConstructor)) {
-        const methodName = builtInConstructor.name.text;
-        const builtInValue = builtInValues.elements.find(val =>
-            typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
-        );
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    } else if (isIdentifier(builtInConstructor)) {
-        const builtInValue = builtInValues.elements.find(val => val === builtInConstructor.text);
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    } else if (isElementPick(builtInConstructor)) {
-        const expressionConses = fixed_eval({ node: builtInConstructor.expression, env });
-        const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
-            if (isConfigExtern(expressionCons)) {
-                return empty<BuiltInValue>();
-            }
-
-            if (!isBuiltInConstructorShapedConfig(expressionCons)) {
-                return empty<BuiltInValue>();
-            }
-
-            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval));
-        });
-        const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.elements.some(biv => biv === expressionBuiltIn + '[]'));
-        assertNotUndefined(builtInValue);
-        return builtInValue + '[]' as BuiltInValue;
-    } else { // call expression
-        const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
-        const builtInValue = builtInValues.elements.find(val =>
-            typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
-        );
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    }
-
-    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression>): BuiltInValue {
-        const expressionConses = fixed_eval({
-            node: callConfig.node.expression,
-            env: callConfig.env,
-        });
-        const builtInConstructorsForExpression = setFilter(
-            expressionConses,
-            isBuiltInConstructorShapedConfig
-        );
-        const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
-            getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval)
-        );
-        if (builtInValues.size() !== 1) {
-            throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
-        }
-        return builtInValues.elements[0];
-    }
-
-    function assertNotUndefined<T>(val: T | undefined): asserts val is T {
-        if (val === undefined) {
-            throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
-        }
-    }
-}
-
-/**
- * If a node is shaped like a built in constructor and is a value, it is a built in constructor
- */
-export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstructor {
-    if (isExtern(node)) {
-        return false;
-    }
-
-    return isPropertyAccessExpression(node)
-        || isIdentifier(node)
-        || isCallExpression(node)
-        || isElementPick(node);
-}
-export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
-    return isBuiltInConstructorShaped(config.node);
-}
-
-function uncallable(name: BuiltInValue) { return () => unimplementedBottom(`No result of calling ${name}`)}
+function uncallable(this: BuiltInValue) { return unimplementedBottom(`No result of calling ${this}`) }
 type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
     node: callConfig.node.arguments[0],
@@ -253,231 +54,8 @@ const mapGetCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace }) =
         }
     });
 }
-export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
-    'Array': uncallable('Array'),
-    'Array#filter': singleConfig,
-    'Array#filter()': uncallable('Array#filter()'),
-    'Array#find': uncallable('Array#find'), // TODO
-    'Array#forEach': singleConfig,
-    'Array#includes': singleConfig,
-    'Array#includes()': uncallable('Array#includes()'),
-    'Array#indexOf': singleConfig,
-    'Array#indexOf()': uncallable('Array#indexOf()'),
-    'Array#join': singleConfig,
-    'Array#join()': uncallable('Array#join()'),
-    'Array#map': singleConfig,
-    'Array#map()': uncallable('Array#map()'),
-    'Array#push': singleConfig,
-    'Array#reduce': arrayReduceCallGetter,
-    'Array#slice': singleConfig,
-    'Array#slice()': uncallable('Array#slice()'),
-    'Array#some': singleConfig,
-    'Array#some()': uncallable('Array#some()'),
-    'Array.from': arrayFromCallGetter,
-    'Array.isArray': singleConfig,
-    'Buffer': uncallable('Buffer'),
-    'Buffer.from': singleConfig,
-    'Date': uncallable('Date'),
-    'Date#toISOString': singleConfig,
-    'Date#toLocaleDateString': singleConfig,
-    'Date#toLocaleDateString()': uncallable('Date#toLocaleDateString()'),
-    'Date.now': singleConfig,
-    'Date.now()': uncallable('Date.now()'),
-    'Date.UTC': singleConfig,
-    'Error': uncallable('Error'),
-    'JSON': uncallable('JSON'),
-    'JSON.parse': () => justExtern,
-    'JSON.stringify': singleConfig,
-    'JSON.stringify()': uncallable('JSON.stringify()'),
-    'Map': uncallable('Map'),
-    'Map#get': mapGetCallGetter,
-    'Map#keys': singleConfig,
-    'Map#keys()': uncallable('Map#keys()'),
-    'Map#set': uncallable('Map#set'), // TODO
-    'Math': uncallable('Math'),
-    'Math.floor': singleConfig,
-    'Math.floor()': uncallable('Math.floor()'),
-    'Number': singleConfig,
-    'Number#toFixed': singleConfig,
-    'Number.isNaN': singleConfig,
-    'Object': uncallable('Object'),
-    'Object.assign': uncallable('Object.assign'), // TODO
-    'Object.entries': singleConfig,
-    'Object.entries()': uncallable('Object.entries()'),
-    'Object.freeze': uncallable('Object.freeze'), // TODO
-    'Object.keys': singleConfig,
-    'Object.values': singleConfig,
-    'Object.values()': uncallable('Object.values()'),
-    'Object.entries()[]': uncallable('Object.entries()[]'),
-    'Promise': uncallable('Promise'),
-    'Promise#then': singleConfig,
-    'Promise.all': singleConfig,
-    'Promise.all()': uncallable('Promise.all()'),
-    'Promise.allSettled': singleConfig,
-    'Promise.allSettled()': uncallable('Promise.allSettled()'),
-    'Promise.resolve': singleConfig,
-    'Promise.resolve()': uncallable('Promise.resolve()'),
-    'RegExp#test': singleConfig,
-    'RegExp#test()': uncallable('RegExp#test()'),
-    'String': singleConfig,
-    'String#includes': singleConfig,
-    'String#includes()': uncallable('String#includes()'),
-    'String#match': singleConfig,
-    'String#match()': uncallable('String#match()'),
-    'String#split': singleConfig,
-    'String#split()': uncallable('String#split()'),
-    'String#split()[]': uncallable('String#split()[]'),
-    'String#substring': singleConfig,
-    'String#substring()': uncallable('String#substring()'),
-    'String#toLowerCase': singleConfig,
-    'String#toLowerCase()': uncallable('String#toLowerCase()'),
-    'String#trim': singleConfig,
-    'String#trim()': uncallable('String#trim()'),
-    'console': uncallable('console'),
-    'console.log': singleConfig,
-    'console.log()': uncallable('console.log()'),
-    'console.error': singleConfig,
-    'console.error()': uncallable('console.error()'),
-    'console.table': singleConfig,
-    'console.warn': singleConfig,
-    'console.warn()': uncallable('console.warn()'),
-    'fetch': () => justExtern,
-    'isNaN': singleConfig,
-    'parseInt': singleConfig,
-    'parseFloat': singleConfig,
-    'parseFloat()': singleConfig,
-    'undefined': uncallable('undefined'),
-}
-
-export function idIsBuiltIn(id: ts.Identifier): boolean {
-    return builtInValues.elements.some(val => val === id.text);
-}
-
-type PropertyAccessGetter = (propertyAccessConfig: Config<PropertyAccessExpression>, args: { fixed_eval: FixedEval }) => ConfigSet;
-const inaccessibleProperty: PropertyAccessGetter = ({ node: pa }) => unimplementedBottom(`Unable to get property ${printNodeAndPos(pa)}`) ;
-function builtInStaticMethod(name: BuiltInValue): PropertyAccessGetter {
-    const [_, methodName] = name.split('.');
-    return (pac, { fixed_eval}) => pac.node.name.text === methodName
-        ? singleConfig(pac)
-        : inaccessibleProperty(pac, { fixed_eval });
-}
-function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
-    const methodNames = names.map(name => name.split('.')[1]);
-    return (pac, { fixed_eval }) => methodNames.some(methodName => pac.node.name.text === methodName)
-        ? singleConfig(pac)
-        : inaccessibleProperty(pac, { fixed_eval });
-}
-function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
-    return (pac, { fixed_eval }) => {
-        const expressionConses = fixed_eval({ node: pac.node.expression, env: pac.env});
-        const isBuiltInProtoMethod = expressionConses.elements.some(consConfig =>
-            isConfigNoExtern(consConfig)
-            && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size() > 0
-        )
-        return isBuiltInProtoMethod
-            ? singleConfig(pac)
-            : inaccessibleProperty(pac, { fixed_eval });
-    }
-}
-export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter } = {
-    'Array': builtInStaticMethods('Array.from', 'Array.isArray'),
-    'Array#filter': inaccessibleProperty,
-    'Array#filter()': builtInProtoMethod('Array'),
-    'Array#find': inaccessibleProperty,
-    'Array#forEach': inaccessibleProperty,
-    'Array#includes': inaccessibleProperty,
-    'Array#includes()': inaccessibleProperty,
-    'Array#indexOf': inaccessibleProperty,
-    'Array#indexOf()': builtInProtoMethod('Number'),
-    'Array#join': inaccessibleProperty,
-    'Array#join()': builtInProtoMethod('String'),
-    'Array#map': inaccessibleProperty,
-    'Array#map()': builtInProtoMethod('Array'),
-    'Array#push': inaccessibleProperty,
-    'Array#reduce': inaccessibleProperty,
-    'Array#slice': inaccessibleProperty,
-    'Array#slice()': builtInProtoMethod('Array'),
-    'Array#some': inaccessibleProperty,
-    'Array#some()': inaccessibleProperty,
-    'Array.from': inaccessibleProperty,
-    'Array.isArray': inaccessibleProperty,
-    'Buffer': builtInStaticMethod('Buffer.from'),
-    'Buffer.from': inaccessibleProperty,
-    'Date': builtInStaticMethods('Date.now', 'Date.UTC'),
-    'Date#toISOString': inaccessibleProperty,
-    'Date#toLocaleDateString': inaccessibleProperty,
-    'Date#toLocaleDateString()': builtInProtoMethod('String'),
-    'Date.now': inaccessibleProperty,
-    'Date.now()': inaccessibleProperty,
-    'Date.UTC': inaccessibleProperty,
-    'Error': inaccessibleProperty,
-    'JSON': builtInStaticMethods('JSON.parse', 'JSON.stringify'),
-    'JSON.parse': inaccessibleProperty,
-    'JSON.stringify': inaccessibleProperty,
-    'JSON.stringify()': builtInProtoMethod('String'),
-    'Map': inaccessibleProperty,
-    'Map#get': inaccessibleProperty,
-    'Map#keys': inaccessibleProperty,
-    'Map#keys()': builtInProtoMethod('Array'),
-    'Map#set': inaccessibleProperty,
-    'Math': builtInStaticMethod('Math.floor'),
-    'Math.floor': inaccessibleProperty,
-    'Math.floor()': inaccessibleProperty,
-    'Number': builtInStaticMethods('Number.isNaN'),
-    'Number#toFixed': builtInProtoMethod('Number'),
-    'Number.isNaN': inaccessibleProperty,
-    'Object': builtInStaticMethods('Object.assign', 'Object.entries', 'Object.freeze', 'Object.keys', 'Object.values'),
-    'Object.assign': inaccessibleProperty,
-    'Object.entries': inaccessibleProperty,
-    'Object.entries()': builtInProtoMethod('Array'),
-    'Object.entries()[]': inaccessibleProperty,
-    'Object.freeze': inaccessibleProperty,
-    'Object.keys': inaccessibleProperty,
-    'Object.values': inaccessibleProperty,
-    'Object.values()': builtInProtoMethod('Array'),
-    'Promise': builtInStaticMethods('Promise.all', 'Promise.allSettled', 'Promise.resolve'),
-    'Promise#then': inaccessibleProperty,
-    'Promise.all': inaccessibleProperty,
-    'Promise.all()': inaccessibleProperty,
-    'Promise.allSettled': inaccessibleProperty,
-    'Promise.allSettled()': inaccessibleProperty,
-    'Promise.resolve': inaccessibleProperty,
-    'Promise.resolve()': builtInProtoMethod('Promise'),
-    'RegExp#test': inaccessibleProperty,
-    'RegExp#test()': inaccessibleProperty,
-    'String': inaccessibleProperty,
-    'String#includes': inaccessibleProperty,
-    'String#includes()': inaccessibleProperty,
-    'String#match': inaccessibleProperty,
-    'String#match()': inaccessibleProperty,
-    'String#split': inaccessibleProperty,
-    'String#split()': builtInProtoMethod('Array'),
-    'String#split()[]': builtInProtoMethod('String'),
-    'String#substring': inaccessibleProperty,
-    'String#substring()': builtInProtoMethod('String'),
-    'String#toLowerCase': inaccessibleProperty,
-    'String#toLowerCase()': builtInProtoMethod('String'),
-    'String#trim': inaccessibleProperty,
-    'String#trim()': builtInProtoMethod('String'),
-    'console': builtInStaticMethods('console.log', 'console.error', 'console.table', 'console.warn'),
-    'console.log': inaccessibleProperty,
-    'console.log()': inaccessibleProperty,
-    'console.error': inaccessibleProperty,
-    'console.error()': inaccessibleProperty,
-    'console.table': inaccessibleProperty,
-    'console.warn': inaccessibleProperty,
-    'console.warn()': inaccessibleProperty,
-    'fetch': inaccessibleProperty,
-    'isNaN': inaccessibleProperty,
-    'parseInt': inaccessibleProperty,
-    'parseFloat': inaccessibleProperty,
-    'parseFloat()': builtInProtoMethod('Number'),
-    'undefined': () => empty(),
-}
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
-const inaccessibleElement: ElementAccessGetter = ({ node }) =>
-    unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
     const { node: cons, env } = consConfig;
     if (!isCallExpression(cons)) {
@@ -539,102 +117,359 @@ function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructo
         return fixed_eval({ node: cons.expression, env: funcEnv });
     });
 }
-export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter } = {
-    'Array': inaccessibleElement,
-    'Array#filter': inaccessibleElement,
-    'Array#filter()': arrayFilterEAG,
-    'Array#find': inaccessibleElement,
-    'Array#forEach': inaccessibleElement,
-    'Array#includes': inaccessibleElement,
-    'Array#includes()': inaccessibleElement,
-    'Array#indexOf': inaccessibleElement,
-    'Array#indexOf()': inaccessibleElement,
-    'Array#join': inaccessibleElement,
-    'Array#join()': inaccessibleElement,
-    'Array#map': inaccessibleElement,
-    'Array#map()': arrayMapEAG,
-    'Array#push': inaccessibleElement,
-    'Array#reduce': inaccessibleElement,
-    'Array#slice': inaccessibleElement,
-    'Array#slice()': inaccessibleElement, // TODO
-    'Array#some': inaccessibleElement,
-    'Array#some()': inaccessibleElement,
-    'Array.from': inaccessibleElement,
-    'Array.isArray': inaccessibleElement,
-    'Buffer': inaccessibleElement,
-    'Buffer.from': inaccessibleElement,
-    'Date': inaccessibleElement,
-    'Date.now': inaccessibleElement,
-    'Date#toISOString': inaccessibleElement,
-    'Date#toLocaleDateString': inaccessibleElement,
-    'Date#toLocaleDateString()': inaccessibleElement,
-    'Date.now()': inaccessibleElement,
-    'Date.UTC': inaccessibleElement,
-    'Error': inaccessibleElement,
-    'JSON': inaccessibleElement,
-    'JSON.parse': inaccessibleElement,
-    'JSON.stringify': inaccessibleElement,
-    'JSON.stringify()': inaccessibleElement,
-    'Map': inaccessibleElement,
-    'Map#get': inaccessibleElement,
-    'Map#keys': inaccessibleElement,
-    'Map#keys()': mapKeysEAG,
-    'Map#set': inaccessibleElement,
-    'Math': inaccessibleElement,
-    'Math.floor': inaccessibleElement,
-    'Math.floor()': inaccessibleElement,
-    'Number': inaccessibleElement,
-    'Number#toFixed': inaccessibleElement,
-    'Number.isNaN': inaccessibleElement,
-    'Object': inaccessibleElement,
-    'Object.assign': inaccessibleElement,
-    'Object.freeze': inaccessibleElement,
-    'Object.entries': inaccessibleElement,
-    'Object.entries()': createElementPickConfigSet,
-    'Object.entries()[]': inaccessibleElement,
-    'Object.keys': inaccessibleElement,
-    'Object.values': inaccessibleElement,
-    'Object.values()': objectValuesEAG,
-    'Promise': inaccessibleElement,
-    'Promise#then': inaccessibleElement,
-    'Promise.all': inaccessibleElement,
-    'Promise.all()': inaccessibleElement, // TODO
-    'Promise.allSettled': inaccessibleElement,
-    'Promise.allSettled()': inaccessibleElement,
-    'Promise.resolve': inaccessibleElement,
-    'Promise.resolve()': inaccessibleElement,
-    'RegExp#test': inaccessibleElement,
-    'RegExp#test()': inaccessibleElement,
-    'String': inaccessibleElement,
-    'String#includes': inaccessibleElement,
-    'String#includes()': inaccessibleElement,
-    'String#match': inaccessibleElement,
-    'String#match()': inaccessibleElement,
-    'String#split': inaccessibleElement,
-    'String#split()': createElementPickConfigSet,
-    'String#split()[]': inaccessibleElement,
-    'String#substring': inaccessibleElement,
-    'String#substring()': inaccessibleElement,
-    'String#toLowerCase': inaccessibleElement,
-    'String#toLowerCase()': inaccessibleElement,
-    'String#trim': inaccessibleElement,
-    'String#trim()': inaccessibleElement,
-    'console': inaccessibleElement,
-    'console.log': inaccessibleElement,
-    'console.log()': inaccessibleElement,
-    'console.error': inaccessibleElement,
-    'console.error()': inaccessibleElement,
-    'console.table': inaccessibleElement,
-    'console.warn': inaccessibleElement,
-    'console.warn()': inaccessibleElement,
-    'fetch': inaccessibleElement,
-    'isNaN': inaccessibleElement,
-    'parseInt': inaccessibleElement,
-    'parseFloat': inaccessibleElement,
-    'parseFloat()': inaccessibleElement,
-    'undefined': inaccessibleElement,
+
+type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet;
+const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
+    if (this === undefined) {
+        return unimplementedBottom(`Cannot call reduce on undefined`);
+    }
+
+    if (primopArgIndex !== 0) {
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array#reduce`);
+    }
+
+    if (argParameterIndex === 0) {
+        return fixed_eval(callSite);
+    } else if (argParameterIndex === 1) {
+        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
+    } else {
+        return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
+    }
+}
+const standardArrayABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
+    if (this === undefined) {
+        return unimplementedBottom(`Cannot call array method on undefined`);
+    }
+
+    if (primopArgIndex !== 0) {
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array method`);
+    }
+
+    if (argParameterIndex === 0) {
+        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
+    } else {
+        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array method ${printNodeAndPos(callSite.node)}`)
+    }
 }
 
+const zeroth = [0];
+
+const inaccessibleProperty: PropertyAccessGetter = ({ node: pa }) => unimplementedBottom(`Unable to get property ${printNodeAndPos(pa)}`) ;
+const inaccessibleElement: ElementAccessGetter = ({ node }) =>
+    unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
+function notSupported(this: Config<ts.Expression> | undefined) { return unimplementedBottom(`Unimplemented function arg param binder getter for ${this === undefined ? undefined : printNodeAndPos(this.node)}`) };
+const none = []
+const bottomBehavior: BuiltInValueBehavior = {
+    resultOfCalling: uncallable,
+    resultOfPropertyAccess: inaccessibleProperty,
+    resultOfElementAccess: inaccessibleElement,
+    primopBinderGetter: notSupported,
+    higherOrderArgs: none,
+};
+
+const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find', 'Array#forEach',
+    'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
+    'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#reduce',
+    'Array#slice', 'Array#slice()', 'Array#some', 'Array#some()',
+    'Array.from', 'Array.isArray',
+    'Buffer', 'Buffer.from',
+    'Date', 'Date#toISOString', 'Date#toLocaleDateString', 'Date#toLocaleDateString()',
+    'Date.now', 'Date.now()', 'Date.UTC',
+    'Error', 'JSON', 'JSON.parse', 'JSON.stringify', 'JSON.stringify()',
+    'Map', 'Map#get', 'Map#keys', 'Map#keys()', 'Map#set', 'Math', 'Math.floor', 'Math.floor()',
+    'Number', 'Number#toFixed', 'Number.isNaN',
+    'Object', 'Object.assign', 'Object.entries', 'Object.entries()', 'Object.entries()[]',
+    'Object.freeze', 'Object.keys', 'Object.values', 'Object.values()',
+    'Promise', 'Promise#then', 'Promise.all', 'Promise.all()', 'Promise.allSettled',
+    'Promise.allSettled()', 'Promise.resolve', 'Promise.resolve()',
+    'RegExp#test', 'RegExp#test()',
+    'String', 'String#includes', 'String#includes()', 'String#match', 'String#match()',
+    'String#replace', 'String#replace()', 'String#split', 'String#split()', 'String#split()[]',
+    'String#substring', 'String#substring()', 'String#toLowerCase', 'String#toLowerCase()',
+    'String#trim', 'String#trim()',
+    'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
+    'console.table', 'console.warn', 'console.warn()',
+    'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()', 'undefined',
+] as const;
+type BuiltInValue = typeof builtInValues[number];
+
+export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior} = {
+    'Array': builtInObject(['Array.from', 'Array.isArray']),
+    'Array#filter': standardArrayMethod(),
+    'Array#filter()': arrayValued(arrayFilterEAG),
+    'Array#find': standardArrayMethod(),
+    'Array#forEach': standardArrayMethod(),
+    'Array#includes': builtInFunction(),
+    'Array#includes()': bottomBehavior,
+    'Array#indexOf': builtInFunction(),
+    'Array#indexOf()': proto('Number'),
+    'Array#join': builtInFunction(),
+    'Array#join()': proto('String'),
+    'Array#map': standardArrayMethod(),
+    'Array#map()': arrayValued(arrayMapEAG),
+    'Array#push': builtInFunction(),
+    'Array#reduce': {... bottomBehavior, resultOfCalling: arrayReduceCallGetter, higherOrderArgs: zeroth, primopBinderGetter: arrayReduceABG },
+    'Array#slice': builtInFunction(),
+    'Array#slice()': arrayValued(inaccessibleElement), // TODO
+    'Array#some': standardArrayMethod(),
+    'Array#some()': bottomBehavior,
+    'Array.from': { ...bottomBehavior, resultOfCalling: arrayFromCallGetter },
+    'Array.isArray': builtInFunction(),
+    'Buffer': builtInObject(['Buffer.from']),
+    'Buffer.from': builtInFunction(),
+    'Date': builtInObject(['Date.now', 'Date.UTC']),
+    'Date#toISOString': builtInFunction(),
+    'Date#toLocaleDateString': builtInFunction(),
+    'Date#toLocaleDateString()': proto('String'),
+    'Date.now': builtInFunction(),
+    'Date.now()': proto('Date'),
+    'Date.UTC': builtInFunction(),
+    'Error': builtInObject(),
+    'JSON': builtInObject(['JSON.parse', 'JSON.stringify']),
+    'JSON.parse': { ...bottomBehavior, resultOfCalling: () => justExtern },
+    'JSON.stringify': builtInFunction(),
+    'JSON.stringify()': proto('String'),
+    'Map': builtInObject(),
+    'Map#get': { ...bottomBehavior, resultOfCalling: mapGetCallGetter },
+    'Map#keys': builtInFunction(),
+    'Map#keys()': arrayValued(mapKeysEAG),
+    'Map#set': builtInFunction(),
+    'Math': builtInObject(['Math.floor']),
+    'Math.floor': builtInFunction(),
+    'Math.floor()': proto('Number'),
+    'Number': callableObject(['Number.isNaN']),
+    'Number#toFixed': builtInFunction(),
+    'Number.isNaN': builtInFunction(),
+    'Object': builtInObject(['Object.assign', 'Object.entries', 'Object.freeze', 'Object.keys', 'Object.values']),
+    'Object.assign': builtInFunction(),
+    'Object.entries': builtInFunction(),
+    'Object.entries()': arrayValued(createElementPickConfigSet),
+    'Object.entries()[]': bottomBehavior,
+    'Object.freeze': builtInFunction(),
+    'Object.keys': builtInFunction(),
+    'Object.values': builtInFunction(),
+    'Object.values()': arrayValued(objectValuesEAG),
+    'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
+    'Promise#then': builtInFunction({ higherOrderArgs: zeroth }),
+    'Promise.all': builtInFunction(),
+    'Promise.all()': bottomBehavior,
+    'Promise.allSettled': builtInFunction(),
+    'Promise.allSettled()': bottomBehavior,
+    'Promise.resolve': builtInFunction(),
+    'Promise.resolve()': proto('Promise'),
+    'RegExp#test': builtInFunction(),
+    'RegExp#test()': bottomBehavior,
+    'String': callableObject(),
+    'String#includes': builtInFunction(),
+    'String#includes()': bottomBehavior,
+    'String#match': builtInFunction(),
+    'String#match()': bottomBehavior,
+    'String#replace': builtInFunction(),
+    'String#replace()': proto('String'),
+    'String#split': builtInFunction(),
+    'String#split()': arrayValued(createElementPickConfigSet),
+    'String#split()[]': proto('String'),
+    'String#substring': builtInFunction(),
+    'String#substring()': proto('String'),
+    'String#toLowerCase': builtInFunction(),
+    'String#toLowerCase()': proto('String'),
+    'String#trim': builtInFunction(),
+    'String#trim()': proto('String'),
+    'console': builtInObject(['console.log', 'console.error', 'console.table', 'console.warn']),
+    'console.log': builtInFunction(),
+    'console.log()': bottomBehavior,
+    'console.error': builtInFunction(),
+    'console.error()': bottomBehavior,
+    'console.table': builtInFunction(),
+    'console.warn': builtInFunction(),
+    'console.warn()': bottomBehavior,
+    'fetch': { ...bottomBehavior, resultOfCalling: () => justExtern },
+    'isNaN': builtInFunction(),
+    'parseInt': builtInFunction(),
+    'parseFloat': builtInFunction(),
+    'parseFloat()': proto('Number'),
+    'undefined': { ...bottomBehavior, resultOfCalling: () => empty() },
+}
+
+type BuiltInValueBehavior = {
+    resultOfCalling: CallGetter,
+    resultOfPropertyAccess: PropertyAccessGetter,
+    resultOfElementAccess: ElementAccessGetter,
+    primopBinderGetter: PrimopFunctionArgParamBinderGetter,
+    higherOrderArgs: number[],
+}
+
+
+
+function builtInObject(staticMethods?: BuiltInValue[]): BuiltInValueBehavior {
+    return {
+        ...bottomBehavior,
+        resultOfPropertyAccess: builtInStaticMethods(...(staticMethods ?? [])),
+    }
+}
+
+function callableObject(staticMethods?: BuiltInValue[]): BuiltInValueBehavior {
+    return {
+        ... builtInObject(staticMethods),
+        resultOfCalling: singleConfig,
+    }
+}
+
+function builtInFunction(args?: Partial<BuiltInValueBehavior>) {
+    return {
+        ...bottomBehavior,
+        resultOfCalling: singleConfig,
+        ...args,
+    }
+}
+
+function arrayValued(resultOfElementAccess: ElementAccessGetter) {
+    return {
+        ...bottomBehavior,
+        resultOfPropertyAccess: builtInProtoMethod('Array'),
+        resultOfElementAccess,
+    }
+}
+
+function standardArrayMethod() {
+    return {
+        ...builtInFunction(),
+        primopBinderGetters: standardArrayABG,
+        higherOrderArgsOf: zeroth,
+    }
+}
+
+function proto(proto: BuiltInProto) {
+    return {
+        ...bottomBehavior,
+        resultOfPropertyAccess: builtInProtoMethod(proto)
+    }
+}
+
+const builtInProtosObject = {
+    'Array': true,
+    'Date': true,
+    'Error': true,
+    'Map': true,
+    'Number': true,
+    'Object': true,
+    'Promise': true,
+    'RegExp': true,
+    'String': true,
+}
+export type BuiltInProto = keyof typeof builtInProtosObject;
+export function isBuiltInProto(str: string): str is BuiltInProto {
+    return Object.keys(builtInProtosObject).includes(str);
+}
+
+/**
+ * Given a node that we already know represents some built-in value, which built in value does it represent?
+ * Note that this assumes there are no methods that share a name.
+ */
+export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
+    const { node: builtInConstructor, env } = builtInConstructorConfig;
+
+    if (isPropertyAccessExpression(builtInConstructor)) {
+        const methodName = builtInConstructor.name.text;
+        const builtInValue = builtInValues.find(val =>
+            typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else if (isIdentifier(builtInConstructor)) {
+        const builtInValue = builtInValues.find(val => val === builtInConstructor.text);
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    } else if (isElementPick(builtInConstructor)) {
+        const expressionConses = fixed_eval({ node: builtInConstructor.expression, env });
+        const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
+            if (isConfigExtern(expressionCons)) {
+                return empty<BuiltInValue>();
+            }
+
+            if (!isBuiltInConstructorShapedConfig(expressionCons)) {
+                return empty<BuiltInValue>();
+            }
+
+            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval));
+        });
+        const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.some(biv => biv === expressionBuiltIn + '[]'));
+        assertNotUndefined(builtInValue);
+        return builtInValue + '[]' as BuiltInValue;
+    } else { // call expression
+        const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
+        const builtInValue = builtInValues.find(val =>
+            typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
+        );
+        assertNotUndefined(builtInValue);
+        return builtInValue;
+    }
+
+    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression>): BuiltInValue {
+        const expressionConses = fixed_eval({
+            node: callConfig.node.expression,
+            env: callConfig.env,
+        });
+        const builtInConstructorsForExpression = setFilter(
+            expressionConses,
+            isBuiltInConstructorShapedConfig
+        );
+        const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
+            getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval)
+        );
+        if (builtInValues.size() !== 1) {
+            throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
+        }
+        return builtInValues.elements[0];
+    }
+
+    function assertNotUndefined<T>(val: T | undefined): asserts val is T {
+        if (val === undefined) {
+            throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
+        }
+    }
+}
+
+/**
+ * If a node is shaped like a built in constructor and is a value, it is a built in constructor
+ */
+export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstructor {
+    if (isExtern(node)) {
+        return false;
+    }
+
+    return isPropertyAccessExpression(node)
+        || isIdentifier(node)
+        || isCallExpression(node)
+        || isElementPick(node);
+}
+export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
+    return isBuiltInConstructorShaped(config.node);
+}
+
+export function idIsBuiltIn(id: ts.Identifier): boolean {
+    return builtInValues.some(val => val === id.text);
+}
+
+type PropertyAccessGetter = (propertyAccessConfig: Config<PropertyAccessExpression>, args: { fixed_eval: FixedEval }) => ConfigSet;
+function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
+    const methodNames = names.map(name => name.split('.')[1]);
+    return (pac, { fixed_eval }) => methodNames.some(methodName => pac.node.name.text === methodName)
+        ? singleConfig(pac)
+        : inaccessibleProperty(pac, { fixed_eval });
+}
+function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
+    return (pac, { fixed_eval }) => {
+        const expressionConses = fixed_eval({ node: pac.node.expression, env: pac.env});
+        const isBuiltInProtoMethod = expressionConses.elements.some(consConfig =>
+            isConfigNoExtern(consConfig)
+            && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size() > 0
+        )
+        return isBuiltInProtoMethod
+            ? singleConfig(pac)
+            : inaccessibleProperty(pac, { fixed_eval });
+    }
+}
 /**
  * @param cons here we're assuming a constructor that isn't "built in"
  */
@@ -675,252 +510,11 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
     } else if (proto === 'String' && propertyName === 'message') {
         return empty();
     }
-    const builtInValueExists = builtInValues.elements.some(val => {
+    const builtInValueExists = builtInValues.some(val => {
         const [valType, valMethod] = val.split('#');
         return proto === valType && valMethod === propertyName;
     });
     return builtInValueExists
         ? singleton(accessConfig)
         : unimplementedBottom(`Could not find proto value ${printNodeAndPos(accessConfig.node)}`);
-}
-
-
-type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet;
-type PrimopBinderGetters = { [K in BuiltInValue]: PrimopFunctionArgParamBinderGetter }
-const notSupported = (name: BuiltInValue) => () => unimplementedBottom(`Unimplemented function arg param binder getter for ${name}`);
-const arrayMapABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, _, { fixed_eval, fixed_trace, m }): ConfigSet {
-    if (this === undefined) {
-        throw new Error();
-    }
-    
-    if (primopArgIndex != 0 || argParameterIndex != 0) {
-        return empty();
-    }
-    return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m });
-}
-const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
-    if (this === undefined) {
-        return unimplementedBottom(`Cannot call reduce on undefined`);
-    }
-
-    if (primopArgIndex !== 0) {
-        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array#reduce`);
-    }
-
-    if (argParameterIndex === 0) {
-        return fixed_eval(callSite);
-    } else if (argParameterIndex === 1) {
-        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
-    } else {
-        return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
-    }
-}
-const standardArrayABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
-    if (this === undefined) {
-        return unimplementedBottom(`Cannot call array method on undefined`);
-    }
-
-    if (primopArgIndex !== 0) {
-        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array method`);
-    }
-
-    if (argParameterIndex === 0) {
-        return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
-    } else {
-        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array method ${printNodeAndPos(callSite.node)}`)
-    }
-}
-export const primopBinderGetters: PrimopBinderGetters = {
-    'Array': notSupported('Array'),
-    'Array#filter': notSupported('Array#filter'),
-    'Array#filter()': notSupported('Array#filter()'),
-    'Array#find': notSupported('Array#find'),
-    'Array#forEach': standardArrayABG,
-    'Array#includes': notSupported('Array#includes'),
-    'Array#includes()': notSupported('Array#includes()'),
-    'Array#indexOf': notSupported('Array#indexOf'),
-    'Array#indexOf()': notSupported('Array#indexOf()'),
-    'Array#join': notSupported('Array#join'),
-    'Array#join()': notSupported('Array#join()'),
-    'Array#map': arrayMapABG,
-    'Array#map()': notSupported('Array'),
-    'Array#push': notSupported('Array#push'),
-    'Array#reduce': arrayReduceABG,
-    'Array#slice': notSupported('Array#slice'),
-    'Array#slice()': notSupported('Array#slice()'),
-    'Array#some': standardArrayABG,
-    'Array#some()': notSupported('Array#some()'),
-    'Array.from': notSupported('Array.from'),
-    'Array.isArray': notSupported('Array.isArray'),
-    'Buffer': notSupported('Buffer'),
-    'Buffer.from': notSupported('Buffer.from'),
-    'Date': notSupported('Date'),
-    'Date#toISOString': notSupported('Date#toISOString'),
-    'Date#toLocaleDateString': notSupported('Date#toLocaleDateString'),
-    'Date#toLocaleDateString()': notSupported('Date#toLocaleDateString()'),
-    'Date.now': notSupported('Date.now'),
-    'Date.now()': notSupported('Date.now()'),
-    'Date.UTC': notSupported('Date.UTC'),
-    'Error': notSupported('Error'),
-    'JSON': notSupported('JSON'),
-    'JSON.parse': notSupported('JSON.parse'),
-    'JSON.stringify': notSupported('JSON.stringify'),
-    'JSON.stringify()': notSupported('JSON.stringify()'),
-    'Map': notSupported('Map'),
-    'Map#get': notSupported('Map#get'),
-    'Map#keys': notSupported('Map#keys'),
-    'Map#keys()': notSupported('Map#keys()'),
-    'Map#set': notSupported('Map#set'),
-    'Math': notSupported('Math'),
-    'Math.floor': notSupported('Math.floor'),
-    'Math.floor()': notSupported('Math.floor()'),
-    'Number': notSupported('Number'),
-    'Number#toFixed': notSupported('Number#toFixed'),
-    'Number.isNaN': notSupported('Number.isNaN'),
-    'Object': notSupported('Object'),
-    'Object.assign': notSupported('Object.assign'),
-    'Object.freeze': notSupported('Object.freeze'),
-    'Object.entries': notSupported('Object.entries'),
-    'Object.entries()': notSupported('Object.entries()'),
-    'Object.keys': notSupported('Object.keys'),
-    'Object.values': notSupported('Object.values'),
-    'Object.values()': notSupported('Object.values()'),
-    'Object.entries()[]': notSupported('Object.entries()[]'),
-    'Promise': notSupported('Promise'),
-    'Promise#then': notSupported('Promise#then'), // TODO
-    'Promise.all': notSupported('Promise.all'),
-    'Promise.all()': notSupported('Promise.all()'),
-    'Promise.allSettled': notSupported('Promise.allSettled'),
-    'Promise.allSettled()': notSupported('Promise.allSettled()'),
-    'Promise.resolve': notSupported('Promise.resolve'),
-    'Promise.resolve()': notSupported('Promise.resolve()'),
-    'RegExp#test': notSupported('RegExp#test'),
-    'RegExp#test()': notSupported('RegExp#test()'),
-    'String': notSupported('String'),
-    'String#includes': notSupported('String#includes'),
-    'String#includes()': notSupported('String#includes()'),
-    'String#match': notSupported('String#match'),
-    'String#match()': notSupported('String#match()'),
-    'String#split': notSupported('String#split'),
-    'String#split()': notSupported('String#split()'),
-    'String#split()[]': notSupported('String#split()[]'),
-    'String#substring': notSupported('String#substring'),
-    'String#substring()': notSupported('String#substring()'),
-    'String#toLowerCase': notSupported('String#toLowerCase'),
-    'String#toLowerCase()': notSupported('String#toLowerCase()'),
-    'String#trim': notSupported('String#trim'),
-    'String#trim()': notSupported('String#trim()'),
-    'console': notSupported('console'),
-    'console.log': notSupported('console.log'),
-    'console.log()': notSupported('console.log()'),
-    'console.error': notSupported('console.error'),
-    'console.error()': notSupported('console.error()'),
-    'console.table': notSupported('console.table'),
-    'console.warn': notSupported('console.warn'),
-    'console.warn()': notSupported('console.warn()'),
-    'fetch': notSupported('fetch'),
-    'isNaN': notSupported('isNaN'),
-    'parseInt': notSupported('parseInt'),
-    'parseFloat': notSupported('parseFloat'),
-    'parseFloat()': notSupported('parseFloat()'),
-    'undefined': notSupported('undefined'),
-}
-
-type HigherOrderArgs = { [K in BuiltInValue]: number[] }
-const none = []
-const zeroth = [0];
-export const higherOrderArgsOf: HigherOrderArgs = {
-    'Array': none,
-    'Array#filter': zeroth,
-    'Array#filter()': none,
-    'Array#find': zeroth,
-    'Array#forEach': zeroth,
-    'Array#includes': zeroth,
-    'Array#includes()': none,
-    'Array#indexOf': none,
-    'Array#indexOf()': none,
-    'Array#join': none,
-    'Array#join()': none,
-    'Array#map': zeroth,
-    'Array#map()': none,
-    'Array#push': none,
-    'Array#reduce': zeroth,
-    'Array#slice': none,
-    'Array#slice()': none,
-    'Array#some': zeroth,
-    'Array#some()': none,
-    'Array.from': none,
-    'Array.isArray': none,
-    'Buffer': none,
-    'Buffer.from': none,
-    'Date': none,
-    'Date#toISOString': none,
-    'Date#toLocaleDateString': none,
-    'Date#toLocaleDateString()': none,
-    'Date.UTC': none,
-    'Date.now': none,
-    'Date.now()': none,
-    'Error': none,
-    'JSON': none,
-    'JSON.parse': none,
-    'JSON.stringify': none,
-    'JSON.stringify()': none,
-    'Map': none,
-    'Map#get': none,
-    'Map#keys': none,
-    'Map#keys()': none,
-    'Map#set': none,
-    'Math': none,
-    'Math.floor': none,
-    'Math.floor()': none,
-    'Number': none,
-    'Number#toFixed': none,
-    'Number.isNaN': none,
-    'Object': none,
-    'Object.assign': none,
-    'Object.entries': none,
-    'Object.entries()': none,
-    'Object.entries()[]': none,
-    'Object.freeze': none,
-    'Object.keys': none,
-    'Object.values': none,
-    'Object.values()': none,
-    'Promise': none,
-    'Promise#then': zeroth,
-    'Promise.all': none,
-    'Promise.all()': none,
-    'Promise.allSettled': none,
-    'Promise.allSettled()': none,
-    'Promise.resolve': none,
-    'Promise.resolve()': none,
-    'RegExp#test': none,
-    'RegExp#test()': none,
-    'String': none,
-    'String#includes': none,
-    'String#includes()': none,
-    'String#match': none,
-    'String#match()': none,
-    'String#split': none,
-    'String#split()': none,
-    'String#split()[]': none,
-    'String#substring': none,
-    'String#substring()': none,
-    'String#toLowerCase': none,
-    'String#toLowerCase()': none,
-    'String#trim': none,
-    'String#trim()': none,
-    'console': none,
-    'console.error': none,
-    'console.error()': none,
-    'console.log': none,
-    'console.log()': none,
-    'console.table': none,
-    'console.warn': none,
-    'console.warn()': none,
-    'fetch': none,
-    'isNaN': none,
-    'parseInt': none,
-    'parseFloat': none,
-    'parseFloat()': none,
-    'undefined': none,
 }

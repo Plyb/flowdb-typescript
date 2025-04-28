@@ -6,7 +6,7 @@ import { structuralComparator } from './comparators';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
-import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
+import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig } from './configuration';
 import { isEqual } from 'lodash';
@@ -97,7 +97,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 opConfig,
                                 fixed_eval
                             );
-                            return resultOfCalling[builtInValue](config, { fixed_eval, fixed_trace, m });
+                            return builtInValueBehaviors[builtInValue].resultOfCalling(config, { fixed_eval, fixed_trace, m });
                         } else {
                             return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                         }
@@ -786,7 +786,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                             }
 
                             const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval);
-                            const binderGetter = primopBinderGetters[builtInValue];
+                            const binderGetter = builtInValueBehaviors[builtInValue].primopBinderGetter;
                             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
                             const thisConfig = ts.isPropertyAccessExpression(callSiteWhereArg.expression)

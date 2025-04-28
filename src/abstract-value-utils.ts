@@ -6,7 +6,7 @@ import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } fro
 import { unimplemented } from './util';
 import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
-import { BuiltInProto, getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, isBuiltInProto, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
+import { BuiltInProto, builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, isBuiltInProto } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
 import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 
@@ -107,7 +107,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
             }
     
             const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval);
-            return resultOfPropertyAccess[builtInValue](originalAccessConfig, { fixed_eval });
+            return builtInValueBehaviors[builtInValue].resultOfPropertyAccess(originalAccessConfig, { fixed_eval });
         } else if (isDecoratorIndicatingDependencyInjectable(consConfig.node)) {
             const classDeclaration = consConfig.node.parent;
             if (!ts.isClassDeclaration(classDeclaration)) {
@@ -232,7 +232,7 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
                 })
             } else if (isBuiltInConstructorShapedConfig(consConfig)) {
                 const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
-                return resultOfElementAccess[builtInValue](consConfig, { fixed_eval, fixed_trace, m });
+                return builtInValueBehaviors[builtInValue].resultOfElementAccess(consConfig, { fixed_eval, fixed_trace, m });
             } else {
                 return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
             }

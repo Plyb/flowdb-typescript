@@ -10,7 +10,7 @@ import { structuralComparator } from './comparators';
 import { consList } from './util';
 import { newQuestion } from './context';
 import { isExtern } from './abstract-values';
-import { getBuiltInValueOfBuiltInConstructor, higherOrderArgsOf, isBuiltInConstructorShaped, isBuiltInConstructorShapedConfig } from './value-constructors';
+import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig } from './value-constructors';
 
 export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
     const { valueOf } = makeFixpointComputer(
@@ -48,7 +48,7 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
 
                     } else if (isBuiltInConstructorShapedConfig(opConfig)) {
                         const builtInType = getBuiltInValueOfBuiltInConstructor(opConfig, fixed_eval);
-                        const higherOrderArgIndices = higherOrderArgsOf[builtInType];
+                        const higherOrderArgIndices = builtInValueBehaviors[builtInType].higherOrderArgs;
                         const higherOrderArgs = site.arguments.filter((_, i) => higherOrderArgIndices.includes(i));
                         const argSet = new SimpleSet(structuralComparator, ...higherOrderArgs);
                         const argConses = setFlatMap(argSet, arg => fixed_eval({ node: arg, env }));
