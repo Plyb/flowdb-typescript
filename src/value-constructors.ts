@@ -96,6 +96,7 @@ const builtInValuesObject = {
     'isNaN': true,
     'parseInt': true,
     'parseFloat': true,
+    'parseFloat()': true,
     'undefined': true,
 }
 type BuiltInValue = keyof typeof builtInValuesObject;
@@ -325,6 +326,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'isNaN': singleConfig,
     'parseInt': singleConfig,
     'parseFloat': singleConfig,
+    'parseFloat()': singleConfig,
     'undefined': uncallable('undefined'),
 }
 
@@ -443,6 +445,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'isNaN': inaccessibleProperty,
     'parseInt': inaccessibleProperty,
     'parseFloat': inaccessibleProperty,
+    'parseFloat()': inaccessibleProperty,
     'undefined': () => empty(),
 }
 
@@ -595,6 +598,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'isNaN': inaccessibleElement,
     'parseInt': inaccessibleElement,
     'parseFloat': inaccessibleElement,
+    'parseFloat()': inaccessibleElement,
     'undefined': inaccessibleElement,
 }
 
@@ -776,6 +780,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'isNaN': notSupported('isNaN'),
     'parseInt': notSupported('parseInt'),
     'parseFloat': notSupported('parseFloat'),
+    'parseFloat()': notSupported('parseFloat()'),
     'undefined': notSupported('undefined'),
 }
 
@@ -867,5 +872,6 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'isNaN': none,
     'parseInt': none,
     'parseFloat': none,
+    'parseFloat()': none,
     'undefined': none,
 }
