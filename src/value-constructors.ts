@@ -93,6 +93,7 @@ const builtInValuesObject = {
     'console.warn()': true,
     'fetch': true,
     'isNaN': true,
+    'parseInt': true,
     'parseFloat': true,
     'undefined': true,
 }
@@ -320,6 +321,7 @@ export const resultOfCalling: { [K in BuiltInValue]: CallGetter } = {
     'console.warn()': uncallable('console.warn()'),
     'fetch': () => justExtern,
     'isNaN': singleConfig,
+    'parseInt': singleConfig,
     'parseFloat': singleConfig,
     'undefined': uncallable('undefined'),
 }
@@ -436,6 +438,7 @@ export const resultOfPropertyAccess: { [K in BuiltInValue]: PropertyAccessGetter
     'console.warn()': inaccessibleProperty,
     'fetch': inaccessibleProperty,
     'isNaN': inaccessibleProperty,
+    'parseInt': inaccessibleProperty,
     'parseFloat': inaccessibleProperty,
     'undefined': () => empty(),
 }
@@ -586,6 +589,7 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
     'console.warn()': inaccessibleElement,
     'fetch': inaccessibleElement,
     'isNaN': inaccessibleElement,
+    'parseInt': inaccessibleElement,
     'parseFloat': inaccessibleElement,
     'undefined': inaccessibleElement,
 }
@@ -765,6 +769,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'console.warn()': notSupported('console.warn()'),
     'fetch': notSupported('fetch'),
     'isNaN': notSupported('isNaN'),
+    'parseInt': notSupported('parseInt'),
     'parseFloat': notSupported('parseFloat'),
     'undefined': notSupported('undefined'),
 }
@@ -854,6 +859,7 @@ export const higherOrderArgsOf: HigherOrderArgs = {
     'console.warn()': none,
     'fetch': none,
     'isNaN': none,
+    'parseInt': none,
     'parseFloat': none,
     'undefined': none,
 }
