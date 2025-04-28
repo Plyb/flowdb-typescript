@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
@@ -349,6 +349,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return unimplementedBottom(`Unknown situation: tracing a parent array through a variable declaration or call: ${printNodeAndPos(parent)}`)
                 }
                 return parentObjectElementAccesses;
+            } else if (isImportSpecifier(node)) {
+                return getReferences({ node: node.name, env })
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
@@ -496,6 +498,11 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             if (declaration === undefined) {
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }
+            
+            if (declaration.getSourceFile().isDeclarationFile) {
+                return empty();
+            }
+
             const scope = getDeclaringScope(declaration, typeChecker);
 
             const refs = service
