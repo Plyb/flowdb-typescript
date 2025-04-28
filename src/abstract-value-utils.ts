@@ -133,6 +133,12 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
                 return unimplementedBottom(`Unable to find static property ${printNodeAndPos(property)} on class ${printNodeAndPos(consConfig.node)}`);
             }
             return singleConfig({ node: staticProperty, env: consConfig.env });
+        } else if (isNewExpression(consConfig.node)) {
+            const expressionRes = fixed_eval({ node: consConfig.node.expression, env: consConfig.env });
+            if (setSome(expressionRes, isConfigNoExtern)) {
+                return unimplementedBottom(`Unknown how to get property of syntactic class`);
+            }
+            return justExtern;
         } else {
             if (originalAccessConfig === undefined) {
                 return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)
