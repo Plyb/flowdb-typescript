@@ -649,7 +649,7 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
     } else if (isBinaryExpression(cons)
         && (cons.operatorToken.kind === SyntaxKind.AsteriskToken || cons.operatorToken.kind === SyntaxKind.SlashToken)
     ) {
-        return 'Object'; // I don't have use for a number proto right now, so we're using Object as the most general placeholder
+        return 'Number';
     }
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }
