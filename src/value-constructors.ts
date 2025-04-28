@@ -656,19 +656,19 @@ const arrayReduceABG: PrimopFunctionArgParamBinderGetter = function(primopArgInd
         return unimplementedBottom(`Unknown parameter for Array#reduce accumulator ${argParameterIndex}`);
     }
 }
-const arrayForEachABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
+const standardArrayABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
     if (this === undefined) {
-        return unimplementedBottom(`Cannot call forEach on undefined`);
+        return unimplementedBottom(`Cannot call array method on undefined`);
     }
 
     if (primopArgIndex !== 0) {
-        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array#forEach`);
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array method`);
     }
 
     if (argParameterIndex === 0) {
         return getElementNodesOfArrayValuedNode(this, { fixed_eval, fixed_trace, m })
     } else {
-        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array#forEach ${printNodeAndPos(callSite.node)}`)
+        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array method ${printNodeAndPos(callSite.node)}`)
     }
 }
 export const primopBinderGetters: PrimopBinderGetters = {
@@ -676,7 +676,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Array#filter': notSupported('Array#filter'),
     'Array#filter()': notSupported('Array#filter()'),
     'Array#find': notSupported('Array#find'),
-    'Array#forEach': arrayForEachABG,
+    'Array#forEach': standardArrayABG,
     'Array#includes': notSupported('Array#includes'),
     'Array#includes()': notSupported('Array#includes()'),
     'Array#indexOf': notSupported('Array#indexOf'),
@@ -688,7 +688,7 @@ export const primopBinderGetters: PrimopBinderGetters = {
     'Array#reduce': arrayReduceABG,
     'Array#slice': notSupported('Array#slice'),
     'Array#slice()': notSupported('Array#slice()'),
-    'Array#some': notSupported('Array#some'),
+    'Array#some': standardArrayABG,
     'Array#some()': notSupported('Array#some()'),
     'Array.from': notSupported('Array.from'),
     'Buffer': notSupported('Buffer'),
