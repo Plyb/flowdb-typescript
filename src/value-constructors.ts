@@ -1,13 +1,13 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
-import { isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isBinaryExpression, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
-import { Cursor, isExtern } from './abstract-values';
+import { AnalysisNode, Cursor, isExtern } from './abstract-values';
 import { structuralComparator } from './comparators';
 import { consList, unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join } from './configuration';
+import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ts.ElementAccessExpression;
 
@@ -183,10 +183,10 @@ export function isBuiltInConstructorShaped(node: Cursor): node is BuiltInConstru
         return false;
     }
 
-    return ts.isPropertyAccessExpression(node)
-        || ts.isIdentifier(node)
-        || ts.isCallExpression(node)
-        || ts.isElementAccessExpression(node);
+    return isPropertyAccessExpression(node)
+        || isIdentifier(node)
+        || isCallExpression(node)
+        || isElementAccessExpression(node);
 }
 export function isBuiltInConstructorShapedConfig(config: Config): config is Config<BuiltInConstructor> {
     return isBuiltInConstructorShaped(config.node);
@@ -581,14 +581,14 @@ export const resultOfElementAccess: { [K in BuiltInValue]: ElementAccessGetter }
 /**
  * @param cons here we're assuming a constructor that isn't "built in"
  */
-export function getProtoOf(cons: ts.Node): BuiltInProto | null {
-    if (ts.isStringLiteral(cons) || ts.isTemplateLiteral(cons)) {
+export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
+    if (isStringLiteral(cons) || isTemplateLiteral(cons)) {
         return 'String';
-    } else if (ts.isRegularExpressionLiteral(cons)) {
+    } else if (isRegularExpressionLiteral(cons)) {
         return 'RegExp';
-    } else if (ts.isArrayLiteralExpression(cons)) {
+    } else if (isArrayLiteralExpression(cons)) {
         return 'Array';
-    } else if (ts.isNewExpression(cons)) {
+    } else if (isNewExpression(cons)) {
         if (ts.isIdentifier(cons.expression)) {
             if (cons.expression.text === 'Map') {
                 return 'Map';
@@ -597,7 +597,7 @@ export function getProtoOf(cons: ts.Node): BuiltInProto | null {
             }
         }
         return 'Object';
-    } else if (ts.isBinaryExpression(cons)
+    } else if (isBinaryExpression(cons)
         && (cons.operatorToken.kind === SyntaxKind.AsteriskToken || cons.operatorToken.kind === SyntaxKind.SlashToken)
     ) {
         return 'Object'; // I don't have use for a number proto right now, so we're using Object as the most general placeholder
@@ -605,10 +605,10 @@ export function getProtoOf(cons: ts.Node): BuiltInProto | null {
     return unimplemented(`Unable to get type for ${printNodeAndPos(cons)}`, null);
 }
 
-export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionConsConfig: Config<ts.Node>, accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval): ConfigSet {
+export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, expressionConsConfig: ConfigNoExtern, accessConfig: Config<ts.PropertyAccessExpression>, fixed_eval: FixedEval): ConfigSet {
     const { node: expressionCons, env: expressionConsEnv } = expressionConsConfig;
     if (proto === 'Error' && propertyName === 'message') { // special case this for now. If we need more special properties, we'll find those later.
-        if (!ts.isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
+        if (!isNewExpression(expressionCons) || expressionCons.arguments === undefined) {
             return unimplementedBottom(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
         }
         if (expressionCons.arguments.length > 0) {

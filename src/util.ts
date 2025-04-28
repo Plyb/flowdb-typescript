@@ -52,3 +52,5 @@ export function getTsConfigAppPath(rootFolder: string) {
 export function getTsConfigPath(rootFolder: string) {
     return path.join(rootFolder, 'tsconfig.json');
 }
+
+export type NonEmptyArray<T> = [T, ...T[]];

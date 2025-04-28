@@ -3,7 +3,7 @@ import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackB
 import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
-import { findAllParameterBinders, getPosText, isAssignmentExpression, isFunctionLikeDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { findAllParameterBinders, getPosText, isAssignmentExpression, isBlock, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadAssignment, isVariableDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { consList, List, listReduce, toList, unimplemented } from './util';
 import ts, { AssignmentExpression, AssignmentOperatorToken } from 'typescript';
 
@@ -102,7 +102,7 @@ export function isConfigNoExtern(config: Config): config is ConfigNoExtern {
     return isExtern(config.node);
 }
 export function isIdentifierConfig(config: Config): config is Config<ts.Identifier> {
-    return !isExtern(config.node) && ts.isIdentifier(config.node);
+    return !isExtern(config.node) && isIdentifier(config.node);
 }
 export function isFunctionLikeDeclarationConfig(config: Config): config is Config<SimpleFunctionLikeDeclaration> {
     return isConfigNoExtern(config) && isFunctionLikeDeclaration(config.node);
@@ -112,27 +112,27 @@ export function isPropertyAccessConfig(config: Config): config is Config<ts.Prop
         return false;
     }
 
-    return ts.isPropertyAccessExpression(config.node);
+    return isPropertyAccessExpression(config.node);
 }
 export function isCallConfig(config: Config): config is Config<ts.CallExpression> {
     if (!isConfigNoExtern(config)) {
         return false;
     }
 
-    return ts.isCallExpression(config.node);
+    return isCallExpression(config.node);
 }
 export function isBlockConfig(config: ConfigNoExtern): config is Config<ts.Block> {
-    return ts.isBlock(config.node);
+    return isBlock(config.node);
 }
 export function isObjectLiteralExpressionConfig(config: Config): config is Config<ts.ObjectLiteralExpression> {
-    return !isExtern(config.node) && ts.isObjectLiteralExpression(config.node)
+    return !isExtern(config.node) && isObjectLiteralExpression(config.node)
 }
 export function isElementAccessConfig(config: Config): config is Config<ts.ElementAccessExpression> {
     if (isExtern(config.node)) {
         return false;
     }
 
-    return ts.isElementAccessExpression(config.node);
+    return isElementAccessExpression(config.node);
 }
 export function isAssignmentExpressionConfig(config: Config): config is Config<AssignmentExpression<AssignmentOperatorToken>> {
     if (config.node === undefined || !isConfigNoExtern(config)) {
@@ -146,14 +146,14 @@ export function isSpreadAssignmentConfig(config: Config): config is Config<ts.Sp
         return false;
     }
 
-    return ts.isSpreadAssignment(config.node);
+    return isSpreadAssignment(config.node);
 }
 export function isVariableDeclarationConfig(config: Config): config is Config<ts.VariableDeclaration> {
     if (isExtern(config.node)) {
         return false;
     }
 
-    return ts.isVariableDeclaration(config.node);
+    return isVariableDeclaration(config.node);
 }
 
 export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {

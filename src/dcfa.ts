@@ -1,10 +1,10 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, isConciseBody, BindingName } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, BindingName } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression } from './ts-utils';
-import { Cursor, isExtern } from './abstract-values';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression } from './ts-utils';
+import { AnalysisNode, Cursor, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig, primopBinderGetters, resultOfCalling } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
@@ -115,9 +115,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     } else {
                         return unimplementedBottom(`Could not find binding for ${printNodeAndPos(node)}`)
                     }
-                } else if (ts.isParenthesizedExpression(node)) {
+                } else if (isParenthesizedExpression(node)) {
                     return fix_run(abstractEval, { node: node.expression, env });
-                } else if (ts.isBlock(node)) {
+                } else if (isBlock(node)) {
                     const returnStatements = [...getReturnStatements(node)];
                     const returnStatementValues = returnStatements.map(returnStatement => {
                         if (returnStatement.expression === undefined) {
@@ -128,7 +128,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return joinAll(...returnStatementValues);
                 } else if (isAtomicLiteral(node)) {
                     return singleConfig(config);
-                } else if (ts.isObjectLiteralExpression(node)) {
+                } else if (isObjectLiteralExpression(node)) {
                     return singleConfig(config);
                 } else if (isPropertyAccessConfig(config)) {
                     if (!ts.isIdentifier(config.node.name)) {
@@ -136,22 +136,22 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
         
                     return getObjectProperty(config, typeChecker, fixed_eval, fixed_trace);
-                } else if (ts.isAwaitExpression(node)) {
+                } else if (isAwaitExpression(node)) {
                     return resolvePromisesOfNode({ node: node.expression, env }, fixed_eval);
-                } else if (ts.isArrayLiteralExpression(node)) {
+                } else if (isArrayLiteralExpression(node)) {
                     return singleConfig(config);
-                } else if (ts.isElementAccessExpression(node)) {
+                } else if (isElementAccessExpression(node)) {
                     const elementExpressions = getElementNodesOfArrayValuedNode(
                         { node: node.expression, env },
                         { fixed_eval, fixed_trace, m },
                         { node, env },
                     );
                     return configSetJoinMap(elementExpressions, element => fix_run(abstractEval, element));
-                } else if (ts.isNewExpression(node)) {
+                } else if (isNewExpression(node)) {
                     return singleConfig(config);
                 } else if (isNullLiteral(node)) {
                     return singleConfig(config);
-                } else if (ts.isBinaryExpression(node)) {
+                } else if (isBinaryExpression(node)) {
                     const primopId = node.operatorToken.kind;
                     if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
                         const lhsRes = fix_run(abstractEval, { node: node.left, env });
@@ -162,17 +162,17 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     } else {
                         return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
                     }
-                } else if (ts.isTemplateExpression(node)) {
+                } else if (isTemplateExpression(node)) {
                     return singleConfig(config);
-                } else if (ts.isConditionalExpression(node)) {
+                } else if (isConditionalExpression(node)) {
                     const thenValue = fix_run(abstractEval, { node: node.whenTrue, env });
                     const elseValue = fix_run(abstractEval, { node: node.whenFalse, env });
                     return join(thenValue, elseValue)
-                } else if (ts.isAsExpression(node)) {
+                } else if (isAsExpression(node)) {
                     return fix_run(abstractEval, { node: node.expression, env });
                 } else if (node.kind === SyntaxKind.AsyncKeyword) {
                     return singleConfig(config);
-                } else if (ts.isClassDeclaration(node)) {
+                } else if (isClassDeclaration(node)) {
                     return singleConfig(config);
                 }
                 return unimplementedBottom(`abstractEval not yet implemented for: ${ts.SyntaxKind[node.kind]}:${getPosText(node)}`);
@@ -247,7 +247,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
                 const refs = getReferences({ node: parent.name, env })
                 return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-            } else if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
+            } else if (isFunctionDeclaration(node) || isClassDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
                 if (node.name === undefined) {
                     return unimplementedBottom('function/class declaration should have name')
                 }
@@ -268,7 +268,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return getReferences({ node: parent.name, env });
             } else if (ts.isPropertySignature(parent)) {
                 return empty(); // spurious reference
-            } else if (ts.isClassDeclaration(parent) && ts.isMethodDeclaration(node)) {
+            } else if (ts.isClassDeclaration(parent) && isMethodDeclaration(node)) {
                 if (node.name === undefined || !ts.isIdentifier(node.name)) {
                     return unimplementedBottom('method declaration should have name')
                 }
@@ -316,7 +316,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isElementAccessExpression(parent)) {
                 return empty();
-            } else if (ts.isClassDeclaration(parent) && (ts.isDecorator(node))) {
+            } else if (ts.isClassDeclaration(parent) && (isDecorator(node))) {
                 return empty(); // assumption: we're not mutating injectable services
             } else if (ts.isPrefixUnaryExpression(parent)) {
                 return empty();
@@ -424,7 +424,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 );
             }
 
-            function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: ts.Node, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
+            function getWhereReturnedInsideFunction(parentConfig: Config<ts.CallExpression>, node: AnalysisNode, getReferencesFromParameter: (name: ts.BindingName, opEnv: Environment) => ConfigSet) {
                 const parent = parentConfig.node;
                 const argIndex = getArgumentIndex(parent, node);
                 const possibleOperators = fix_run(
@@ -469,7 +469,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         
                 return configSetFilter(applicationSites, siteConfig => {
                     const site = siteConfig.node;
-                    if (!ts.isCallExpression(site)) {
+                    if (!isCallExpression(site)) {
                         return unimplemented(`Got non-callsite from getWhereValueApplied: ${printNodeAndPos(site)}`, false);
                     }
 
@@ -808,7 +808,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
         function getObjectsPropertyInitializers(objConstructorConfigs: ConfigSet, idName: string): ConfigSet {
             return configSetJoinMap(objConstructorConfigs, ({ node: objConstructor, env }) => {
-                if (!ts.isObjectLiteralExpression(objConstructor)) {
+                if (!isObjectLiteralExpression(objConstructor)) {
                     return unimplemented(`Destructuring non-object literals not yet implemented: ${printNodeAndPos(objConstructor)}`, empty());
                 }
 
@@ -847,14 +847,14 @@ function getObjectPropertyInitializer(objConstructor: ObjectLiteralExpression, i
         ?? getShorthandPropertyAssignmentInitializer();
 }
         
-function isOperatorOf(op: ts.Node, call: ts.CallExpression) {
+function isOperatorOf(op: AnalysisNode, call: ts.CallExpression) {
     return op === call.expression;
 }
 
-function getArgumentIndex(call: ts.CallExpression, arg: ts.Node) {
+function getArgumentIndex(call: ts.CallExpression, arg: AnalysisNode) {
     return call.arguments.indexOf(arg as Expression);
 }
 
-function isBodyOf(node: ts.Node, func: SimpleFunctionLikeDeclaration) {
+function isBodyOf(node: AnalysisNode, func: SimpleFunctionLikeDeclaration) {
     return node === func.body;
 }

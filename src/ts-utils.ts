@@ -1,9 +1,9 @@
-import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BinaryExpression, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { Cursor, extern, isExtern } from './abstract-values';
+import { AnalysisNode, Cursor, extern, isArgumentList, isExtern } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment, isConfigExtern, isConfigNoExtern } from './configuration';
 import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
@@ -70,7 +70,7 @@ export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionL
         return false;
     }
 
-    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node) || ts.isMethodDeclaration(node)) {
+    if (isFunctionDeclaration(node) || isFunctionExpression(node) || isArrowFunction(node) || isMethodDeclaration(node)) {
         if (node.body === undefined) {
             throw new Error('should not have undefined function body');
         }
@@ -80,26 +80,26 @@ export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionL
 }
 
 export type AtomicLiteral = LiteralExpression | BooleanLiteral;
-export function isLiteral(node: ts.Node): node is AtomicLiteral {
-    return ts.isLiteralExpression(node) || isBooleaniteral(node);
+export function isLiteral(node: AnalysisNode): node is AtomicLiteral {
+    return isLiteralExpression(node) || isBooleaniteral(node);
 }
 
-export function isTrueLiteral(node: ts.Node): node is TrueLiteral {
+export function isTrueLiteral(node: AnalysisNode): node is TrueLiteral {
     return node.kind === SyntaxKind.TrueKeyword;
 }
-export function isFalseLiteral(node: ts.Node): node is FalseLiteral {
+export function isFalseLiteral(node: AnalysisNode): node is FalseLiteral {
     return node.kind === SyntaxKind.FalseKeyword;
 }
-export function isBooleaniteral(node: ts.Node): node is BooleanLiteral {
+export function isBooleaniteral(node: AnalysisNode): node is BooleanLiteral {
     return isTrueLiteral(node) || isFalseLiteral(node);
 }
-export function isAsyncKeyword(node: ts.Node | undefined): node is AsyncKeyword {
+export function isAsyncKeyword(node: AnalysisNode | undefined): node is AsyncKeyword {
     return node?.kind === SyntaxKind.AsyncKeyword;
 }
 export function isAsync(node: SimpleFunctionLikeDeclaration): node is SimpleFunctionLikeDeclarationAsync {
     return node.modifiers?.some(isAsyncKeyword) ?? false;
 }
-export function isNullLiteral(node: ts.Node): node is NullLiteral {
+export function isNullLiteral(node: AnalysisNode): node is NullLiteral {
     return node.kind === SyntaxKind.NullKeyword;
 }
 function isStaticKeyword(node: ts.Node | undefined): node is StaticKeyword {
@@ -109,14 +109,46 @@ export function isStatic(node: SimpleFunctionLikeDeclaration) {
     return node.modifiers?.some(isStaticKeyword) ?? false;
 }
 const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken, SyntaxKind.MinusEqualsToken, SyntaxKind.AsteriskAsteriskEqualsToken, SyntaxKind.AsteriskEqualsToken, SyntaxKind.SlashEqualsToken, SyntaxKind.PercentEqualsToken, SyntaxKind.AmpersandEqualsToken, SyntaxKind.BarEqualsToken, SyntaxKind.CaretEqualsToken, SyntaxKind.LessThanLessThanEqualsToken, SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, SyntaxKind.GreaterThanGreaterThanEqualsToken, SyntaxKind.BarBarEqualsToken, SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.QuestionQuestionEqualsToken];
-export function isAssignmentExpression(node: ts.Node): node is AssignmentExpression<AssignmentOperatorToken> {
-    return ts.isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
+export function isAssignmentExpression(node: AnalysisNode): node is AssignmentExpression<AssignmentOperatorToken> {
+    return isBinaryExpression(node) && assignmentOperators.includes(node.operatorToken.kind);
+}
+export const isBinaryExpression = notArgumentListAnd(ts.isBinaryExpression)
+export const isBlock = notArgumentListAnd(ts.isBlock)
+export const isFunctionDeclaration = notArgumentListAnd(ts.isFunctionDeclaration)
+export const isFunctionExpression = notArgumentListAnd(ts.isFunctionExpression)
+export const isArrowFunction = notArgumentListAnd(ts.isArrowFunction)
+export const isMethodDeclaration = notArgumentListAnd(ts.isMethodDeclaration)
+export const isIdentifier = notArgumentListAnd(ts.isIdentifier)
+export const isPropertyAccessExpression = notArgumentListAnd(ts.isPropertyAccessExpression)
+export const isCallExpression = notArgumentListAnd(ts.isCallExpression)
+export const isObjectLiteralExpression = notArgumentListAnd(ts.isObjectLiteralExpression)
+export const isElementAccessExpression = notArgumentListAnd(ts.isElementAccessExpression)
+export const isSpreadAssignment = notArgumentListAnd(ts.isSpreadAssignment)
+export const isVariableDeclaration = notArgumentListAnd(ts.isVariableDeclaration)
+export const isNewExpression = notArgumentListAnd(ts.isNewExpression)
+export const isClassDeclaration = notArgumentListAnd(ts.isClassDeclaration)
+export const isArrayLiteralExpression = notArgumentListAnd(ts.isArrayLiteralExpression)
+export const isSpreadElement = notArgumentListAnd(ts.isSpreadElement)
+export const isStringLiteral = notArgumentListAnd(ts.isStringLiteral)
+export const isParenthesizedExpression = notArgumentListAnd(ts.isParenthesizedExpression)
+export const isLiteralExpression = notArgumentListAnd(ts.isLiteralExpression)
+export const isAwaitExpression = notArgumentListAnd(ts.isAwaitExpression)
+export const isTemplateExpression = notArgumentListAnd(ts.isTemplateExpression)
+export const isConditionalExpression = notArgumentListAnd(ts.isConditionalExpression)
+export const isAsExpression = notArgumentListAnd(ts.isAsExpression)
+export const isDecorator = notArgumentListAnd(ts.isDecorator)
+export const isConciseBody = notArgumentListAnd(ts.isConciseBody)
+export const isTemplateLiteral = notArgumentListAnd(ts.isTemplateLiteral)
+export const isRegularExpressionLiteral = notArgumentListAnd(ts.isRegularExpressionLiteral)
+
+function notArgumentListAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: AnalysisNode) => node is T {
+    return ((node: AnalysisNode) => !isArgumentList(node) && predicate(node)) as (node: AnalysisNode) => node is T
 }
 
 export function getFunctionBlockOf(statement: ts.Node): ts.Block & { parent: SimpleFunctionLikeDeclaration } {
     const parents = getParentChain(statement);
     for (const parent of parents) {
-        if (ts.isBlock(parent) && isFunctionLikeDeclaration(parent.parent)) {
+        if (isBlock(parent) && isFunctionLikeDeclaration(parent.parent)) {
             return parent as ts.Block & { parent: SimpleFunctionLikeDeclaration };
         }
     }
@@ -300,10 +332,14 @@ export function printNodeAndPos(node: Cursor): string {
 
     return `${printNode(node)} @ ${getPosText(node)}`;
 }
-function printNode(node: ts.Node) {
+function printNode(node: AnalysisNode) {
+    if (isArgumentList(node)) {
+        return `(${node.arguments.map(arg => printer.printNode(ts.EmitHint.Unspecified, arg, arg.getSourceFile())).join(', ')})`;
+    }
+
     return printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
 }
-export function getPosText(node: ts.Node) {
+export function getPosText(node: AnalysisNode) {
     const sf = node.getSourceFile();
     const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
     return `${line + 1}:${character + 1}:${last(sf.fileName.split('/'))}`
@@ -313,12 +349,12 @@ export function findAllCalls(node: ts.Node): Iterable<ts.CallExpression> {
     return findAll(node, ts.isCallExpression) as Iterable<ts.CallExpression>;
 }
 
-export function findAllParameterBinders(node: ts.Node) {
+export function findAllParameterBinders(node: AnalysisNode) {
     const parentChain = [...getParentChain(node)];
     return parentChain.filter(isFunctionLikeDeclaration);
 }
 
-export function* getParentChain(node: ts.Node) {
+export function* getParentChain(node: AnalysisNode) {
     while (node !== undefined) {
         yield node;
         node = node.parent;

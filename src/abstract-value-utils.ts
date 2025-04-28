@@ -1,14 +1,14 @@
-import ts, { isObjectLiteralExpression, SyntaxKind } from 'typescript';
+import ts, { SyntaxKind } from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isAsyncKeyword, isFunctionLikeDeclaration, isStatic, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isAsyncKeyword, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
 import { getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, resultOfElementAccess, resultOfPropertyAccess } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isDependencyAccessExpression } from './nestjs-dependency-injection';
-import { Cursor, isExtern } from './abstract-values';
+import { AnalysisNode, Cursor, isExtern } from './abstract-values';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -25,9 +25,9 @@ export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpressi
 }
 
 function nameMatches(lhs: ConfigNoExtern, name: ts.MemberName, fixed_eval: FixedEval): boolean {
-    if (ts.isPropertyAccessExpression(lhs.node)) {
+    if (isPropertyAccessExpression(lhs.node)) {
         return lhs.node.name.text === name.text;
-    } else if (ts.isElementAccessExpression(lhs.node)) {
+    } else if (isElementAccessExpression(lhs.node)) {
         const indexConses = fixed_eval({ node: lhs.node.argumentExpression, env: lhs.env });
         return setSome(indexConses, cons => subsumes(cons.node, name));
     }
@@ -44,7 +44,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
     function getPropertyFromMutations(): ConfigSet {
         // assumption: we're not going to be mutating an error that we threw
         if (ts.isThrowStatement(consConfig.node.parent)
-            && ts.isNewExpression(consConfig.node)
+            && isNewExpression(consConfig.node)
             && ts.isIdentifier(consConfig.node.expression)
             && consConfig.node.expression.text === 'Error'
         ) {
@@ -75,7 +75,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
 
     function getPropertyFromSourceConstructor() {
         const { node: cons, env: consEnv } = consConfig;
-        if (ts.isObjectLiteralExpression(cons)) {
+        if (isObjectLiteralExpression(cons)) {
             for (const prop of [...cons.properties].reverse()) {
                 if (ts.isSpreadAssignment(prop)) {
                     const spreadConses = fixed_eval({ node: prop.expression, env: consConfig.env });
@@ -122,7 +122,7 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
                 }
             }
             return unimplementedBottom(`Unable to member ${printNodeAndPos(property)} in ${printNodeAndPos(classDeclaration)}`);
-        } else if (ts.isClassDeclaration(consConfig.node)) {
+        } else if (isClassDeclaration(consConfig.node)) {
             const staticProperty = consConfig.node.members.find(member =>
                 member.name !== undefined
                 && ts.isIdentifier(member.name)
@@ -152,13 +152,13 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
     const conses = fixed_eval(config);
     return configSetJoinMap(conses, consConfig => {
         const { node: cons, env: consEnv } = consConfig;
-        if (ts.isArrayLiteralExpression(cons)) {
+        if (isArrayLiteralExpression(cons)) {
             const elements = new SimpleSet(structuralComparator, ...cons.elements.map(elem => ({
                 node: elem,
                 env: consEnv,
             } as Config)));
             return configSetJoinMap(elements, elementConfig => {
-                if (ts.isSpreadElement(elementConfig.node)) {
+                if (isSpreadElement(elementConfig.node)) {
                     const subElements = getElementNodesOfArrayValuedNode(
                         { node: elementConfig.node.expression, env: elementConfig.env },
                         { fixed_eval, fixed_trace, m }
@@ -214,7 +214,7 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
 export function getElementOfTuple(tupleConfig: Config, i: number, fixed_eval: FixedEval) {
     const tupleConses = fixed_eval(tupleConfig);
     return configSetJoinMap(tupleConses, ({ node: tupleCons, env: tupleEnv }) => {
-        if (!ts.isArrayLiteralExpression(tupleCons)) {
+        if (!isArrayLiteralExpression(tupleCons)) {
             return unimplementedBottom(`Cannot get ith element of a non-array literal ${printNodeAndPos(tupleCons)}`);
         }
 
@@ -305,10 +305,10 @@ export function subsumes(a: Cursor, b: Cursor): boolean {
     return aString === bString;
 }
 
-function getStringOf(node: ts.Node) {
-    if (ts.isIdentifier(node)) {
+function getStringOf(node: AnalysisNode) {
+    if (isIdentifier(node)) {
         return node.text;
-    } else if (ts.isStringLiteral(node)) {
+    } else if (isStringLiteral(node)) {
         return JSON.parse(node.text);
     } else {
         return unimplemented(`Uknown how to get string of ${printNodeAndPos(node)}`, '')

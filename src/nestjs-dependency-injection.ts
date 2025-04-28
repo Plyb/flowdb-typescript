@@ -1,6 +1,6 @@
 import ts, { ModifierLike, NodeArray, SyntaxKind } from 'typescript';
 import { Config, configSetJoinMap, configSetMap, singleConfig, unimplementedBottom } from './configuration';
-import { printNodeAndPos } from './ts-utils';
+import { isClassDeclaration, isDecorator, printNodeAndPos } from './ts-utils';
 import { FixedEval } from './dcfa';
 import { consList, emptyList } from './util';
 import { stackBottom } from './context';
@@ -8,6 +8,7 @@ import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { setFlatMap } from './setUtil';
 import { ExpressionStatement } from 'ts-morph';
+import { AnalysisNode } from './abstract-values';
 
 type DependencyAccessExpression = ts.PropertyAccessExpression & { expression: { kind: SyntaxKind.ThisKeyword} }
 export function isDependencyAccessExpression(propertyAccessExpression: ts.PropertyAccessExpression): propertyAccessExpression is DependencyAccessExpression {
@@ -46,7 +47,7 @@ export function getDependencyInjected(dependencyAccess: Config<DependencyAccessE
 
     const classDeclarationOfDependency = fixed_eval({ node: paramType.typeName, env: consList(stackBottom, emptyList)}); // assumes that all classes are declared at the top level of a file
     return configSetJoinMap(classDeclarationOfDependency, ({ node, env }) => {
-        if (!ts.isClassDeclaration(node)) {
+        if (!isClassDeclaration(node)) {
             return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a class declaration`);
         }
 
@@ -109,8 +110,8 @@ function getDecoratorIndicatingDependencyInjectable(classDeclaration: ts.ClassDe
     return modifiers.find(isDecoratorIndicatingDependencyInjectable);
 }
 
-export function isDecoratorIndicatingDependencyInjectable(node: ts.Node): node is ts.Decorator {
-    if (!ts.isDecorator(node)) {
+export function isDecoratorIndicatingDependencyInjectable(node: AnalysisNode): node is ts.Decorator {
+    if (!isDecorator(node)) {
         return false;
     }
 
