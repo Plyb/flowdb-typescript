@@ -141,6 +141,7 @@ export const isConciseBody = isStandardAnd(ts.isConciseBody)
 export const isTemplateLiteral = isStandardAnd(ts.isTemplateLiteral)
 export const isRegularExpressionLiteral = isStandardAnd(ts.isRegularExpressionLiteral)
 export const isImportSpecifier = isStandardAnd(ts.isImportSpecifier)
+export const isParameter = isStandardAnd(ts.isParameter)
 
 function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: AnalysisNode) => node is T {
     return ((node: AnalysisNode) => isStandard(node) && predicate(node)) as (node: AnalysisNode) => node is T

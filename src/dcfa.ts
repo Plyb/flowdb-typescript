@@ -3,7 +3,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { structuralComparator } from './comparators';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { consList, unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
@@ -351,6 +351,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return parentObjectElementAccesses;
             } else if (isImportSpecifier(node)) {
                 return getReferences({ node: node.name, env })
+            } else if (isFunctionLikeDeclaration(parent) && isParameter(node)) {
+                return empty() // covered by the first case
             }
             return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
@@ -587,11 +589,11 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const declaringScope = getDeclaringScope(declaration, typeChecker);
             const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
-            return join(getBindingsFromDelcaration(declaration), getBindingsFromMutatingAssignments(declaration));
+            const bindingsFromDeclaration = getBindingsFromDelcaration(declaration);
+            return join(bindingsFromDeclaration, getBindingsFromMutatingAssignments(bindingsFromDeclaration));
 
-            function getBindingsFromMutatingAssignments(declaration: ts.Declaration): ConfigSet {
-                const refs = fixed_trace({ node: declaration, env: envAtDeclaringScope });
-                const refParents = configSetMap(refs, ref => ({ node: ref.node.parent, env: ref.env }));
+            function getBindingsFromMutatingAssignments(bindingsFromDeclaration: ConfigSet): ConfigSet {
+                const refParents = configSetMap(bindingsFromDeclaration, ref => ({ node: ref.node.parent, env: ref.env }));
                 const refAssignments = new SimpleSet(structuralComparator, ...refParents.elements.filter(isAssignmentExpressionConfig));
                 return setFlatMap(refAssignments, assignmentExpression => {
                     if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
