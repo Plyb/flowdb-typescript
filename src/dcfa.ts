@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, BindingName } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, BindingName, SymbolFlags } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { empty, setFilter, setFlatMap, setMap, setOf, setSome, singleton, union } from './setUtil';
 import { CachePusher, FixRunFunc, makeFixpointComputer } from './fixpoint';
@@ -20,6 +20,8 @@ export type DcfaCachePusher = CachePusher<Config, ConfigSet>;
 export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): { fixed_eval: FixedEval, push_cache: DcfaCachePusher } {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
+
+    const referenceCache = new Map<ts.Symbol, ConfigSetNoExtern>()
 
     const { valueOf, push_cache } = makeFixpointComputer(empty<Config>(), join, {
         printArgs: printConfig,
@@ -494,65 +496,77 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         // "find"
         function getReferences(idConfig: Config<ts.Identifier>): ConfigSetNoExtern {
             const { node: id, env: idEnv } = idConfig;
-            const symbol = typeChecker.getSymbolAtLocation(id);
-            const declaration = symbol?.valueDeclaration
-                ?? symbol?.declarations?.[0];
-            if (declaration === undefined) {
-                throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
-            }
-            
-            if (declaration.getSourceFile().isDeclarationFile) {
-                return empty();
+            const symbol = typeChecker.getSymbolAtLocation(id)!;
+
+            const aliasedSymbol = symbol.flags & SymbolFlags.Alias
+                ? typeChecker.getAliasedSymbol(symbol)
+                : symbol;
+            if (!referenceCache.has(aliasedSymbol)) {
+                referenceCache.set(aliasedSymbol, computeReferences())
             }
 
-            const scope = getDeclaringScope(declaration, typeChecker);
+            return referenceCache.get(aliasedSymbol)!;
 
-            const refs = service
-                .findReferences(id.getSourceFile().fileName, id.getStart())
-                ?.flatMap(ref => ref.references)
-                ?.filter(ref => !ref.isDefinition);
-            if (refs === undefined) {
-                return unimplemented('undefined references', empty());
-            }
-            const refNodes = refs.map(ref => getNodeAtPosition(
-                program.getSourceFile(ref.fileName)!,
-                ref.textSpan!.start,
-                ref.textSpan!.length,
-            )!);
-            const refNodeConfigs: ConfigNoExtern[] = refNodes.flatMap(refNode => {
-                if (refNode.getSourceFile().isDeclarationFile) {
-                    return [];
+            function computeReferences(): ConfigSetNoExtern {
+                const declaration = symbol?.valueDeclaration
+                    ?? symbol?.declarations?.[0];
+                if (declaration === undefined) {
+                    throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
+                }
+                
+                if (declaration.getSourceFile().isDeclarationFile) {
+                    return empty();
                 }
 
-                const parents = getParentChain(refNode);
-                const bindersForEnvOfRef: SimpleFunctionLikeDeclaration[] = [];
-                let foundScope = false;
-                for (const parent of parents) {
-                    if (parent === scope) {
-                        foundScope = true;
-                        break;
+                const scope = getDeclaringScope(declaration, typeChecker);
+
+                const refs = service
+                    .findReferences(id.getSourceFile().fileName, id.getStart())
+                    ?.flatMap(ref => ref.references)
+                    ?.filter(ref => !ref.isDefinition);
+                if (refs === undefined) {
+                    return unimplemented('undefined references', empty());
+                }
+                const refNodes = refs.map(ref => getNodeAtPosition(
+                    program.getSourceFile(ref.fileName)!,
+                    ref.textSpan!.start,
+                    ref.textSpan!.length,
+                )!);
+                const refNodeConfigs: ConfigNoExtern[] = refNodes.flatMap(refNode => {
+                    if (refNode.getSourceFile().isDeclarationFile) {
+                        return [];
                     }
-                    if (isFunctionLikeDeclaration(parent)) {
-                        bindersForEnvOfRef.push(parent);
-                    }
-                }
-                // Sometimes the TypeScript compiler gives us spurious references for reasons I
-                // don't fully understand. My hypothesis that all of these false positives will
-                // be in the same file, but in a different branch of the AST.
-                if (!foundScope && refNode.getSourceFile() === id.getSourceFile()) {
-                    return [];
-                }
 
-                const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => ({
-                    head: newQuestion(binder),
-                    tail: env
-                }), idEnv);
-                return [{
-                    node: refNode,
-                    env: refEnv,
-                }]
-            });
-            return new SimpleSet<ConfigNoExtern>(structuralComparator, ...refNodeConfigs);
+                    const parents = getParentChain(refNode);
+                    const bindersForEnvOfRef: SimpleFunctionLikeDeclaration[] = [];
+                    let foundScope = false;
+                    for (const parent of parents) {
+                        if (parent === scope) {
+                            foundScope = true;
+                            break;
+                        }
+                        if (isFunctionLikeDeclaration(parent)) {
+                            bindersForEnvOfRef.push(parent);
+                        }
+                    }
+                    // Sometimes the TypeScript compiler gives us spurious references for reasons I
+                    // don't fully understand. My hypothesis that all of these false positives will
+                    // be in the same file, but in a different branch of the AST.
+                    if (!foundScope && refNode.getSourceFile() === id.getSourceFile()) {
+                        return [];
+                    }
+
+                    const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => ({
+                        head: newQuestion(binder),
+                        tail: env
+                    }), idEnv);
+                    return [{
+                        node: refNode,
+                        env: refEnv,
+                    }]
+                });
+                return new SimpleSet<ConfigNoExtern>(structuralComparator, ...refNodeConfigs);
+            }
         }
         
         // "bind"

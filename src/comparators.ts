@@ -3,7 +3,7 @@ import { Comparator, ComparatorResult, SimpleSet } from 'typescript-super-set';
 
 
 export function structuralComparator<T>(a: T, b: T) {
-    const eq = isEqual;
+    const eq = (a: T, b: T) => a === b || isEqual(a, b);
     if (eq(a, b)) {
         return 0;
     } else {
