@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BinaryExpression, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BinaryExpression, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, PrivateKeyword, PropertyDeclaration, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
@@ -108,6 +108,12 @@ function isStaticKeyword(node: ts.Node | undefined): node is StaticKeyword {
 }
 export function isStatic(node: SimpleFunctionLikeDeclaration) {
     return node.modifiers?.some(isStaticKeyword) ?? false;
+}
+function isPrivateKeyword(node: ts.Node | undefined): node is PrivateKeyword {
+    return node?.kind === SyntaxKind.PrivateKeyword
+}
+export function isPrivate(node: PropertyDeclaration) {
+    return node.modifiers?.some(isPrivateKeyword) ?? false;
 }
 const assignmentOperators = [SyntaxKind.EqualsToken, SyntaxKind.PlusEqualsToken, SyntaxKind.MinusEqualsToken, SyntaxKind.AsteriskAsteriskEqualsToken, SyntaxKind.AsteriskEqualsToken, SyntaxKind.SlashEqualsToken, SyntaxKind.PercentEqualsToken, SyntaxKind.AmpersandEqualsToken, SyntaxKind.BarEqualsToken, SyntaxKind.CaretEqualsToken, SyntaxKind.LessThanLessThanEqualsToken, SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, SyntaxKind.GreaterThanGreaterThanEqualsToken, SyntaxKind.BarBarEqualsToken, SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.QuestionQuestionEqualsToken];
 export function isAssignmentExpression(node: AnalysisNode): node is AssignmentExpression<AssignmentOperatorToken> {

@@ -1,12 +1,12 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, SymbolFlags } from 'typescript';
 import { empty, setFilter, setFlatMap, setOf, setSome, union } from './setUtil';
 import { CachePusher, Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, isArgumentList, isElementPick, isExtern, sourceFileOf } from './abstract-values';
 import { unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig, ConfigObject } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig, ConfigObject, withUnknownContext } from './configuration';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
 import Immutable, { Set } from 'immutable';
@@ -352,6 +352,21 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return getReferences(Config({ node: node.name, env }))
         } else if (isFunctionLikeDeclaration(parent) && isParameter(node)) {
             return empty() // covered by the first case
+        } else if (ts.isPropertyDeclaration(parent)) {
+            if (!isPrivate(parent)) {
+                return unimplementedBottom(`Unknown kind of property declaration: ${printNodeAndPos(parent)}`);
+            }
+            const identifier = parent.name;
+            if  (!isIdentifier(identifier)) {
+                return unimplementedBottom(`Unknown kind of property declaration: ${printNodeAndPos(parent)}`);
+            }
+
+            const classDeclaration = parent.parent;
+            const accesses = findAll(classDeclaration, descendant => ts.isPropertyAccessExpression(descendant)
+                && descendant.expression.kind === SyntaxKind.ThisKeyword
+                && descendant.name.text === identifier.text
+            );
+            return Set(accesses).map(withUnknownContext)
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
