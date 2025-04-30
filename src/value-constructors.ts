@@ -189,6 +189,7 @@ const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
     'String#replace', 'String#replace()', 'String#split', 'String#split()', 'String#split()[]',
     'String#substring', 'String#substring()', 'String#toLowerCase', 'String#toLowerCase()',
     'String#trim', 'String#trim()',
+    'URL', 'URL#href', 'URL#searchParams', 'URLSearchParams#set',
     'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
     'console.table', 'console.warn', 'console.warn()',
     'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()', 'undefined',
@@ -279,6 +280,10 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'String#toLowerCase()': proto('String'),
     'String#trim': builtInFunction(),
     'String#trim()': proto('String'),
+    'URL': builtInObject(),
+    'URL#href': proto('String'),
+    'URL#searchParams': proto('URLSearchParams'),
+    'URLSearchParams#set': builtInFunction(),
     'console': builtInObject(['console.log', 'console.error', 'console.table', 'console.warn']),
     'console.log': builtInFunction(),
     'console.log()': bottomBehavior,
@@ -360,6 +365,8 @@ const builtInProtosObject = {
     'Promise': true,
     'RegExp': true,
     'String': true,
+    'URL': true,
+    'URLSearchParams': true,
 }
 export type BuiltInProto = keyof typeof builtInProtosObject;
 export function isBuiltInProto(str: string): str is BuiltInProto {
@@ -490,6 +497,8 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
                 return 'Map';
             } else if (cons.expression.text === 'Error') {
                 return 'Error';
+            } else if (cons.expression.text === 'URL') {
+                return 'URL';
             }
         }
         return 'Object';
