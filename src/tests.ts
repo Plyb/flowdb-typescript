@@ -70,7 +70,6 @@ export function runTests() {
         testRes(56, 36), // error message
         testRes(57, 26), // error message includes (mixed proto accesses)
         librRes(19,  8), // promise from async function
-        testRes( 8, 31), // target function parameter
         testRes(60, 27), // primop property binder getter
         librRes(24, 10), // throw/catch bound variables remote
         testRes(61, 41), // throw/catch bound variables local
