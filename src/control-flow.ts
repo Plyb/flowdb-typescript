@@ -18,7 +18,7 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
 
     function compute(config: Config<ConciseBody>, fix_run: FixRunFunc<Config<ConciseBody>, ConfigSet<ts.CallExpression>>): ConfigSet<ts.CallExpression> {
         const directCallSites = Set.of(...findAllCalls(config.node));
-        const directCallSiteConfigs = setMap(directCallSites, site => ({ node: site, env: config.env}) as Config<ts.CallExpression>);
+        const directCallSiteConfigs = setMap(directCallSites, site => Config({ node: site, env: config.env}));
         const transitiveCallSiteConfigs = configSetJoinMap(
             directCallSiteConfigs,
             ({ node: site, env }) => {
