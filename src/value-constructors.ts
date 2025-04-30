@@ -4,7 +4,7 @@ import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setU
 import { AnalysisNode, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
-import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, subsumes } from './abstract-value-utils';
+import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern, createElementPickConfigSet } from './configuration';
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ElementPick;
@@ -152,6 +152,21 @@ const standardArrayABG: PrimopFunctionArgParamBinderGetter = function(primopArgI
         return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array method ${printNodeAndPos(callSite.node)}`)
     }
 }
+const promiseThenABG: PrimopFunctionArgParamBinderGetter = function(primopArgIndex, argParameterIndex, callSite, { fixed_eval, fixed_trace, m }) {
+    if (this === undefined) {
+        return unimplementedBottom(`Cannot call then on undefined`);
+    }
+
+    if (primopArgIndex !== 0) {
+        return unimplementedBottom(`Cannot get binding for function passed as argument ${primopArgIndex} to Array method`);
+    }
+
+    if (argParameterIndex === 0) {
+        return resolvePromisesOfNode(this, fixed_eval)
+    } else {
+        return unimplementedBottom(`Unknown arg parameter index ${argParameterIndex} for function passed to Array method ${printNodeAndPos(callSite.node)}`)
+    }
+}
 
 const zeroth = [0];
 
@@ -257,7 +272,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Object.values': builtInFunction(),
     'Object.values()': arrayValued(objectValuesEAG),
     'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
-    'Promise#then': builtInFunction({ higherOrderArgs: zeroth }),
+    'Promise#then': builtInFunction({ primopBinderGetter: promiseThenABG, higherOrderArgs: zeroth }),
     'Promise.all': builtInFunction(),
     'Promise.all()': bottomBehavior,
     'Promise.allSettled': builtInFunction(),
