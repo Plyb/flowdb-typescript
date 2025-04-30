@@ -55,7 +55,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             setFlatMap(getRefinementsOf(config, fix_run), (refinedConfig) => fix_run(abstractEval, refinedConfig))
         );
         
-        function abstractEvalCurrentConfig() {
+        function abstractEvalCurrentConfig(): ConfigSet {
             if (!isConfigNoExtern(config)) {
                 return singleConfig(config);
             }
@@ -176,6 +176,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return singleConfig(config)
             } else if (isElementPick(node)) {
                 return singleConfig(config);
+            } else if (isFunctionDeclaration(node)) { // if we're here, this is an overload declaration
+                return empty();
             }
             return unimplementedBottom(`abstractEval not yet implemented for: ${AnalysisSyntaxKind[node.kind]}:${getPosText(node)}`);
         }
