@@ -206,7 +206,7 @@ const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
     'String#split', 'String#split()', 'String#split()[]',
     'String#substring', 'String#substring()', 'String#toLowerCase', 'String#toLowerCase()',
     'String#trim', 'String#trim()',
-    'URL', 'URL#href', 'URL#searchParams', 'URLSearchParams#set',
+    'URL', 'URL#href', 'URL#searchParams', 'URLSearchParams', 'URLSearchParams#set',
     'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
     'console.table', 'console.warn', 'console.warn()',
     'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
@@ -305,6 +305,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'URL': builtInObject(),
     'URL#href': proto('String'),
     'URL#searchParams': proto('URLSearchParams'),
+    'URLSearchParams': builtInObject(),
     'URLSearchParams#set': builtInFunction(),
     'console': builtInObject(['console.log', 'console.error', 'console.table', 'console.warn']),
     'console.log': builtInFunction(),
@@ -524,6 +525,8 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
                 return 'Error';
             } else if (cons.expression.text === 'URL') {
                 return 'URL';
+            } else if (cons.expression.text === 'URLSearchParams') {
+                return 'URLSearchParams';
             }
         }
         return 'Object';
