@@ -73,7 +73,7 @@ export function isFunctionLikeDeclaration(node: Cursor): node is SimpleFunctionL
 
     if (isFunctionDeclaration(node) || isFunctionExpression(node) || isArrowFunction(node) || isMethodDeclaration(node)) {
         if (node.body === undefined) {
-            throw new Error('should not have undefined function body');
+            return false; // definitions of function overloads fit this.
         }
         return true;
     }
