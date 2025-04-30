@@ -158,7 +158,7 @@ const zeroth = [0];
 const inaccessibleProperty: PropertyAccessGetter = ({ node: pa }) => unimplementedBottom(`Unable to get property ${printNodeAndPos(pa)}`) ;
 const inaccessibleElement: ElementAccessGetter = ({ node }) =>
     unimplementedBottom(`Unable to get element of ${printNodeAndPos(node)}`);
-function notSupported(this: Config<ts.Expression> | undefined) { return unimplementedBottom(`Unimplemented function arg param binder getter for ${this === undefined ? undefined : printNodeAndPos(this.node)}`) };
+function notSupported(_, __, callSite) { return unimplementedBottom(`Unimplemented function arg param binder getter for ${printNodeAndPos(callSite.node)}`) };
 const none = []
 const bottomBehavior: BuiltInValueBehavior = {
     resultOfCalling: uncallable,
@@ -318,7 +318,7 @@ function callableObject(staticMethods?: BuiltInValue[]): BuiltInValueBehavior {
     }
 }
 
-function builtInFunction(args?: Partial<BuiltInValueBehavior>) {
+function builtInFunction(args?: Partial<BuiltInValueBehavior>): BuiltInValueBehavior {
     return {
         ...bottomBehavior,
         resultOfCalling: singleConfig,
@@ -326,7 +326,7 @@ function builtInFunction(args?: Partial<BuiltInValueBehavior>) {
     }
 }
 
-function arrayValued(resultOfElementAccess: ElementAccessGetter) {
+function arrayValued(resultOfElementAccess: ElementAccessGetter): BuiltInValueBehavior {
     return {
         ...bottomBehavior,
         resultOfPropertyAccess: builtInProtoMethod('Array'),
@@ -334,11 +334,11 @@ function arrayValued(resultOfElementAccess: ElementAccessGetter) {
     }
 }
 
-function standardArrayMethod() {
+function standardArrayMethod(): BuiltInValueBehavior {
     return {
         ...builtInFunction(),
-        primopBinderGetters: standardArrayABG,
-        higherOrderArgsOf: zeroth,
+        primopBinderGetter: standardArrayABG,
+        higherOrderArgs: zeroth,
     }
 }
 
