@@ -21,16 +21,16 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  // console.info = () => undefined
+  console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
   return results;
 }
 
-analyzeInboxZero()
+// analyzeInboxZero()
 // analyzeNextCrm()
-// analyzePapermark()
+analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
@@ -67,7 +67,6 @@ function analyzeNextCrm() {
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
 function analyzePapermark() {
-  // 'entry' will not have a binding until I get mutating methods implemented
   printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 function analyzeHoppscotch() {

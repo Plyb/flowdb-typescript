@@ -192,13 +192,13 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
             const sites = fixed_trace(consConfig);
 
             return configSetJoinMap(sites, site => {
-                if (isPropertyAccessExpression(site.node)) {
-                    if (site.node.name.text === 'push') {
-                        if (!isCallExpression(site.node.parent)) {
-                            return unimplementedBottom(`Expected a call to push ${printNodeAndPos(site.node.parent)}`);
+                if (isPropertyAccessExpression(site.node.parent)) {
+                    if (site.node.parent.name.text === 'push') {
+                        if (!isCallExpression(site.node.parent.parent)) {
+                            return unimplementedBottom(`Expected a call to push ${printNodeAndPos(site.node.parent.parent)}`);
                         }
                         return singleConfig(Config({
-                            node: createArgumentList(site.node.parent, 0),
+                            node: createArgumentList(site.node.parent.parent, 0),
                             env: site.env 
                         }));
                     }
