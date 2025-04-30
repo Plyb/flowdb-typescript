@@ -1,8 +1,8 @@
-import ts from 'typescript';
-import { NonEmptyArray } from './util';
+import ts, { SyntaxKind } from 'typescript';
+import { List, Record, RecordOf } from 'immutable';
 
-export type Extern = { __externBrand: true }
-export const extern: Extern = { __externBrand: true }
+export type Extern = RecordOf<{ __externBrand: true }>
+export const extern: Extern = Record<{ __externBrand: true }>({ __externBrand: true })()
 export type Cursor = AnalysisNode | Extern;
 export function isExtern(cursor: Cursor): cursor is Extern {
     return '__externBrand' in cursor;
@@ -10,20 +10,14 @@ export function isExtern(cursor: Cursor): cursor is Extern {
 
 export type AnalysisNode = ts.Node | NonStandardNode
 type NonStandardNode = ArgumentList | ElementPick;
-type ArgumentList = {
-    kind: AnalysisNodeKind.ArgumentList
-    arguments: ts.Node[]
-    get parent(): ts.Node
-    getSourceFile(): ts.SourceFile
-    get pos(): number
-}
-export type ElementPick = {
+type ArgumentList = ReturnType<typeof ArgumentListRecord>
+export type ElementPick = RecordOf<{
     kind: AnalysisNodeKind.ElementPick
     expression: AnalysisNode
-    get parent(): ts.Node
-    getSourceFile(): ts.SourceFile
-    get pos(): number
-}
+    parent: ts.Node
+    sourceFile: ts.SourceFile
+    pos: number
+}> // can't get rid of this duplication because of a circular reference :/
 
 export enum AnalysisNodeKind {
     ArgumentList = 999001,
@@ -41,36 +35,59 @@ export function isStandard(node: AnalysisNode): node is ts.Node {
     return !isArgumentList(node) && !isElementPick(node)
 }
 
+const dummy = ts.factory.createSourceFile([], ts.factory.createToken(SyntaxKind.EndOfFileToken), 0);
+const ArgumentListRecord = Record({
+    kind: AnalysisNodeKind.ArgumentList as AnalysisNodeKind.ArgumentList,
+    arguments: List<ts.Node>(),
+    parent: dummy as ts.Node,
+    sourceFile: dummy,
+    pos: -1
+});
 export function createArgumentList(callSite: ts.CallExpression, start: number): ArgumentList {
     const args = callSite.arguments.slice(start);
-    return {
-        kind: AnalysisNodeKind.ArgumentList,
-        arguments: args,
-        get parent() { return callSite },
-        getSourceFile() { return callSite.getSourceFile() },
-        get pos() {
-            if (args[0] !== undefined) {
-                return args[0].pos;
-            } else if (callSite.arguments[start - 1] !== undefined) {
-                return callSite.arguments[start - 1].pos
-            } else {
-                return callSite.expression.end
-            }
-        }
+    let pos: number;
+    if (args[0] !== undefined) {
+        pos = args[0].pos;
+    } else if (callSite.arguments[start - 1] !== undefined) {
+        pos = callSite.arguments[start - 1].pos
+    } else {
+        pos = callSite.expression.end
     }
+    return ArgumentListRecord({
+        kind: AnalysisNodeKind.ArgumentList,
+        arguments: List.of(...args),
+        parent: callSite,
+        sourceFile: callSite.getSourceFile(),
+        pos,
+    });
 }
 
+
+const ElementPickRecord = Record({
+    kind: AnalysisNodeKind.ElementPick as AnalysisNodeKind.ElementPick,
+    expression: dummy as AnalysisNode,
+    parent: dummy as ts.Node,
+    sourceFile: dummy,
+    pos: -1
+})
 export function createElementPick(expression: AnalysisNode): ElementPick {
-    return {
+    return ElementPickRecord({
         kind: AnalysisNodeKind.ElementPick,
         expression,
-        get parent() { return expression.parent },
-        getSourceFile() { return expression.getSourceFile() },
-        get pos() { return expression.pos }
-    }
+        parent: expression.parent,
+        sourceFile: sourceFileOf(expression),
+        pos: expression.pos,
+    });
 }
 
 export const AnalysisSyntaxKind = {
     ...ts.SyntaxKind,
     ...AnalysisNodeKind,
+}
+
+export function sourceFileOf(node: AnalysisNode): ts.SourceFile {
+    if (isStandard(node)) {
+        return node.getSourceFile();
+    }
+    return node.sourceFile
 }

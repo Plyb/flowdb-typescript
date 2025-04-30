@@ -1,43 +1,41 @@
 import { Comparator, SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { Truthy } from 'lodash';
-import { StructuralSet } from './structural-set';
+import { Set } from 'immutable'
 
-export function setMap<T, R>(set: StructuralSet<T>, f: (a: T) => R, rComparator: Comparator<R> = structuralComparator): StructuralSet<R> {
-  return new SimpleSet(rComparator, ...set.elements.map(f));
+export function setMap<T, R>(set: Set<T>, f: (a: T) => R): Set<R> {
+  return Set(set.toArray().map(f));
 }
-export function setFilter<T, S extends T>(set: StructuralSet<T>, predicate: (a: T) => a is S, rComparator: Comparator<S>): StructuralSet<S>; 
-export function setFilter<T, S extends T>(set: StructuralSet<T>, predicate: (a: T) => a is S): StructuralSet<S>; 
-export function setFilter<T>(set: StructuralSet<T>, predicate: (a: T) => boolean, rComparator: Comparator<T>): StructuralSet<T>; 
-export function setFilter<T>(set: StructuralSet<T>, predicate: (a: T) => boolean): StructuralSet<T>; 
-export function setFilter<T>(set: StructuralSet<T>, predicate: (a: T) => boolean, rComparator: Comparator<T> = structuralComparator): StructuralSet<T> {
-  return new SimpleSet(rComparator, ...set.elements.filter(predicate));
+export function setFilter<T, S extends T>(set: Set<T>, predicate: (a: T) => a is S): Set<S>; 
+export function setFilter<T>(set: Set<T>, predicate: (a: T) => boolean): Set<T>; 
+export function setFilter<T>(set: Set<T>, predicate: (a: T) => boolean): Set<T> {
+  return set.filter(predicate);
 }
-export function setSift<T>(set: StructuralSet<T>): StructuralSet<Truthy<T>> {
-  return setFilter(set, Boolean) as StructuralSet<Truthy<T>>
+export function setSift<T>(set: Set<T>): Set<Truthy<T>> {
+  return setFilter(set, Boolean) as Set<Truthy<T>>
 } 
-export function union<T>(a: StructuralSet<T>, b: StructuralSet<T>, comparator: Comparator<T> = structuralComparator) {
-  return new SimpleSet(comparator, ...a.elements, ...b.elements);
+export function union<T>(a: Set<T>, b: Set<T>) {
+  return a.union(b);
 }
-export function unionAll<T>(...elems: SimpleSet<T>[]) {
-  return new SimpleSet(structuralComparator, ...elems.reduce((acc, curr) => union<T>(acc, curr), empty<T>()));
+export function unionAll<T>(...elems: Set<T>[]) {
+  return Set.union(elems);
 }
-export function singleton<T>(x: T, comparator: Comparator<T> = structuralComparator): StructuralSet<T> {
-  return new SimpleSet(comparator, x);
+export function singleton<T>(item: T): Set<T> {
+  return Set.of(item);
 }
-export function empty<T>(comparator: Comparator<T> = structuralComparator): StructuralSet<T> {
-  return new SimpleSet(comparator);
+export function empty<T>(): Set<T> {
+  return Set<T>();
 }
-export function setFlatMap<T, R>(set: StructuralSet<T>, f: (a: T) => StructuralSet<R>, rComparator: Comparator<R> = structuralComparator): StructuralSet<R> {
-  return new SimpleSet(rComparator, ...set.elements.flatMap((elem) => f(elem).elements));
+export function setFlatMap<T, R>(set: Set<T>, f: (a: T) => Set<R>): Set<R> {
+  return set.flatMap(f);
 }
-export function setSome<T>(set: StructuralSet<T>, predicate: (item: T) => boolean) {
-  return set.elements.some(predicate);
+export function setSome<T>(set: Set<T>, predicate: (item: T) => boolean) {
+  return set.some(predicate);
 }
-export function setMinus<T>(a: StructuralSet<T>, b: StructuralSet<T>, comparator: Comparator<T> = structuralComparator): StructuralSet<T> {
-  return new SimpleSet(comparator, ...a.elements.filter(elem => !b.has(elem)));
+export function setMinus<T>(a: Set<T>, b: Set<T>): Set<T> {
+  return a.filter(elem => !b.has(elem));
 }
 
-export function setOf<T, R>(f: (arg: T) => Iterable<R>): (arg: T) => StructuralSet<R> {
-  return (arg) => new SimpleSet(structuralComparator, ...f(arg));
+export function setOf<T, R>(f: (arg: T) => Iterable<R>): (arg: T) => Set<R> {
+  return (arg) => Set.of(...f(arg));
 }

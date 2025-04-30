@@ -7,6 +7,7 @@ import { Config, ConfigSet, printConfig } from './configuration';
 import { preprocess } from './preprocess';
 import { getRootFolder } from './util';
 import { prepareFormbricks, prepareNextCrm } from './prepareExamples';
+import Immutable, { Record, Set } from 'immutable';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
   const rootFolder = getRootFolder(pathString);
@@ -20,7 +21,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
     console.log(item);
   }
 
-  console.info = () => undefined
+  // console.info = () => undefined
   // console.info = justCompute
 
   const results = analyze(service, file, line, column, m);
@@ -40,7 +41,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeScholarsome()
 // analyzeDyrectorio()
 // analyzeLinenDev()
-analyzeDub()
+// analyzeDub()
 // analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
@@ -52,7 +53,7 @@ analyzeDub()
 // prepareNextCrm()
 // prepareFormbricks();
 
-// analyzePlayground()
+analyzePlayground()
 
 function analyzePlayground() {
   printResults(runAnalysis('../../examples/playground', './test.ts', 7, 0, 3))
@@ -88,6 +89,7 @@ function analyzeAbby() {
   printResults(runAnalysis('../../examples/abby/apps/web', './src/server/services/ConfigService.ts', 68, 13, 3))
 }
 function analyzeTriggerDev() {
+  // moved getSecrets and decrypt to avoid having to deal with the "this" keyword
   printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/presenters/v3/EnvironmentVariablesPresenter.server.ts', 17, 19, 3))
 }
 function analyzeScholarsome() {
@@ -133,13 +135,13 @@ function analyzeLetterpad() {
 // runTests();
 
 
-function printResults(results: StructuralSet<{ table: string, method: string, argument: ConfigSet | undefined }>) {
+function printResults(results: Set<{ table: string, method: string, argument: ConfigSet | undefined }>) {
   console.log('RESULTS:')
-  for (const result of results.elements) {
+  for (const result of results) {
     console.log(
 `table: ${result.table}
 method: ${result.method}
-arg: ${result.argument?.elements.map(printConfig).join('\n')}
+arg: ${result.argument?.map(printConfig).join('\n')}
 ---------------------
 `);
   }

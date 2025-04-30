@@ -1,56 +1,67 @@
+import { List, Record, RecordOf, Set } from 'immutable';
 import { createElementPick, Cursor, ElementPick, extern, Extern, isExtern } from './abstract-values'
-import { Context, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
+import { Context, ContextCons, isLimit, isQuestion, isStackBottom, limit, newQuestion, stackBottom } from './context';
 import { Computation, FixRunFunc } from './fixpoint';
 import { empty, setFilter, setMap, setSome, singleton, union } from './setUtil';
 import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isAssignmentExpression, isBlock, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadAssignment, isVariableDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { consList, List, listReduce, toList, unimplemented } from './util';
-import ts, { AssignmentExpression, AssignmentOperatorToken } from 'typescript';
+import { unimplemented } from './util';
+import ts, { AssignmentExpression, AssignmentOperatorToken, SyntaxKind } from 'typescript';
 
-export type ConfigSet<N extends Cursor = Cursor> = StructuralSet<Config<N>>;
+export type ConfigSet<N extends Cursor = Cursor> = Set<Config<N>>;
 
-export type Config<N extends Cursor = Cursor> = {
+export type ConfigObject<N extends Cursor = Cursor> = {
     node: N,
     env: Environment,
 }
+export type Config<N extends Cursor = Cursor> = RecordOf<ConfigObject<N>>
 export type Environment = List<Context>;
 
 type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
-export type ConfigSetNoExtern = StructuralSet<ConfigNoExtern>
+export type ConfigSetNoExtern = Set<ConfigNoExtern>
 
-export const justExtern: ConfigSet = singleConfig({ node: extern, env: toList([stackBottom]) });
+const dummy = ts.factory.createToken(SyntaxKind.AsteriskToken)
+const ConfigRecord = Record({
+    node: dummy as Cursor,
+    env: List<Context>()
+})
+export function Config<N extends Cursor>(obj: { node: N, env: Environment }): Config<N> {
+    return ConfigRecord(obj) as Config<N>;
+}
+
+export const justExtern: ConfigSet = singleConfig(Config({ node: extern, env: List.of(stackBottom) }));
 
 export function singleConfig(config: Config): ConfigSet {
-    return singleton(config);
+    return Set.of(config);
 }
 
 export function join<T extends Cursor>(a: ConfigSet<T>, b: ConfigSet<T>): ConfigSet<T> {
-    return union(a, b);
+    return a.union(b);
 }
 export function joinAll(...values: ConfigSet[]): ConfigSet {
     return values.reduce(join, empty());
 }
-function setJoinMap<T>(set: StructuralSet<T>, f: (item: T) => ConfigSet) {
-    return set.elements.map(f).reduce(join, empty());
+function setJoinMap<T>(set: Set<T>, f: (item: T) => ConfigSet) {
+    return set.map(f).reduce<ConfigSet>(join, empty());
 }
-export function configSetJoinMap<T extends Cursor>(set: StructuralSet<Config<T | Extern>>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
+export function configSetJoinMap<T extends Cursor>(set: ConfigSet<T | Extern>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
     return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : justExtern);
 }
 
 
 export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
     if (isExtern(node)) {
-        return {
+        return Config({
             node,
-            env: toList([stackBottom])
-        };
+            env: List.of(stackBottom)
+        });
     }
 
-    return {
+    return Config({
         node,
-        env: toList([...findAllParameterBinders(node).map((func) => newQuestion(func)), stackBottom]),
-    }
+        env: List.of(stackBottom, ...findAllParameterBinders(node).map((func) => newQuestion(func) as Context).reverse()),
+    })
 }
 
 export function printConfig(config: Config) {
@@ -58,7 +69,7 @@ export function printConfig(config: Config) {
         return 'ENV'
     }
 
-    return `${printNodeAndPos(config.node)}~<${listReduce(config.env, (acc, curr) => acc + ',' + printContext(curr), '')}>`
+    return `${printNodeAndPos(config.node)}~<${config.env.reduceRight((acc, curr) => acc + ',' + printContext(curr), '')}>`
 }
 function printContext(context: Context) {
     if (isLimit(context)) {
@@ -73,9 +84,8 @@ function printContext(context: Context) {
 }
 
 export function pushContext(call: ts.CallExpression, env: Environment, m: number) {
-    const innermostContext = env.head;
-    return truncate({ head: call, tail: innermostContext }, m);
-
+    const innermostContext = env.last();
+    return truncate(ContextCons({ head: call, tail: innermostContext }), m);
 }
 
 function truncate(context: Context, m: number): Context {
@@ -89,10 +99,10 @@ function truncate(context: Context, m: number): Context {
         if (isLimit(context)) {
             throw new Error(`Expected context not to be a limit`);
         }
-        return {
+        return ContextCons({
             head: context.head,
             tail: truncate(context.tail, m - 1),
-        }
+        })
     }
 }
 
@@ -156,71 +166,71 @@ export function isVariableDeclarationConfig(config: Config): config is Config<ts
     return isVariableDeclaration(config.node);
 }
 
-export function configSetMap<T extends Cursor>(set: StructuralSet<Config<T>>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
-    return setMap(set, config => isConfigNoExtern(config) ? convert(config) : config);
+export function configSetMap<T extends Cursor>(set: ConfigSet<T>, convert: (config: Config<T> & ConfigNoExtern) => Config): ConfigSet {
+    return set.map(config => isConfigNoExtern(config) ? convert(config) : config);
 }
-export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): StructuralSet<ConfigExtern | T>
+export function configSetFilter<T extends ConfigNoExtern>(set: ConfigSet, predicate: (config: ConfigNoExtern) => config is T): Set<ConfigExtern | T>
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet
 export function configSetFilter(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): ConfigSet {
-    return setFilter(set, config => !isConfigNoExtern(config) || predicate(config));
+    return set.filter(config => !isConfigNoExtern(config) || predicate(config));
 }
 export function configSetSome(set: ConfigSet, predicate: (config: ConfigNoExtern) => boolean): boolean {
-    return setSome(set, config => isConfigNoExtern(config) && predicate(config));
+    return set.some(config => isConfigNoExtern(config) && predicate(config));
 }
 
 export function pretty(set: ConfigSet): string[] {
-    return set.elements.map(printConfig)
+    return [...set].map(printConfig)
 }
 
 export function unimplementedBottom(message: string): ConfigSet {
     return unimplemented(message, empty());
 }
 
-const dummy = ts.factory.createVoidZero()
+const envDummy = ts.factory.createVoidZero()
 function envKeyFunc() { return empty<Config>() }
 /**
  * in order to use environments as keys in the fixpoint, we need them to have the same
  * type as other keys, namely computations, so we can just wrap it and pair it with a dummy node
  */
 export function envKey(env: Environment): Computation<Config, ConfigSet> {
-    return {
+    return Computation<Config, ConfigSet>({
         func: envKeyFunc,
-        args: {
-            node: dummy,
+        args: Config({
+            node: envDummy,
             env,
-        }
-    }
+        })
+    })
 }
 /**
  * Similarly, for an env to be stored in the cache, it has to have the same type as other values,
  * namely, config (sets)
  */
 export function envValue(env: Environment): ConfigSet {
-    return singleton({
+    return singleton(Config({
         node: dummy,
         env,
-    });
+    }));
 }
 
 export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-    const refinedEnvironments = fix_run(envKeyFunc, { node: dummy, env: config.env });
-    const directRefinedEnvs = setMap(refinedEnvironments, ({ env }) => ({ node: config.node, env } as Config));
+    const refinedEnvironments = fix_run(envKeyFunc, Config({ node: dummy, env: config.env }));
+    const directRefinedEnvs = refinedEnvironments.map(({ env }) => Config({ node: config.node, env }));
 
-    const refinedTails: ConfigSet = config.env.tail !== undefined
-        ? getRefinementsOf({ node: dummy, env: config.env.tail}, fix_run)
+    const refinedTails: ConfigSet = config.env.size > 1
+        ? getRefinementsOf(Config({ node: dummy, env: config.env.pop()}), fix_run)
         : empty();
     const transitiveRefinedEnvs = configSetJoinMap(refinedTails, tail =>
-        getRefinementsOf({ node: config.node, env: consList(config.env.head, tail.env)}, fix_run)
+        getRefinementsOf(Config({ node: config.node, env: tail.env.push(config.env.last()!) }), fix_run)
     );
 
-    return union(directRefinedEnvs, transitiveRefinedEnvs);
+    return directRefinedEnvs.union(transitiveRefinedEnvs);
 }
 
 function createElementPickConfig(config: ConfigNoExtern): Config<ElementPick> {
-    return {
+    return Config({
         node: createElementPick(config.node),
         env: config.env,
-    }
+    })
 }
 
 export function createElementPickConfigSet(config: ConfigNoExtern): ConfigSet {

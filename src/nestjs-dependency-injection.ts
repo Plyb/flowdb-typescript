@@ -1,21 +1,20 @@
 import ts, { ModifierLike, NodeArray, SyntaxKind } from 'typescript';
-import { Config, configSetJoinMap, configSetMap, singleConfig, unimplementedBottom } from './configuration';
+import { Config, ConfigSet, configSetJoinMap, configSetMap, singleConfig, unimplementedBottom } from './configuration';
 import { isClassDeclaration, isDecorator, printNodeAndPos } from './ts-utils';
 import { FixedEval } from './dcfa';
-import { consList, emptyList } from './util';
 import { stackBottom } from './context';
 import { structuralComparator } from './comparators';
 import { SimpleSet } from 'typescript-super-set';
 import { setFlatMap } from './setUtil';
-import { ExpressionStatement } from 'ts-morph';
 import { AnalysisNode } from './abstract-values';
+import { List, Set } from 'immutable'
 
 type ThisAccessExpression = ts.PropertyAccessExpression & { expression: { kind: SyntaxKind.ThisKeyword} }
 export function isThisAccessExpression(propertyAccessExpression: ts.PropertyAccessExpression): propertyAccessExpression is ThisAccessExpression {
     return propertyAccessExpression.expression.kind === SyntaxKind.ThisKeyword;
 }
 
-export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval) {
+export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval): ConfigSet | false {
     const classSymbol = typeChecker.getSymbolAtLocation(dependencyAccess.node.expression);
     const classDeclaration = classSymbol?.valueDeclaration;
     if (classDeclaration === undefined) {
@@ -34,7 +33,7 @@ export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpress
     }
     if (!ts.isParameter(dependencyParam)) {
         if (ts.isMethodDeclaration(dependencyParam)) {
-            return singleConfig({ node: dependencyParam, env: consList(stackBottom, emptyList) });
+            return singleConfig(Config({ node: dependencyParam, env: List.of(stackBottom) }));
         }
 
         return getInitializersFromConstructor(dependencyParam, classDeclaration, fixed_eval);
@@ -45,7 +44,7 @@ export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpress
         return unimplementedBottom(`Cannot inject a dependency without type reference for ${printNodeAndPos(dependencyParam)}`);
     }
 
-    const classDeclarationOfDependency = fixed_eval({ node: paramType.typeName, env: consList(stackBottom, emptyList)}); // assumes that all classes are declared at the top level of a file
+    const classDeclarationOfDependency = fixed_eval(Config({ node: paramType.typeName, env: List.of(stackBottom) })); // assumes that all classes are declared at the top level of a file
     return configSetJoinMap(classDeclarationOfDependency, ({ node, env }) => {
         if (!isClassDeclaration(node)) {
             return unimplementedBottom(`Expected ${printNodeAndPos(node)} to be a class declaration`);
@@ -56,7 +55,7 @@ export function getDependencyInjected(dependencyAccess: Config<ThisAccessExpress
             return unimplementedBottom(`Expected ${printNodeAndPos(node)} to have a decorator indicating that it is dependency injectable`)
         }
         
-        return singleConfig({ node: dependencyInjectableDecorator, env });
+        return singleConfig(Config({ node: dependencyInjectableDecorator, env }));
     });
 }
 
@@ -89,9 +88,9 @@ function getInitializersFromConstructor(declaration: ts.Declaration, classDeclar
         return lhs.name.text === declaration.name.text
     });
 
-    const assignmentsSet = new SimpleSet(structuralComparator, ...assignmentsForDeclaration);
+    const assignmentsSet = Set.of(...assignmentsForDeclaration);
 
-    return setFlatMap(assignmentsSet, assignment => fixed_eval({ node: assignment.right, env: consList(stackBottom, emptyList)})); // the env here isn't quite right, but unless the constructors have extra parameters, I don't think it will matter
+    return setFlatMap(assignmentsSet, assignment => fixed_eval(Config({ node: assignment.right, env: List.of(stackBottom) }))); // the env here isn't quite right, but unless the constructors have extra parameters, I don't think it will matter
 }
 
 function isDependencyInjectable(classDeclaration: ts.ClassDeclaration) {

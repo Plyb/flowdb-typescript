@@ -3,7 +3,7 @@ import { getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, printNode
 import { makeDcfaComputer } from './dcfa';
 import { setFilter, setMap, setSift } from './setUtil';
 import { getReachableCallConfigs } from './control-flow';
-import { isConfigNoExtern, withUnknownContext } from './configuration';
+import { Config, isConfigNoExtern, withUnknownContext } from './configuration';
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number, m: number) {
     const program = service.getProgram()!;
@@ -39,7 +39,7 @@ export function analyze(service: ts.LanguageService, filePath: string, line: num
         table: qExp.table,
         method: qExp.method,
         argument: qExp.argument !== undefined
-            ? fixed_eval({ node: qExp.argument, env })
+            ? fixed_eval(Config({ node: qExp.argument, env }))
             : qExp.argument
     }))
 }

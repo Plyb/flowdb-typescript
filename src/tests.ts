@@ -6,6 +6,7 @@ import { setFlatMap, setMap, setMinus } from './setUtil';
 import { SimpleSet } from 'typescript-super-set';
 import { Cursor, extern } from './abstract-values';
 import { structuralComparator } from './comparators';
+import { Set } from 'immutable'
 
 export function runTests() {
     const pathString = '../../examples/unit-tests'
@@ -28,7 +29,7 @@ export function runTests() {
         return getNodeAtPosition(librFile, ts.getPositionOfLineAndCharacter(librFile, line, char))!
     }
 
-    const expectedResults = new SimpleSet<Cursor>(structuralComparator,
+    const expectedResults = Set.of<Cursor>(
         // abstractEval tests
         testRes(14, 26), // num
         testRes(15, 26), // arrow func

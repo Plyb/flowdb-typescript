@@ -1,5 +1,6 @@
-import ts from 'typescript';
+import ts, { SyntaxKind } from 'typescript';
 import { SimpleFunctionLikeDeclaration } from './ts-utils';
+import { Record, RecordOf } from 'immutable';
 
 export type Context =
 | LimitSentinel
@@ -7,15 +8,22 @@ export type Context =
 | StackBottom
 | ContextCons
 type LimitSentinel = { __limitSentinelBrand: true }
-export type Question = { __questionBrand: true, func: SimpleFunctionLikeDeclaration }
+export type Question = ReturnType<typeof QuestionRecord>
 type StackBottom = { __stackBottomBrand: true }
-type ContextCons = {
+type ContextCons = RecordOf<{
     head: ts.CallExpression,
     tail: Context
-}
+}>
+
 
 export const limit: LimitSentinel = { __limitSentinelBrand: true };
 export const stackBottom: StackBottom = { __stackBottomBrand: true };
+
+const dummyCall = ts.factory.createCallExpression(ts.factory.createNumericLiteral(0), [], [])
+export const ContextCons = Record({
+    head: dummyCall,
+    tail: limit as Context
+})
 
 export function isQuestion(context: Context): context is Question {
     return '__questionBrand' in context;
@@ -30,11 +38,16 @@ function isContextCons(context: Context): context is ContextCons {
     return 'head' in context;
 }
 
+const dummyFunc = ts.factory.createArrowFunction([], [], [], undefined, ts.factory.createToken(SyntaxKind.EqualsGreaterThanToken), ts.factory.createBlock([]))
+const QuestionRecord = Record({
+    __questionBrand: true as true,
+    func: dummyFunc as SimpleFunctionLikeDeclaration
+})
 export function newQuestion(func: SimpleFunctionLikeDeclaration): Question {
-    return {
+    return QuestionRecord({
         __questionBrand: true,
         func,
-    }
+    });
 }
 
 export function refines(a: Context, b: Context) {

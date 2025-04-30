@@ -1,10 +1,8 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
-import { isArrayLiteralExpression, isBinaryExpression, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isBinaryExpression, isCallExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
-import { SimpleSet } from 'typescript-super-set';
-import { AnalysisNode, createElementPick, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
-import { structuralComparator } from './comparators';
-import { consList, unimplemented } from './util';
+import { AnalysisNode, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
+import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern, createElementPickConfigSet } from './configuration';
@@ -13,13 +11,13 @@ type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpr
 
 function uncallable(this: BuiltInValue) { return unimplementedBottom(`No result of calling ${this}`) }
 type CallGetter = (callConfig: Config<CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
-const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval({
+const arrayFromCallGetter: CallGetter = (callConfig, { fixed_eval }) => fixed_eval(Config({
     node: callConfig.node.arguments[0],
     env: callConfig.env,
-})
+}))
 const arrayReduceCallGetter: CallGetter = (callConfig, { fixed_eval, m }) => {
-    const accumulatorConses = fixed_eval({ node: callConfig.node.arguments[0], env: callConfig.env });
-    const initialConses = fixed_eval({ node: callConfig.node.arguments[1], env: callConfig.env });
+    const accumulatorConses = fixed_eval(Config({ node: callConfig.node.arguments[0], env: callConfig.env }));
+    const initialConses = fixed_eval(Config({ node: callConfig.node.arguments[1], env: callConfig.env }));
 
     
     const accumulatorResults = configSetJoinMap(accumulatorConses, accumulatorCons => {
@@ -27,28 +25,31 @@ const arrayReduceCallGetter: CallGetter = (callConfig, { fixed_eval, m }) => {
             return unimplementedBottom(`Expected a function ${printNodeAndPos(accumulatorCons.node)}`)
         }
         
-        return fixed_eval({ node: accumulatorCons.node.body, env: consList(pushContext(callConfig.node, callConfig.env, m), accumulatorCons.env) });
+        return fixed_eval(Config({
+            node: accumulatorCons.node.body,
+            env: accumulatorCons.env.push(pushContext(callConfig.node, callConfig.env, m))
+        }));
     })
 
     return join(initialConses, accumulatorResults);
 }
 const mapGetCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace }) => {
-    const mapConses = fixed_eval({ node: callConfig.node.expression, env: callConfig.env });
-    const getKeyConses = fixed_eval({ node: callConfig.node.arguments[0], env: callConfig.env });
+    const mapConses = fixed_eval(Config({ node: callConfig.node.expression, env: callConfig.env }));
+    const getKeyConses = fixed_eval(Config({ node: callConfig.node.arguments[0], env: callConfig.env }));
 
     const setSiteConfigs = configSetJoinMap(mapConses, mapConsConfig =>
         getMapSetCalls(fixed_trace(mapConsConfig), { fixed_eval })
     );
     return configSetJoinMap(setSiteConfigs, siteConfig => {
         const setKeyArg = (siteConfig.node as CallExpression).arguments[0];
-        const setKeyConses = fixed_eval({ node: setKeyArg, env: siteConfig.env });
+        const setKeyConses = fixed_eval(Config({ node: setKeyArg, env: siteConfig.env }));
 
         const keyMatch = setSome(getKeyConses, getKeyCons => setSome(setKeyConses, setKeyCons =>
             subsumes(getKeyCons.node, setKeyCons.node) || subsumes(setKeyCons.node, getKeyCons.node)
         ))
         if (keyMatch) {
             const setValueArg = (siteConfig.node as CallExpression).arguments[1];
-            return fixed_eval({ node: setValueArg, env: siteConfig.env });
+            return fixed_eval(Config({ node: setValueArg, env: siteConfig.env }));
         } else {
             return empty();
         }
@@ -61,13 +62,13 @@ const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
     if (!isCallExpression(cons)) {
         return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
-    const argFuncs = fixed_eval({ node: cons.arguments[0], env });
+    const argFuncs = fixed_eval(Config({ node: cons.arguments[0], env }));
     return configSetJoinMap(argFuncs, funcConfig => {
         const { node: func, env: funcEnv } = funcConfig;
         if (!isFunctionLikeDeclaration(func)) {
             return unimplementedBottom(`Expected ${printNodeAndPos(func)} to be a function`);
         }
-        return fixed_eval({ node: func.body, env: consList(pushContext(cons, env, m), funcEnv)});
+        return fixed_eval(Config({ node: func.body, env: funcEnv.push(pushContext(cons, env, m))}));
     })
 }
 const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
@@ -81,7 +82,7 @@ const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }
     );
     return configSetJoinMap(setSiteConfigs, siteConfig => {
         const keyArg = (siteConfig.node as CallExpression).arguments[0];
-        return fixed_eval({ node: keyArg, env: siteConfig.env });
+        return fixed_eval(Config({ node: keyArg, env: siteConfig.env }));
     });
 }
 const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }) => {
@@ -94,7 +95,7 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_tr
     }
 
     const argConfig = { node: consConfig.node.arguments[0], env: consConfig.env };
-    return configSetJoinMap(fixed_eval(argConfig), objectConsConfig => {
+    return configSetJoinMap(fixed_eval(Config(argConfig)), objectConsConfig => {
         if (!isObjectLiteralExpressionConfig(objectConsConfig)) {
             return unimplementedBottom(`Expected an object literal ${printNodeAndPos(objectConsConfig.node)}`)
         }
@@ -108,13 +109,13 @@ function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructo
         return unimplementedBottom(`Expected ${printNodeAndPos(cons)} to be a call expression`);
     }
     const funcExpression = cons.expression;
-    const funcConfigs = fixed_eval({ node: funcExpression, env });
+    const funcConfigs = fixed_eval(Config({ node: funcExpression, env }));
     return configSetJoinMap(funcConfigs, funcConfig => {
         if (!isPropertyAccessConfig(funcConfig) || getBuiltInValueOfBuiltInConstructor(funcConfig, fixed_eval) !== val) {
             return empty();
         }
         const { node: cons, env: funcEnv } = funcConfig;
-        return fixed_eval({ node: cons.expression, env: funcEnv });
+        return fixed_eval(Config({ node: cons.expression, env: funcEnv }));
     });
 }
 
@@ -383,7 +384,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
         assertNotUndefined(builtInValue);
         return builtInValue;
     } else if (isElementPick(builtInConstructor)) {
-        const expressionConses = fixed_eval({ node: builtInConstructor.expression, env });
+        const expressionConses = fixed_eval(Config({ node: builtInConstructor.expression, env }));
         const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
             if (isConfigExtern(expressionCons)) {
                 return empty<BuiltInValue>();
@@ -395,7 +396,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
 
             return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval));
         });
-        const builtInValue = expressionBuiltIns.elements.find(expressionBuiltIn => builtInValues.some(biv => biv === expressionBuiltIn + '[]'));
+        const builtInValue = expressionBuiltIns.find(expressionBuiltIn => builtInValues.some(biv => biv === expressionBuiltIn + '[]'));
         assertNotUndefined(builtInValue);
         return builtInValue + '[]' as BuiltInValue;
     } else { // call expression
@@ -408,10 +409,10 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
     }
 
     function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression>): BuiltInValue {
-        const expressionConses = fixed_eval({
+        const expressionConses = fixed_eval(Config({
             node: callConfig.node.expression,
             env: callConfig.env,
-        });
+        }));
         const builtInConstructorsForExpression = setFilter(
             expressionConses,
             isBuiltInConstructorShapedConfig
@@ -419,10 +420,10 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
         const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
             getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval)
         );
-        if (builtInValues.size() !== 1) {
+        if (builtInValues.size !== 1) {
             throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
         }
-        return builtInValues.elements[0];
+        return builtInValues.last()!;
     }
 
     function assertNotUndefined<T>(val: T | undefined): asserts val is T {
@@ -462,10 +463,10 @@ function builtInStaticMethods(...names: BuiltInValue[]): PropertyAccessGetter {
 }
 function builtInProtoMethod(typeName: BuiltInProto): PropertyAccessGetter {
     return (pac, { fixed_eval }) => {
-        const expressionConses = fixed_eval({ node: pac.node.expression, env: pac.env});
-        const isBuiltInProtoMethod = expressionConses.elements.some(consConfig =>
+        const expressionConses = fixed_eval(Config({ node: pac.node.expression, env: pac.env}));
+        const isBuiltInProtoMethod = expressionConses.some(consConfig =>
             isConfigNoExtern(consConfig)
-            && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size() > 0
+            && getPropertyOfProto(typeName, pac.node.name.text, consConfig, pac, fixed_eval).size > 0
         )
         return isBuiltInProtoMethod
             ? singleConfig(pac)
@@ -506,7 +507,7 @@ export function getPropertyOfProto(proto: BuiltInProto, propertyName: string, ex
             return unimplementedBottom(`Expected ${printNodeAndPos(expressionCons)} to be a new Error expression with defined arguments`);
         }
         if (expressionCons.arguments.length > 0) {
-            return fixed_eval({ node: expressionCons.arguments[0], env: expressionConsEnv });
+            return fixed_eval(Config({ node: expressionCons.arguments[0], env: expressionConsEnv }));
         }
         return empty();
     } else if (proto === 'String' && propertyName === 'message') {

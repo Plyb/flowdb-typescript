@@ -3,11 +3,12 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
 import fs from 'fs';
-import { AnalysisNode, Cursor, extern, isArgumentList, isElementPick, isExtern, isStandard } from './abstract-values';
+import { AnalysisNode, Cursor, extern, isArgumentList, isElementPick, isExtern, isStandard, sourceFileOf } from './abstract-values';
 import { last } from 'lodash';
 import { Config, Environment, isConfigExtern, isConfigNoExtern } from './configuration';
-import { getTsConfigAppPath, getTsConfigPath, toList, unimplemented } from './util';
+import { getTsConfigAppPath, getTsConfigPath, unimplemented } from './util';
 import { stackBottom } from './context';
+import { List } from 'immutable';
 
 
 export function getNodeAtPosition(sourceFile: ts.SourceFile, position: number, length?: number): ts.Node | undefined {
@@ -354,7 +355,7 @@ function printNode(node: AnalysisNode) {
     }
 }
 export function getPosText(node: AnalysisNode) {
-    const sf = node.getSourceFile();
+    const sf = sourceFileOf(node);
     const { line, character } = ts.getLineAndCharacterOfPosition(sf, node.pos);
     return `${line + 1}:${character + 1}:${last(sf.fileName.split('/'))}`
 }
@@ -431,13 +432,13 @@ export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: 
         }
 
         if (isFunctionLikeDeclaration(parent)) {
-            env = env.tail;
+            env = env.pop();
         }
     }
     if (!ts.isSourceFile(scope)) {
         throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
     }
-    return toList([stackBottom]); // This can happen if the declaring scope is another file altogether
+    return List.of(stackBottom); // This can happen if the declaring scope is another file altogether
 }
 
 export function getModuleSpecifier(importNode: ts.ImportSpecifier | ts.ImportClause | ts.NamespaceImport) {
