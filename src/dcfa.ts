@@ -371,6 +371,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 && descendant.name.text === identifier.text
             );
             return Set(accesses).map(withUnknownContext)
+        } else if (isFunctionLikeDeclaration(parent) && isAsyncKeyword(node)) {
+            const closedOverSites = fix_run(getWhereClosed, Config({ node: parent.body, env }));
+            const transitiveSites = configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
+            return transitiveSites;
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
