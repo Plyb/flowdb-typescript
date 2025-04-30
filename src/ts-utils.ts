@@ -144,8 +144,8 @@ export const isRegularExpressionLiteral = isStandardAnd(ts.isRegularExpressionLi
 export const isImportSpecifier = isStandardAnd(ts.isImportSpecifier)
 export const isParameter = isStandardAnd(ts.isParameter)
 
-function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: AnalysisNode) => node is T {
-    return ((node: AnalysisNode) => isStandard(node) && predicate(node)) as (node: AnalysisNode) => node is T
+function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: Cursor) => node is T {
+    return ((node: Cursor) => !isExtern(node) && isStandard(node) && predicate(node)) as (node: Cursor) => node is T
 }
 
 export function getFunctionBlockOf(statement: ts.Node): ts.Block & { parent: SimpleFunctionLikeDeclaration } {

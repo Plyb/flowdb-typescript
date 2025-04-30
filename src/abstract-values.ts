@@ -24,8 +24,8 @@ export enum AnalysisNodeKind {
     ElementPick = 999002,
 }
 
-export function isArgumentList(node: AnalysisNode): node is ArgumentList {
-    return node.kind === AnalysisNodeKind.ArgumentList;
+export function isArgumentList(node: Cursor): node is ArgumentList {
+    return !isExtern(node) && node.kind === AnalysisNodeKind.ArgumentList;
 }
 export function isElementPick(node: AnalysisNode): node is ElementPick {
     return node.kind === AnalysisNodeKind.ElementPick;

@@ -10,6 +10,7 @@ import { BuiltInProto, builtInValueBehaviors, getBuiltInValueOfBuiltInConstructo
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isThisAccessExpression } from './nestjs-dependency-injection';
 import { AnalysisNode, createArgumentList, Cursor, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { Set } from 'immutable'
+import { Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
 
 
 export function getObjectProperty(accessConfig: Config<ts.PropertyAccessExpression>, typeChecker: ts.TypeChecker, fixed_eval: FixedEval, fixed_trace: FixedTrace): ConfigSet {
@@ -184,76 +185,87 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
 } 
 
 export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, fixed_trace, m }: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }): ConfigSet {
-    const conses = fixed_eval(config);
-    return configSetJoinMap(conses, consConfig => {
-        return join(getElementVauesFromConstructor(), getElementValuesFromMutations());
+    return makeFixpointComputer<Config, ConfigSet>(empty<Config>(), join).valueOf(Computation({
+        func: computeElements,
+        args: config
+    }))
 
-        function getElementValuesFromMutations(): ConfigSet {
-            const sites = fixed_trace(consConfig);
+    function computeElements(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+        const conses = fixed_eval(config);
+        return configSetJoinMap(conses, consConfig => {
+            return join(fix_run(getElementVauesFromConstructor, consConfig), fix_run(getElementValuesFromMutations, consConfig));
+    
+        });
+    }
+    function getElementValuesFromMutations(consConfig: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+        const sites = fixed_trace(consConfig);
 
-            return configSetJoinMap(sites, site => {
-                if (isPropertyAccessExpression(site.node.parent)) {
-                    if (site.node.parent.name.text === 'push') {
-                        if (!isCallExpression(site.node.parent.parent)) {
-                            return unimplementedBottom(`Expected a call to push ${printNodeAndPos(site.node.parent.parent)}`);
+        return configSetJoinMap(sites, site => {
+            if (isPropertyAccessExpression(site.node.parent)) {
+                if (site.node.parent.name.text === 'push') {
+                    if (!isCallExpression(site.node.parent.parent)) {
+                        return unimplementedBottom(`Expected a call to push ${printNodeAndPos(site.node.parent.parent)}`);
+                    }
+                    return Set(site.node.parent.parent.arguments).flatMap(arg => {
+                        if (ts.isSpreadElement(arg)) {
+                            return fix_run(computeElements, Config({ node: arg.expression, env: site.env}));
+                        } else {
+                            return singleConfig(Config({
+                                node: arg,
+                                env: site.env
+                            }));
                         }
-                        return singleConfig(Config({
-                            node: createArgumentList(site.node.parent.parent, 0),
-                            env: site.env 
-                        }));
-                    }
-                } else if (isElementAccessExpression(site.node)
-                    && isAssignmentExpression(site.node.parent)
-                    && site.node.parent.left === site.node
-                ) {
-                    return singleConfig(Config({ node: site.node.parent.right, env: site.env }));
+                    });
                 }
-                return empty();
-            });
-        }
-
-        function getElementVauesFromConstructor(): ConfigSet {
-            const { node: cons, env: consEnv } = consConfig;
-            if (isArrayLiteralExpression(cons)) {
-                const elements = Set.of(...cons.elements.map(elem => Config({
-                    node: elem,
-                    env: consEnv,
-                })));
-                return configSetJoinMap(elements, elementConfig => {
-                    if (isSpreadElement(elementConfig.node)) {
-                        const subElements = getElementNodesOfArrayValuedNode(
-                            Config({ node: elementConfig.node.expression, env: elementConfig.env }),
-                            { fixed_eval, fixed_trace, m }
-                        );
-                        return subElements;
-                    }
-    
-                    return singleConfig(elementConfig);
-                })
-            } else if (isArgumentList(cons)) {
-                const elements = Set.of(...cons.arguments.map(elem => ({
-                    node: elem,
-                    env: consEnv,
-                } as Config)));
-                return configSetJoinMap(elements, elementConfig => {
-                    if (isSpreadElement(elementConfig.node)) {
-                        const subElements = getElementNodesOfArrayValuedNode(
-                            Config({ node: elementConfig.node.expression, env: elementConfig.env }),
-                            { fixed_eval, fixed_trace, m }
-                        );
-                        return subElements;
-                    }
-    
-                    return singleConfig(elementConfig);
-                })
-            } else if (isBuiltInConstructorShapedConfig(consConfig)) {
-                const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
-                return builtInValueBehaviors[builtInValue].resultOfElementAccess(consConfig, { fixed_eval, fixed_trace, m });
-            } else {
-                return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
+            } else if (isElementAccessExpression(site.node)
+                && isAssignmentExpression(site.node.parent)
+                && site.node.parent.left === site.node
+            ) {
+                return singleConfig(Config({ node: site.node.parent.right, env: site.env }));
             }
-        };
-    });
+            return empty();
+        });
+    }
+
+    function getElementVauesFromConstructor(consConfig: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
+        const { node: cons, env: consEnv } = consConfig;
+        if (isArrayLiteralExpression(cons)) {
+            const elements = Set.of(...cons.elements.map(elem => Config({
+                node: elem,
+                env: consEnv,
+            })));
+            return configSetJoinMap(elements, elementConfig => {
+                if (isSpreadElement(elementConfig.node)) {
+                    const subElements = fix_run(computeElements, 
+                        Config({ node: elementConfig.node.expression, env: elementConfig.env })
+                    );
+                    return subElements;
+                }
+
+                return singleConfig(elementConfig);
+            })
+        } else if (isArgumentList(cons)) {
+            const elements = Set.of(...cons.arguments.map(elem => ({
+                node: elem,
+                env: consEnv,
+            } as Config)));
+            return configSetJoinMap(elements, elementConfig => {
+                if (isSpreadElement(elementConfig.node)) {
+                    const subElements = fix_run(computeElements,
+                        Config({ node: elementConfig.node.expression, env: elementConfig.env })
+                    );
+                    return subElements;
+                }
+
+                return singleConfig(elementConfig);
+            })
+        } else if (isBuiltInConstructorShapedConfig(consConfig)) {
+            const builtInValue = getBuiltInValueOfBuiltInConstructor(consConfig, fixed_eval)
+            return builtInValueBehaviors[builtInValue].resultOfElementAccess(consConfig, { fixed_eval, fixed_trace, m });
+        } else {
+            return unimplemented(`Unable to access element of ${printNodeAndPos(cons)}`, empty());
+        }
+    }
 }
 
 // Arrays are sometimes used as tuples in JS. For it to make sense to treat an array as a tuple, it should never be mutated
