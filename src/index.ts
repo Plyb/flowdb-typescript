@@ -28,7 +28,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   return results;
 }
 
-// analyzeInboxZero()
+analyzeInboxZero()
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
@@ -53,13 +53,14 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // prepareNextCrm()
 // prepareFormbricks();
 
-analyzePlayground()
+// analyzePlayground()
 
 function analyzePlayground() {
   printResults(runAnalysis('../../examples/playground', './test.ts', 7, 0, 3))
 }
 
 function analyzeInboxZero() {
+  // includes a warning about gmail.users because the imprecision of the analysis means gmail may be undefined
   printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
 }
 function analyzeNextCrm() {
