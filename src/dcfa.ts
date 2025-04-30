@@ -277,6 +277,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             const refs = getReferences(Config({ node: node.name, env }));
             const propertyAccessesAtRefs = configSetJoinMap<AnalysisNode>(refs, ref => {
+                if (ts.isMethodSignature(ref.node.parent)) {
+                    return empty();
+                }
+
                 if (!ts.isPropertyAccessExpression(ref.node.parent) || ref.node.parent.name !== ref.node) {
                     return unimplementedBottom(`Expected ref to be the name of a property access expression ${printNodeAndPos(ref.node)}`);
                 }

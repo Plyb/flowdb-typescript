@@ -44,6 +44,15 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
     return join(getPropertyFromSourceConstructor(), getPropertyFromMutations());
 
     function getPropertyFromMutations(): ConfigSet {
+        if (consConfig.node.pos === 507
+            && isNewExpression(consConfig.node)
+            && isIdentifier(consConfig.node.expression)
+            && consConfig.node.expression.text === 'Logger'
+        ) {
+            // Special case short circuit: Logger in trigger.dev is immutable but it goes *everywhere*, so this is the easiest way to deal with it.
+            return empty();
+        }
+
         // assumption: we're not going to be mutating an error that we threw
         if (ts.isThrowStatement(consConfig.node.parent)
             && isNewExpression(consConfig.node)

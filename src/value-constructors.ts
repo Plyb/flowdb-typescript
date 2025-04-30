@@ -168,8 +168,8 @@ const bottomBehavior: BuiltInValueBehavior = {
     higherOrderArgs: none,
 };
 
-const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find', 'Array#forEach',
-    'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
+const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
+    'Array#forEach', 'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
     'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#reduce',
     'Array#slice', 'Array#slice()', 'Array#some', 'Array#some()',
     'Array.from', 'Array.isArray',
