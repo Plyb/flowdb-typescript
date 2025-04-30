@@ -193,7 +193,8 @@ const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
     'URL', 'URL#href', 'URL#searchParams', 'URLSearchParams#set',
     'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
     'console.table', 'console.warn', 'console.warn()',
-    'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()', 'undefined',
+    'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
+    'process', 'process.cwd', 'process.cwd()', 'undefined',
 ] as const;
 type BuiltInValue = typeof builtInValues[number];
 
@@ -300,6 +301,9 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'parseInt': builtInFunction(),
     'parseFloat': builtInFunction(),
     'parseFloat()': proto('Number'),
+    'process': builtInObject(['process.cwd']),
+    'process.cwd': builtInFunction(),
+    'process.cwd()': proto('String'),
     'undefined': { ...bottomBehavior, resultOfCalling: () => empty() },
 }
 
