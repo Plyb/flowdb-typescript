@@ -67,6 +67,7 @@ function analyzeNextCrm() {
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
 function analyzePapermark() {
+  // includes warning about folder because of a recursive call
   printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 function analyzeHoppscotch() {
