@@ -98,6 +98,6 @@ export function makeFixpointComputer<Args extends object, Ret extends object>(
     }
 
     function valuesUpdated(map: Map<Computation<Args, Ret>, Ret>, key: Computation<Args, Ret>, value: Ret) {
-        return Immutable.is(map.get(key, bottomRet), value);
+        return !Immutable.is(map.get(key, bottomRet), value);
     }
 }

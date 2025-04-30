@@ -21,9 +21,9 @@ type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
 export type ConfigSetNoExtern = Set<ConfigNoExtern>
 
-const dummy = ts.factory.createToken(SyntaxKind.AsteriskToken)
+const configDummy = ts.factory.createToken(SyntaxKind.AsteriskToken)
 const ConfigRecord = Record({
-    node: dummy as Cursor,
+    node: configDummy as Cursor,
     env: List<Context>()
 })
 export function Config<N extends Cursor>(obj: { node: N, env: Environment }): Config<N> {
@@ -65,7 +65,7 @@ export function withUnknownContext<T extends Cursor>(node: T): Config<T> {
 }
 
 export function printConfig(config: Config) {
-    if (config.node === dummy) {
+    if (config.node === envDummy) {
         return 'ENV'
     }
 
@@ -207,17 +207,17 @@ export function envKey(env: Environment): Computation<Config, ConfigSet> {
  */
 export function envValue(env: Environment): ConfigSet {
     return singleton(Config({
-        node: dummy,
+        node: envDummy,
         env,
     }));
 }
 
 export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
-    const refinedEnvironments = fix_run(envKeyFunc, Config({ node: dummy, env: config.env }));
+    const refinedEnvironments = fix_run(envKeyFunc, Config({ node: envDummy, env: config.env }));
     const directRefinedEnvs = refinedEnvironments.map(({ env }) => Config({ node: config.node, env }));
 
     const refinedTails: ConfigSet = config.env.size > 1
-        ? getRefinementsOf(Config({ node: dummy, env: config.env.pop()}), fix_run)
+        ? getRefinementsOf(Config({ node: envDummy, env: config.env.pop()}), fix_run)
         : empty();
     const transitiveRefinedEnvs = configSetJoinMap(refinedTails, tail =>
         getRefinementsOf(Config({ node: config.node, env: tail.env.push(config.env.last()!) }), fix_run)
