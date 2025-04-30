@@ -19,8 +19,6 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
 
-    const referenceCache = new Map<ts.Symbol, ConfigSetNoExtern>()
-
     const { valueOf, push_cache } = makeFixpointComputer(empty<Config>(), join, {
         printArgs: printConfig,
         printRet: config => pretty(config).toString() 
@@ -491,20 +489,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     }
     
     // "find"
-    function getReferences(idConfig: Config<ts.Identifier>): ConfigSetNoExtern {
+    function getReferences(idConfig: Config<ts.Identifier>): ConfigSet<ts.Node> {
         const { node: id, env: idEnv } = idConfig;
         const symbol = typeChecker.getSymbolAtLocation(id)!;
 
-        const aliasedSymbol = symbol.flags & SymbolFlags.Alias
-            ? typeChecker.getAliasedSymbol(symbol)
-            : symbol;
-        if (!referenceCache.has(aliasedSymbol)) {
-            referenceCache.set(aliasedSymbol, computeReferences())
-        }
+        return computeReferences()
 
-        return referenceCache.get(aliasedSymbol)!;
-
-        function computeReferences(): ConfigSetNoExtern {
+        function computeReferences(): ConfigSet<ts.Node> {
             const declaration = symbol?.valueDeclaration
                 ?? symbol?.declarations?.[0];
             if (declaration === undefined) {
@@ -529,7 +520,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 ref.textSpan!.start,
                 ref.textSpan!.length,
             )!);
-            const refNodeConfigs: ConfigNoExtern[] = refNodes.flatMap(refNode => {
+            const refNodeConfigs: Config<ts.Node>[] = refNodes.flatMap(refNode => {
                 if (refNode.getSourceFile().isDeclarationFile) {
                     return [];
                 }
@@ -597,11 +588,11 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         const declaringScope = getDeclaringScope(declaration, typeChecker);
         const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
-        const bindingsFromDeclaration = getBindingsFromDelcaration(declaration);
-        return join(bindingsFromDeclaration, getBindingsFromMutatingAssignments(bindingsFromDeclaration));
+        return join(getBindingsFromDelcaration(declaration), getBindingsFromMutatingAssignments());
 
-        function getBindingsFromMutatingAssignments(bindingsFromDeclaration: ConfigSet): ConfigSet {
-            const refParents = configSetMap(bindingsFromDeclaration, ref => Config({ node: ref.node.parent, env: ref.env }));
+        function getBindingsFromMutatingAssignments(): ConfigSet {
+            const refs = getReferences(idConfig).filter(ref => typeChecker.getSymbolAtLocation(ref.node) === symbol);
+            const refParents = configSetMap(refs, ref => Config({ node: ref.node.parent, env: ref.env }));
             const refAssignments = refParents.filter(isAssignmentExpressionConfig);
             return setFlatMap(refAssignments, assignmentExpression => {
                 if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
