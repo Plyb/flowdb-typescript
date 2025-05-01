@@ -640,6 +640,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         if (declaration === undefined) {
             return unimplemented(`could not find declaration: ${symbol.name}`, empty());
         }
+        if (declaration.getSourceFile().isDeclarationFile) {
+            return justExtern;
+        }
+
         const declaringScope = getDeclaringScope(declaration, typeChecker);
         const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, declaringScope);
 
