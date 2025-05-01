@@ -323,6 +323,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             )
         ) {
             return fixed_trace(Config({ node: parent, env }));
+        }else if (ts.isBinaryExpression(parent)
+            && (parent.operatorToken.kind === SyntaxKind.EqualsEqualsEqualsToken)
+        ) {
+            return empty();
         } else if (ts.isSpreadElement(parent)) {
             return empty();
         } else if (isAssignmentExpression(parent) && parent.right === node) {
