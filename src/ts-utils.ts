@@ -150,6 +150,7 @@ export const isRegularExpressionLiteral = isStandardAnd(ts.isRegularExpressionLi
 export const isImportSpecifier = isStandardAnd(ts.isImportSpecifier)
 export const isParameter = isStandardAnd(ts.isParameter)
 export const isEnumDeclaration = isStandardAnd(ts.isEnumDeclaration)
+export const isNumericLiteral = isStandardAnd(ts.isNumericLiteral)
 
 function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: Cursor) => node is T {
     return ((node: Cursor) => !isExtern(node) && isStandard(node) && predicate(node)) as (node: Cursor) => node is T

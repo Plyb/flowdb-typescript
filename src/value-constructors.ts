@@ -1,5 +1,5 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
-import { isArrayLiteralExpression, isAsyncKeyword, isBinaryExpression, isCallExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isAsyncKeyword, isBinaryExpression, isCallExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isNumericLiteral, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
 import { AnalysisNode, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { unimplemented } from './util';
@@ -542,6 +542,8 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
         && (cons.operatorToken.kind === SyntaxKind.AsteriskToken || cons.operatorToken.kind === SyntaxKind.SlashToken)
     ) {
         return 'Number';
+    } else if (isNumericLiteral(cons)) {
+        return 'Number'
     } else if (isAsyncKeyword(cons)) {
         return 'Promise';
     }
