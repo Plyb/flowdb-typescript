@@ -386,6 +386,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const closedOverSites = fix_run(getWhereClosed, Config({ node: parent.body, env }));
             const transitiveSites = configSetJoinMap(closedOverSites, site => fix_run(getWhereValueReturned, site));
             return transitiveSites;
+        } else if (ts.isExportSpecifier(parent)) {
+            return empty(); // standard reference finding is transitive by default
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
