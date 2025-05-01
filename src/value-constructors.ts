@@ -55,6 +55,15 @@ const mapGetCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace }) =
         }
     });
 }
+const arrayFindCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace, m }) => {
+    if (!isPropertyAccessExpression(callConfig.node.expression)) {
+        return unimplementedBottom(`Expected a property access expression ${printNodeAndPos(callConfig.node.expression)}`);
+    }
+
+    const array = Config({ node: callConfig.node.expression.expression, env: callConfig.env });
+    const arrayElements = getElementNodesOfArrayValuedNode(array, { fixed_eval, fixed_trace, m });
+    return configSetJoinMap(arrayElements, fixed_eval);
+}
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
@@ -223,7 +232,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#concat': builtInFunction(),
     'Array#filter': standardArrayMethod(),
     'Array#filter()': arrayValued(arrayFilterEAG),
-    'Array#find': standardArrayMethod(),
+    'Array#find': { ...standardArrayMethod(), resultOfCalling: arrayFindCallGetter },
     'Array#forEach': standardArrayMethod(),
     'Array#includes': builtInFunction(),
     'Array#includes()': bottomBehavior,
