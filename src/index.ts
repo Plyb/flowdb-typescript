@@ -34,11 +34,11 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
-analyzeDittofeed()
+// analyzeDittofeed()
 // analyzeRevert()
 // analyzeAbby()
 // analyzeTriggerDev()
-// analyzeScholarsome()
+analyzeScholarsome()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -93,10 +93,11 @@ function analyzeAbby() {
 }
 function analyzeTriggerDev() {
   // moved getSecrets and decrypt to avoid having to deal with the "this" keyword
-  // also moved some other things around... Trigger is very reliant on classes so I might just skip it
+  // also moved some other things around to avoid needing classes
   printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/presenters/v3/EnvironmentVariablesPresenter.server.ts', 17, 19, 3))
 }
 function analyzeScholarsome() {
+  // moved some things around to avoid having to deal with the "this" keyword
   printResults(runAnalysis('../../examples/scholarsome/apps/api', './src/app/sets/sets.controller.ts', 317, 17, 3))
 }
 function analyzeDyrectorio() {
