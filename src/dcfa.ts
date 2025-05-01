@@ -155,7 +155,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const lhsRes = fixed_eval(Config({ node: node.left, env }));
                     const rhsRes = fixed_eval(Config({ node: node.right, env }));
                     return join(lhsRes, rhsRes);
-                } else if (primopId === SyntaxKind.AsteriskToken || primopId === SyntaxKind.SlashToken) {
+                } else if (primopId === SyntaxKind.AsteriskToken
+                    || primopId === SyntaxKind.SlashToken
+                    || primopId === SyntaxKind.EqualsEqualsEqualsToken
+                    || primopId === SyntaxKind.AmpersandAmpersandToken
+                    || primopId === SyntaxKind.ExclamationEqualsEqualsToken
+                ) {
                     return singleConfig(config);
                 } else {
                     return unimplementedBottom(`Unimplemented binary expression ${printNodeAndPos(node)}`);
