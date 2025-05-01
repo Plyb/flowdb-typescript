@@ -151,14 +151,16 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return singleConfig(config);
             } else if (isBinaryExpression(node)) {
                 const primopId = node.operatorToken.kind;
-                if (primopId === SyntaxKind.BarBarToken || primopId === SyntaxKind.QuestionQuestionToken) {
+                if (primopId === SyntaxKind.BarBarToken
+                    || primopId === SyntaxKind.QuestionQuestionToken
+                    || primopId === SyntaxKind.AmpersandAmpersandToken
+                ) {
                     const lhsRes = fixed_eval(Config({ node: node.left, env }));
                     const rhsRes = fixed_eval(Config({ node: node.right, env }));
                     return join(lhsRes, rhsRes);
                 } else if (primopId === SyntaxKind.AsteriskToken
                     || primopId === SyntaxKind.SlashToken
                     || primopId === SyntaxKind.EqualsEqualsEqualsToken
-                    || primopId === SyntaxKind.AmpersandAmpersandToken
                     || primopId === SyntaxKind.ExclamationEqualsEqualsToken
                 ) {
                     return singleConfig(config);
