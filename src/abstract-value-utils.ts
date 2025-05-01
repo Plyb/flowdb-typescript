@@ -75,12 +75,13 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
                 Config({ node: assignment.node.left, env: assignment.env}), property, fixed_eval
             )
         );
-        return setMap(refAssignmentsWithMatching, assignmentExpression => {
+        return setFlatMap(refAssignmentsWithMatching, assignmentExpression => {
+            const initializer = Config({ node: assignmentExpression.node.right, env: assignmentExpression.env });
             if (assignmentExpression.node.operatorToken.kind !== SyntaxKind.EqualsToken) {
-                return assignmentExpression;
+                return Set.of(assignmentExpression, ...fixed_eval(initializer));
             }
 
-            return Config({ node: assignmentExpression.node.right, env: assignmentExpression.env });
+            return fixed_eval(initializer);
         })
     }
 
