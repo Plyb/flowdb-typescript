@@ -396,6 +396,17 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return empty(); // standard reference finding is transitive by default
         } else if (ts.isNewExpression(parent) && ts.isIdentifier(parent.expression) && parent.expression.text === 'URLSearchParams') {
             return empty();
+        } else if (ts.isEnumMember(parent)) {
+            const name = parent.name
+            if (!ts.isIdentifier(name)) {
+                return unimplementedBottom(`Expected identifier as name of enum member: ${printNodeAndPos(parent)}`)
+            }
+
+            const enumSites = fixed_trace(Config({ node: parent.parent, env }));
+            const enumSiteParents = configSetMap(enumSites, site => Config({ node: site.node.parent, env: site.env}));
+            const enumAccesses = enumSiteParents.filter(isPropertyAccessConfig);
+            const enumAccessesWithMatchingName = enumAccesses.filter(access => access.node.name.text === name.text);
+            return enumAccessesWithMatchingName
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
