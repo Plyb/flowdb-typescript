@@ -183,11 +183,12 @@ const bottomBehavior: BuiltInValueBehavior = {
     higherOrderArgs: none,
 };
 
-const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
+const builtInValues = ['Array', 'Array#concat', 'Array#filter', 'Array#filter()', 'Array#find',
     'Array#forEach', 'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
     'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#reduce',
     'Array#slice', 'Array#slice()', 'Array#some', 'Array#some()',
     'Array.from', 'Array.isArray',
+    'Boolean',
     'Buffer', 'Buffer.from',
     'Date', 'Date#getTime', 'Date#toISOString',
     'Date#toLocaleDateString', 'Date#toLocaleDateString()', 'Date#toLocaleString',
@@ -211,12 +212,14 @@ const builtInValues = ['Array', 'Array#filter', 'Array#filter()', 'Array#find',
     'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
     'console.table', 'console.warn', 'console.warn()',
     'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
-    'process', 'process.cwd', 'process.cwd()', 'undefined',
+    'process', 'process.cwd', 'process.cwd()', 'process.env', 'process.env[]',
+    'undefined',
 ] as const;
 type BuiltInValue = typeof builtInValues[number];
 
 export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior} = {
     'Array': builtInObject(['Array.from', 'Array.isArray']),
+    'Array#concat': builtInFunction(),
     'Array#filter': standardArrayMethod(),
     'Array#filter()': arrayValued(arrayFilterEAG),
     'Array#find': standardArrayMethod(),
@@ -237,6 +240,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#some()': bottomBehavior,
     'Array.from': { ...bottomBehavior, resultOfCalling: arrayFromCallGetter },
     'Array.isArray': builtInFunction(),
+    'Boolean': callableObject(),
     'Buffer': builtInObject(['Buffer.from']),
     'Buffer.from': builtInFunction(),
     'Date': builtInObject(['Date.now', 'Date.UTC']),
@@ -322,9 +326,11 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'parseInt': builtInFunction(),
     'parseFloat': builtInFunction(),
     'parseFloat()': proto('Number'),
-    'process': builtInObject(['process.cwd']),
+    'process': builtInObject(['process.cwd', 'process.env']),
     'process.cwd': builtInFunction(),
     'process.cwd()': proto('String'),
+    'process.env': arrayValued(createElementPickConfigSet),
+    'process.env[]': proto('String'),
     'undefined': { ...bottomBehavior, resultOfCalling: () => empty() },
 }
 
