@@ -81,6 +81,8 @@ function analyzeDocumenso() {
   printResults(runAnalysis('../../examples/documenso/packages/lib', './server-only/recipient/set-document-recipients.ts', 42, 42, 3))
 }
 function analyzeDittofeed() {
+  // there will be hundreds of messages around `value.join` are because of imprecision
+  // this breakpoint condition can be used to skip them: !message.includes('Unable to get type') && !message.includes('No constructors found for property access') && !message.includes('Could not find proto') && !message.includes('Unable to get  &&property value.join') && !messazge.includes('Unable to find object property join')
   printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
 }
 function analyzeRevert() {
