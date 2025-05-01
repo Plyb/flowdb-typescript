@@ -318,7 +318,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return empty();
         } else if (ts.isBinaryExpression(parent)
             && (parent.operatorToken.kind === SyntaxKind.BarBarToken
-                || parent.operatorToken.kind === SyntaxKind.QuestionQuestionToken)
+                || parent.operatorToken.kind === SyntaxKind.QuestionQuestionToken
+                || parent.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken
+            )
         ) {
             return fixed_trace(Config({ node: parent, env }));
         } else if (ts.isSpreadElement(parent)) {
