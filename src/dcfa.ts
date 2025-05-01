@@ -1,7 +1,7 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, SymbolFlags } from 'typescript';
 import { empty, setFilter, setFlatMap, setOf, setSome, union } from './setUtil';
 import { CachePusher, Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll, isEnumDeclaration } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, isArgumentList, isElementPick, isExtern, sourceFileOf } from './abstract-values';
 import { unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
@@ -185,6 +185,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return singleConfig(config);
             } else if (isFunctionDeclaration(node)) { // if we're here, this is an overload declaration
                 return empty();
+            } else if (ts.isEnumDeclaration(node)) {
+                return singleConfig(config);
             }
             return unimplementedBottom(`abstractEval not yet implemented for: ${AnalysisSyntaxKind[node.kind]}:${getPosText(node)}`);
         }
@@ -258,9 +260,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             const refs = getReferences(Config({ node: parent.name, env }))
             return configSetJoinMap(refs, ref => fix_run(getWhereValueReturned, ref));
-        } else if (isFunctionDeclaration(node) || isClassDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
+        } else if (isFunctionDeclaration(node) || isClassDeclaration(node) || isEnumDeclaration(node)) { // note that this is a little weird since we're not looking at the parent
             if (node.name === undefined) {
-                return unimplementedBottom('function/class declaration should have name')
+                return unimplementedBottom('function/class/enum declaration should have name')
             }
 
             const refs = getReferences(Config({ node: node.name, env }));
@@ -675,7 +677,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         env: envAtDeclaringScope,
                     }));
                 }
-            } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
+            } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration) || ts.isEnumDeclaration(declaration)) {
                 return singleConfig(Config({
                     node: declaration,
                     env: envAtDeclaringScope,

@@ -4,7 +4,7 @@ import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } from './setUtil';
 import { unimplemented } from './util';
-import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
+import { isArrayLiteralExpression, isAssignmentExpression, isAsyncKeyword, isCallExpression, isClassDeclaration, isElementAccessExpression, isEnumDeclaration, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadElement, isStatic, isStringLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { Config, ConfigSet, configSetSome, singleConfig, isConfigNoExtern, configSetJoinMap, unimplementedBottom, ConfigNoExtern, configSetFilter, isObjectLiteralExpressionConfig, isConfigExtern, join, isAssignmentExpressionConfig, justExtern } from './configuration';
 import { BuiltInProto, builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, getPropertyOfProto, getProtoOf, isBuiltInConstructorShapedConfig, isBuiltInProto } from './value-constructors';
 import { getDependencyInjected, isDecoratorIndicatingDependencyInjectable, isThisAccessExpression } from './nestjs-dependency-injection';
@@ -179,6 +179,14 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
 
                 return unimplementedBottom(`Unknown kind for new Expression ${printNodeAndPos(expressionCons.node)}`)
             });
+        } else if (isEnumDeclaration(consConfig.node)) {
+            const member = [...consConfig.node.members].reverse().find(member =>
+                ts.isIdentifier(member.name) && member.name.text === property.text
+            );
+            if (member?.initializer === undefined) {
+                return unimplementedBottom(`Expected an initializer for ${member ? printNodeAndPos(member) : undefined }`)
+            }
+            return fixed_eval(Config({ node: member.initializer, env: consConfig.env }))
         } else {
             if (originalAccessConfig === undefined) {
                 return unimplementedBottom(`To access a proto constructor, the original access must be defined: ${printNodeAndPos(cons)}`)

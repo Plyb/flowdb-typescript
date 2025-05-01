@@ -149,6 +149,7 @@ export const isTemplateLiteral = isStandardAnd(ts.isTemplateLiteral)
 export const isRegularExpressionLiteral = isStandardAnd(ts.isRegularExpressionLiteral)
 export const isImportSpecifier = isStandardAnd(ts.isImportSpecifier)
 export const isParameter = isStandardAnd(ts.isParameter)
+export const isEnumDeclaration = isStandardAnd(ts.isEnumDeclaration)
 
 function isStandardAnd<T extends ts.Node>(predicate: (node: ts.Node) => node is T): (node: Cursor) => node is T {
     return ((node: Cursor) => !isExtern(node) && isStandard(node) && predicate(node)) as (node: Cursor) => node is T
@@ -405,10 +406,10 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
             return declaration.parent;
         }
         throw new Error(`Unknown kind of variable declaration for finding scope: ${printNodeAndPos(declaration)}`)
-    } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) {
+    } else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration) || ts.isEnumDeclaration(declaration)) {
         const declarationParent = declaration.parent;
         if (!(ts.isBlock(declarationParent) || ts.isSourceFile(declarationParent))) {
-            throw new Error(`Expected a function/class declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
+            throw new Error(`Expected a declaration to be in a block or sf: ${printNodeAndPos(declarationParent)}`);
         }
         return declarationParent;
     } else if (ts.isImportClause(declaration) || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)) {
