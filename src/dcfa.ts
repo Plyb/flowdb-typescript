@@ -390,6 +390,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return transitiveSites;
         } else if (ts.isExportSpecifier(parent)) {
             return empty(); // standard reference finding is transitive by default
+        } else if (ts.isNewExpression(parent) && ts.isIdentifier(parent.expression) && parent.expression.text === 'URLSearchParams') {
+            return empty();
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
