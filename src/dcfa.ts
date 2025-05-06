@@ -407,6 +407,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const enumAccesses = enumSiteParents.filter(isPropertyAccessConfig);
             const enumAccessesWithMatchingName = enumAccesses.filter(access => access.node.name.text === name.text);
             return enumAccessesWithMatchingName
+        } else if (ts.isIfStatement(parent) && parent.expression === node) {
+            return empty();
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
