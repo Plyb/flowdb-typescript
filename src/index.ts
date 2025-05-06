@@ -38,7 +38,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeRevert()
 // analyzeAbby()
 // analyzeTriggerDev()
-analyzeScholarsome()
+// analyzeScholarsome()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -133,9 +133,10 @@ function analyzeCalCom() {
   // manually replaces a usage of `this` in a static function with the Class it refered to
   printResults(runAnalysis('../../examples/cal.com/packages/trpc', './server/routers/viewer/slots/isAvailable.handler.ts', 24, 40, 3))
 }
-function analyzeLetterpad() {
-  printResults(runAnalysis('../../examples/letterpad/apps/admin', './src/graphql/resolvers/author.ts', 262, 27, 3))
-}
+// function analyzeLetterpad() {
+//   // The only PC case I could find here uses an element access on an object. Going to skip implementing that for now.
+//   printResults(runAnalysis('../../examples/letterpad/apps/admin', './src/app/(protected)/api/cron/1h/mail-likes/route.ts', 12, 13, 3))
+// }
 
 // runTests();
 
