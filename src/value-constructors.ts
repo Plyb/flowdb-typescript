@@ -296,7 +296,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
     'Promise#then': builtInFunction({ primopBinderGetter: promiseThenABG, higherOrderArgs: zeroth }),
     'Promise.all': builtInFunction(),
-    'Promise.all()': bottomBehavior,
+    'Promise.all()': arrayValued(() => unimplementedBottom(`No implementation yet for Promise.all's EAG`)),
     'Promise.allSettled': builtInFunction(),
     'Promise.allSettled()': bottomBehavior,
     'Promise.resolve': builtInFunction(),
