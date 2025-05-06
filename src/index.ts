@@ -37,10 +37,10 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDittofeed()
 // analyzeRevert()
 // analyzeAbby()
-// analyzeTriggerDev()
+analyzeTriggerDev()
 // analyzeScholarsome()
 // analyzeDyrectorio()
-analyzeLinenDev()
+// analyzeLinenDev()
 // analyzeDub()
 // analyzeUmami()
 // analyzeGhostfolio()
@@ -93,7 +93,7 @@ function analyzeAbby() {
 function analyzeTriggerDev() {
   // moved getSecrets and decrypt to avoid having to deal with the "this" keyword
   // also moved some other things around to avoid needing classes
-  printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/presenters/v3/EnvironmentVariablesPresenter.server.ts', 17, 19, 3))
+  printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/v3/services/createBackgroundWorker.server.ts', 484, 13, 3))
 }
 function analyzeScholarsome() {
   // moved some things around to avoid having to deal with the "this" keyword
