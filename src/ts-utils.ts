@@ -288,6 +288,13 @@ function isPrimsaShaped(node: ts.Node) {
     ) {
         return true;
     }
+
+    if (ts.isPropertyAccessExpression(node)
+        && node.expression.kind === SyntaxKind.ThisKeyword
+        && node.name.text === '_prisma'
+    ) {
+        return true;
+    }
     
     if (ts.isCallExpression(node)
         && ts.isPropertyAccessExpression(node.expression)
