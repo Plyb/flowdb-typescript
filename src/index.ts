@@ -40,7 +40,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeTriggerDev()
 // analyzeScholarsome()
 // analyzeDyrectorio()
-// analyzeLinenDev()
+analyzeLinenDev()
 // analyzeDub()
 // analyzeUmami()
 // analyzeGhostfolio()
@@ -48,7 +48,6 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeRallly()
 // analyzeTeable()
 // analyzeCalCom()
-// analyzeLetterpad()
 
 // prepareNextCrm()
 // prepareFormbricks();
@@ -104,7 +103,7 @@ function analyzeDyrectorio() {
   printResults(runAnalysis('../../examples/dyrectorio/web/crux', './src/app/notification/notification.service.ts', 54, 26, 3))
 }
 function analyzeLinenDev() {
-  printResults(runAnalysis('../../examples/linen.dev/packages/typesense', './src/setup.ts', 16, 13, 3))
+  printResults(runAnalysis('../../examples/linen.dev/apps/web', './services/slack/syncWrapper.ts', 10, 13, 3))
 }
 function analyzeDub() {
   printResults(runAnalysis('../../examples/dub/apps/web', './scripts/sync-link-clicks.ts', 16, 20, 3))
