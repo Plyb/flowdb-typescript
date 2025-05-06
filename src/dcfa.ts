@@ -409,6 +409,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             return enumAccessesWithMatchingName
         } else if (ts.isIfStatement(parent) && parent.expression === node) {
             return empty();
+        } else if (ts.isImportClause(parent)) {
+            return empty();
+        } else if (ts.isExportAssignment(parent)) {
+            return empty(); // covered by other kinds of declarations finding references
         }
         return unimplementedBottom(`Unknown kind for getWhereValueReturned: ${printNodeAndPos(parent)}`);
 
