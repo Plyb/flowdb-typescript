@@ -38,7 +38,6 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeRevert()
 // analyzeAbby()
 analyzeTriggerDev()
-// analyzeScholarsome()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -95,10 +94,11 @@ function analyzeTriggerDev() {
   // also moved some other things around to avoid needing classes
   printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/v3/services/createBackgroundWorker.server.ts', 484, 13, 3))
 }
-function analyzeScholarsome() {
-  // moved some things around to avoid having to deal with the "this" keyword
-  printResults(runAnalysis('../../examples/scholarsome/apps/api', './src/app/sets/sets.controller.ts', 317, 17, 3))
-}
+// function analyzeScholarsome() {
+//   // moved some things around to avoid having to deal with the "this" keyword
+//   // doesn't actually have any CP patterns
+//   printResults(runAnalysis('../../examples/scholarsome/apps/api', './src/app/sets/sets.controller.ts', 317, 17, 3))
+// }
 function analyzeDyrectorio() {
   printResults(runAnalysis('../../examples/dyrectorio/web/crux', './src/app/notification/notification.service.ts', 54, 26, 3))
 }
@@ -133,7 +133,7 @@ function analyzeCalCom() {
   printResults(runAnalysis('../../examples/cal.com/packages/trpc', './server/routers/viewer/slots/isAvailable.handler.ts', 24, 40, 3))
 }
 // function analyzeLetterpad() {
-//   // The only PC case I could find here uses an element access on an object. Going to skip implementing that for now.
+//   // The only CP case I could find here uses an element access on an object. Going to skip implementing that for now.
 //   printResults(runAnalysis('../../examples/letterpad/apps/admin', './src/app/(protected)/api/cron/1h/mail-likes/route.ts', 12, 13, 3))
 // }
 
