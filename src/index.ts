@@ -35,9 +35,9 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
-// analyzeRevert()
+analyzeRevert()
 // analyzeAbby()
-analyzeTriggerDev()
+// analyzeTriggerDev()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -84,7 +84,7 @@ function analyzeDittofeed() {
   printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
 }
 function analyzeRevert() {
-  printResults(runAnalysis('../../examples/revert/packages/backend', './routes/v1/fieldMapping.ts', 79, 32, 3))
+  printResults(runAnalysis('../../examples/revert/packages/backend', './services/metadata.ts', 10, 17, 3))
 }
 function analyzeAbby() {
   printResults(runAnalysis('../../examples/abby/apps/web', './src/server/services/ConfigService.ts', 68, 13, 3))
