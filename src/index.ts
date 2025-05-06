@@ -37,7 +37,6 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDittofeed()
 analyzeRevert()
 // analyzeAbby()
-// analyzeTriggerDev()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -89,11 +88,11 @@ function analyzeRevert() {
 function analyzeAbby() {
   printResults(runAnalysis('../../examples/abby/apps/web', './src/server/services/ConfigService.ts', 68, 13, 3))
 }
-function analyzeTriggerDev() {
-  // moved getSecrets and decrypt to avoid having to deal with the "this" keyword
-  // also moved some other things around to avoid needing classes
-  printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/v3/services/createBackgroundWorker.server.ts', 484, 13, 3))
-}
+// function analyzeTriggerDev() {
+//   // moved getSecrets and decrypt to avoid having to deal with the "this" keyword
+//   // also moved some other things around to avoid needing classes
+//   printResults(runAnalysis('../../examples/trigger.dev/apps/webapp', './app/v3/services/createBackgroundWorker.server.ts', 484, 13, 3))
+// }
 // function analyzeScholarsome() {
 //   // moved some things around to avoid having to deal with the "this" keyword
 //   // doesn't actually have any CP patterns
