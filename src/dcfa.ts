@@ -160,6 +160,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return join(lhsRes, rhsRes);
                 } else if (primopId === SyntaxKind.AsteriskToken
                     || primopId === SyntaxKind.SlashToken
+                    || primopId === SyntaxKind.PercentToken
                     || primopId === SyntaxKind.EqualsEqualsEqualsToken
                     || primopId === SyntaxKind.ExclamationEqualsEqualsToken
                 ) {
@@ -324,7 +325,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         ) {
             return fixed_trace(Config({ node: parent, env }));
         }else if (ts.isBinaryExpression(parent)
-            && (parent.operatorToken.kind === SyntaxKind.EqualsEqualsEqualsToken)
+            && (parent.operatorToken.kind === SyntaxKind.EqualsEqualsEqualsToken
+                || parent.operatorToken.kind === SyntaxKind.PlusToken
+            )
         ) {
             return empty();
         } else if (ts.isSpreadElement(parent)) {
@@ -563,7 +566,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }
             
-            if (declaration.getSourceFile().isDeclarationFile) {
+            if (declaration.getSourceFile().isDeclarationFile || declaration.flags & ts.SymbolFlags.TypeAlias) {
                 return empty();
             }
 
