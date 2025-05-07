@@ -7,6 +7,7 @@ import { Config, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, p
 import { newQuestion } from './context';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig } from './value-constructors';
 import { Set } from 'immutable'
+import { isExtern } from './abstract-values';
 
 export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
     const { valueOf } = makeFixpointComputer(
@@ -27,7 +28,7 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                 }
 
                 const operators = fixed_eval(Config({ node: site.expression, env }));
-                return configSetJoinMap(operators, (opConfig) => {
+                return operators.flatMap((opConfig) => {
                     const { node: op, env: funcEnv } = opConfig;
                     if (isFunctionLikeDeclaration(op)) {
                         push_cache(
@@ -45,6 +46,22 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                         const higherOrderArgIndices = builtInValueBehaviors[builtInType].higherOrderArgs;
                         const higherOrderArgs = site.arguments.filter((_, i) => higherOrderArgIndices.includes(i));
                         const argSet = Set.of(...higherOrderArgs);
+                        const argConses = setFlatMap(argSet, arg => fixed_eval(Config({ node: arg, env })));
+                        const functionLikeArgConses = setFilter(argConses, isFunctionLikeDeclarationConfig);
+
+                        return setFlatMap(functionLikeArgConses, ({ node: argNode, env: argEnv }) => {
+                            push_cache(
+                                envKey(argEnv.push(newQuestion(argNode))),
+                                envValue(argEnv.push(pushContext(site, env, m)))
+                            );
+
+                            return fix_run(compute, Config({
+                                node: argNode.body,
+                                env: argEnv.push(pushContext(site, env, m))
+                            }));
+                        })
+                    } else if (isExtern(op)) {
+                        const argSet = Set.of(...site.arguments);
                         const argConses = setFlatMap(argSet, arg => fixed_eval(Config({ node: arg, env })));
                         const functionLikeArgConses = setFilter(argConses, isFunctionLikeDeclarationConfig);
 
