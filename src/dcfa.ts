@@ -6,7 +6,7 @@ import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, isArgumentList, i
 import { unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
-import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig, ConfigObject, withUnknownContext } from './configuration';
+import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig, ConfigObject, withUnknownContext, isConfigExtern } from './configuration';
 import { getReachableBlocks } from './control-flow';
 import { newQuestion, refines } from './context';
 import Immutable, { Set } from 'immutable';
@@ -203,7 +203,16 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         function getWhereValueOfCurrentConfigApplied() {
             const operatorSites = configSetFilter(
                 getWhereValueReturned(config, fix_run, push_cache),
-                funcConfig => ts.isCallExpression(funcConfig.node.parent) && isOperatorOf(funcConfig.node, funcConfig.node.parent)
+                funcConfig => {
+                    if (!ts.isCallExpression(funcConfig.node.parent)) {
+                        return false;
+                    }
+                    if (isOperatorOf(funcConfig.node, funcConfig.node.parent)) {
+                        return true;
+                    }
+                    const operatorConses = fix_run(abstractEval, Config({ node: funcConfig.node.parent.expression, env: funcConfig.env }));
+                    return setSome(operatorConses, (cons) => isConfigExtern(cons) || isBuiltInConstructorShapedConfig(cons));
+                }
             );
             return configSetMap(operatorSites, config => Config({ node: config.node.parent, env: config.env }));
         }
@@ -499,7 +508,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const argIndex = getArgumentIndex(parent, node);
             const possibleOperators = fixed_eval(Config({ node: parent.expression, env: parentConfig.env }));
 
-            const possibleFunctions = configSetFilter(possibleOperators, isFunctionLikeDeclarationConfig);
+            const possibleFunctions = setFilter(possibleOperators, isFunctionLikeDeclarationConfig);
             const parameterReferences = configSetJoinMap<SimpleFunctionLikeDeclaration>(
                 possibleFunctions,
                 (funcConfig) => {
@@ -566,7 +575,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 throw new Error(`Could not find declaration for ${printNodeAndPos(id)}`);
             }
             
-            if (declaration.getSourceFile().isDeclarationFile || declaration.flags & ts.SymbolFlags.TypeAlias) {
+            if (declaration.getSourceFile().isDeclarationFile || ts.isNamespaceImport(declaration)) {
                 return empty();
             }
 
@@ -833,56 +842,89 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const definingFunctionCallSites = fix_run(
                 getWhereClosed, Config({ node: declaringFunctionBody, env: envAtDeclaredScope })
             );
-            const boundFromArgs =  configSetJoinMap(definingFunctionCallSites, (callSite) => {
-                if (declaration.dotDotDotToken === undefined) {
-                    return singleConfig(Config({
-                        node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
-                        env: callSite.env,
-                    }))
-                } else {
-                    return singleConfig(Config({
-                        node: createArgumentList(callSite.node as CallExpression, parameterIndex),
-                        env: callSite.env
-                    }));
+            const argBindings =  setFlatMap(definingFunctionCallSites, (callSite) => {
+                if (!isCallConfig(callSite)) {
+                    return unimplementedBottom(`Expected call site ${printNodeAndPos(callSite.node)}`)
                 }
-            });
 
-            const sitesWhereDeclaringFunctionReturned = fixed_trace(Config({ node: declaringFunction, env: envAtDeclaredScope.pop() }));
-            const boundFromPrimop = configSetJoinMap(
-                sitesWhereDeclaringFunctionReturned,
-                (config) => {
-                    const { node, env: callSiteEnv } = config;
-                    const callSiteWhereArg = node.parent;
-                    if (!ts.isCallExpression(callSiteWhereArg)) {
-                        return empty();
+                const opConses = fixed_eval(Config({ node: callSite.node.expression, env: callSite.env }));
+                let bindings = Set<Config>()
+                if (setSome(opConses, opCons => opCons.node === declaringFunction)) {
+                    if (declaration.dotDotDotToken === undefined) {
+                        bindings = bindings.add(Config({
+                            node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
+                            env: callSite.env,
+                        }));
+                    } else {
+                        bindings = bindings.add(Config({
+                            node: createArgumentList(callSite.node as CallExpression, parameterIndex),
+                            env: callSite.env
+                        }));
                     }
-                    const consumerConfigsAndExterns = fixed_eval(Config({ node: callSiteWhereArg.expression, env: callSiteEnv }));
-                    const consumerConfigs = setFilter(consumerConfigsAndExterns, isConfigNoExtern);
-
-                    return setFlatMap(consumerConfigs, (config) => {
-                        if (!isBuiltInConstructorShapedConfig(config)) {
-                            return empty();
-                        }
-
+                }
+                if (setSome(opConses, isConfigExtern)) {
+                    bindings = bindings.union(justExtern);
+                }
+                if (setSome(opConses, isBuiltInConstructorShapedConfig)) {
+                    const builtInConses = setFilter(opConses, isBuiltInConstructorShapedConfig);
+                    bindings = bindings.union(configSetJoinMap(builtInConses, config => {
                         const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval);
                         const binderGetter = builtInValueBehaviors[builtInValue].primopBinderGetter;
                         const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
-                        const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
-                        const thisConfig = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+                        const primopArgIndex = callSite.node.arguments.findIndex(arg =>
+                            setSome(fixed_eval(Config({ node: arg, env: callSite.env })), argCons => argCons.node === declaringFunction)
+                        );
+                        const thisConfig = ts.isPropertyAccessExpression(callSite.node.expression)
                             ? Config({
-                                node: callSiteWhereArg.expression.expression,
-                                env: callSiteEnv
+                                node: callSite.node.expression.expression,
+                                env: callSite.env
                             })
                             : undefined;
                         return binderGetter.apply(
-                            thisConfig, [primopArgIndex, argParameterIndex, Config({ node: callSiteWhereArg, env: callSiteEnv }),
+                            thisConfig, [primopArgIndex, argParameterIndex, callSite,
                             { fixed_eval, fixed_trace, m }]
                         );
-                    });
+                    }))
                 }
-            );
+                return bindings;
+            });
 
-            return union(boundFromArgs, boundFromPrimop);
+            // const sitesWhereDeclaringFunctionReturned = fixed_trace(Config({ node: declaringFunction, env: envAtDeclaredScope.pop() }));
+            // const boundFromPrimop = configSetJoinMap(
+            //     sitesWhereDeclaringFunctionReturned,
+            //     (config) => {
+            //         const { node, env: callSiteEnv } = config;
+            //         const callSiteWhereArg = node.parent;
+            //         if (!ts.isCallExpression(callSiteWhereArg)) {
+            //             return empty();
+            //         }
+            //         const consumerConfigsAndExterns = fixed_eval(Config({ node: callSiteWhereArg.expression, env: callSiteEnv }));
+            //         const consumerConfigs = setFilter(consumerConfigsAndExterns, isConfigNoExtern);
+
+            //         return setFlatMap(consumerConfigs, (config) => {
+            //             if (!isBuiltInConstructorShapedConfig(config)) {
+            //                 return empty();
+            //             }
+
+            //             const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval);
+            //             const binderGetter = builtInValueBehaviors[builtInValue].primopBinderGetter;
+            //             const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
+            //             const primopArgIndex = callSiteWhereArg.arguments.indexOf(node as Expression);
+            //             const thisConfig = ts.isPropertyAccessExpression(callSiteWhereArg.expression)
+            //                 ? Config({
+            //                     node: callSiteWhereArg.expression.expression,
+            //                     env: callSiteEnv
+            //                 })
+            //                 : undefined;
+            //             return binderGetter.apply(
+            //                 thisConfig, [primopArgIndex, argParameterIndex, Config({ node: callSiteWhereArg, env: callSiteEnv }),
+            //                 { fixed_eval, fixed_trace, m }]
+            //             );
+            //         });
+            //     }
+            // );
+
+            return argBindings;
         }
     }
 
