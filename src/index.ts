@@ -7,7 +7,7 @@ import { Config, ConfigSet, printConfig } from './configuration';
 import { preprocess } from './preprocess';
 import { getRootFolder } from './util';
 import { prepareFormbricks, prepareNextCrm } from './prepareExamples';
-import Immutable, { Record, Set } from 'immutable';
+import Immutable, { Record } from 'immutable';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
   const rootFolder = getRootFolder(pathString);
@@ -24,18 +24,41 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   console.info = () => undefined
   // console.info = justCompute
 
-  const results = analyze(service, file, line, column, m);
-  return results;
+  return new Promise((res: (val: [Immutable.Set<{
+      table: string;
+      method: string;
+      argument: ConfigSet | undefined;
+    }>, number]) => void, rej
+  ) => {
+    const pre = Date.now();
+    const timeout = setTimeout(() => { rej(new Error('Timeout')) }, 15 * 60 * 1000) // 15 minutes
+  
+    try {
+      const results = analyze(service, file, line, column, m);
+      const post = Date.now();
+    
+      const time = post - pre;
+      clearTimeout(timeout);
+    
+      res([results, time] as [Immutable.Set<{
+        table: string;
+        method: string;
+        argument: ConfigSet | undefined;
+      }>, number]);
+    } catch (error) {
+      rej(error);
+    }
+  })
 }
 
 // analyzeInboxZero()
-// analyzeNextCrm()
+analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
-analyzeRevert()
+// analyzeRevert()
 // analyzeAbby()
 // analyzeDyrectorio()
 // analyzeLinenDev()
@@ -58,14 +81,14 @@ function analyzePlayground() {
 
 function analyzeInboxZero() {
   // includes a warning about gmail.users because the imprecision of the analysis means gmail may be undefined
-  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
+  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 2))
 }
 function analyzeNextCrm() {
-  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
+  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 0))
 }
 function analyzePapermark() {
   // includes warning about folder because of a recursive call
-  printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
+  printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 5))
 }
 function analyzeHoppscotch() {
   printResults(runAnalysis('../../examples/hoppscotch/packages/hoppscotch-backend', './src/infra-config/helper.ts', 279, 13, 3))
@@ -139,9 +162,10 @@ function analyzeCalCom() {
 // runTests();
 
 
-function printResults(results: Set<{ table: string, method: string, argument: ConfigSet | undefined }>) {
+async function printResults(resultsPromise: Promise<[Immutable.Set<{ table: string, method: string, argument: ConfigSet | undefined }>, any]>) {
   console.log('RESULTS:')
-  for (const result of results) {
+  const [results] = await resultsPromise;
+  for (const result of await results) {
     console.log(
 `table: ${result.table}
 method: ${result.method}
@@ -150,3 +174,169 @@ arg: ${result.argument?.map(printConfig).join('\n')}
 `);
   }
 }
+
+type Target = {
+  name: string;
+  projectPath: string;
+  filePath: string;
+  line: number;
+  col: number;
+}
+
+const targets: Target[] = [
+  {
+    name: 'inbox zero',
+    projectPath: '../../examples/inbox-zero/apps/web',
+    filePath: './app/api/user/categorize/senders/batch/handle-batch.ts',
+    line: 35,
+    col: 6,
+  },
+  {
+    name: 'next crm',
+    projectPath: '../../examples/nextcrm-app/dist',
+    filePath: './app/[locale]/(routes)/projects/boards/[boardId]/page.js',
+    line: 16,
+    col: 18,
+  },
+  {
+    name: 'papermark',
+    projectPath: '../../examples/papermark',
+    filePath: './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts',
+    line: 11,
+    col: 21,
+  },
+  {
+    name: 'hoppscotch',
+    projectPath: '../../examples/hoppscotch/packages/hoppscotch-backend',
+    filePath: './src/infra-config/helper.ts',
+    line: 279,
+    col: 13,
+  },
+  {
+    name: 'formbricks',
+    projectPath: '../../examples/formbricks/apps/web',
+    filePath: './modules/ee/contacts/api/v1/client/[environmentId]/identify/contacts/[userId]/lib/segments.ts',
+    line: 29,
+    col: 35,
+  },
+  {
+    name: 'documenso',
+    projectPath: '../../examples/documenso/packages/lib',
+    filePath: './server-only/recipient/set-document-recipients.ts',
+    line: 42,
+    col: 42,
+  },
+  {
+    name: 'dittofeed',
+    projectPath: '../../examples/dittofeed/packages/api',
+    filePath: './src/controllers/contentController.ts',
+    line: 71,
+    col: 10,
+  },
+  {
+    name: 'revert',
+    projectPath: '../../examples/revert/packages/backend',
+    filePath: './services/metadata.ts',
+    line: 10,
+    col: 17,
+  },
+  {
+    name: 'abby',
+    projectPath: '../../examples/abby/apps/web',
+    filePath: './src/server/services/ConfigService.ts',
+    line: 68,
+    col: 13,
+  },
+  {
+    name: 'dyrectorio',
+    projectPath: '../../examples/dyrectorio/web/crux',
+    filePath: './src/app/notification/notification.service.ts',
+    line: 54,
+    col: 26,
+  },
+  {
+    name: 'linen.dev',
+    projectPath: '../../examples/linen.dev/apps/web',
+    filePath: './services/slack/syncWrapper.ts',
+    line: 10,
+    col: 13,
+  },
+  {
+    name: 'dub',
+    projectPath: '../../examples/dub/apps/web',
+    filePath: './scripts/sync-link-clicks.ts',
+    line: 16,
+    col: 20,
+  },
+  {
+    name: 'umami',
+    projectPath: '../../examples/umami',
+    filePath: './src/queries/sql/sessions/saveSessionData.ts',
+    line: 20,
+    col: 13,
+  },
+  {
+    name: 'ghostfolio',
+    projectPath: '../../examples/ghostfolio/apps/api',
+    filePath: './src/app/import/import.service.ts',
+    line: 137,
+    col: 21,
+  },
+  {
+    name: 'typebot.io',
+    projectPath: '../../examples/typebot.io/apps/builder',
+    filePath: './src/features/telemetry/api/trackClientEvents.ts',
+    line: 21,
+    col: 18,
+  },
+  {
+    name: 'rallly',
+    projectPath: '../../examples/rallly/apps/web',
+    filePath: './src/trpc/routers/polls/participants.ts',
+    line: 139,
+    col: 20,
+  },
+  {
+    name: 'teable',
+    projectPath: '../../examples/teable/apps/nestjs-backend',
+    filePath: './src/features/field/field.service.ts',
+    line: 147,
+    col: 30,
+  },
+  {
+    name: 'cal.com',
+    projectPath: '../../examples/cal.com/packages/trpc',
+    filePath: './server/routers/viewer/slots/isAvailable.handler.ts',
+    line: 24,
+    col: 40,
+  },
+]
+
+async function summarizeTargets() {
+  const originalWarn = console.warn;
+  const precisions = [0, 1, 2, 3, 4, 5];
+  for (const target of targets) {
+
+    for (const m of precisions) {
+      const warnings = new Set();
+      console.warn = (message) => warnings.add(message);
+
+      try {
+        const [results, time] = await runAnalysis(target.projectPath, target.filePath, target.line, target.col, m);
+        const numResults = results.size;
+        console.log(`${target.name} ${m}: ${time}ms with ${numResults} results`);
+      } catch (error) {
+        const message = error instanceof Error
+          ? error.message
+          : '' + error
+
+        originalWarn(`${target.name} ${m}: error ${message.substring(0, 50)}`)
+      }
+      if (warnings.size) {
+        originalWarn(warnings)
+      }
+    }
+  }
+}
+
+// summarizeTargets()

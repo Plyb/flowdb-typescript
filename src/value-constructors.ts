@@ -553,7 +553,10 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
         }
         return 'Object';
     } else if (isBinaryExpression(cons)
-        && (cons.operatorToken.kind === SyntaxKind.AsteriskToken || cons.operatorToken.kind === SyntaxKind.SlashToken)
+        && (cons.operatorToken.kind === SyntaxKind.AsteriskToken
+            || cons.operatorToken.kind === SyntaxKind.SlashToken
+            || cons.operatorToken.kind === SyntaxKind.PercentToken
+        )
     ) {
         return 'Number';
     } else if (isNumericLiteral(cons)) {
