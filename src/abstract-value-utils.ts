@@ -1,4 +1,4 @@
-import ts, { SyntaxKind } from 'typescript';
+import ts, { AssignmentExpression, AssignmentOperatorToken, SyntaxKind } from 'typescript';
 import { FixedEval, FixedTrace } from './dcfa';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
@@ -68,9 +68,17 @@ function getPropertyFromObjectCons(consConfig: ConfigNoExtern, property: ts.Memb
         }
 
         const tracedSites = setFilter(fixed_trace(consConfig), isConfigNoExtern);
-        const refGrandparents = setMap(tracedSites, ref => Config({ node: ref.node.parent.parent, env: ref.env }));
-        const refAssignments = setFilter(refGrandparents, isAssignmentExpressionConfig);
-        const refAssignmentsWithMatching = setFilter(refAssignments, assignment => 
+        const refGrandparents = setFlatMap(tracedSites, ref => {
+            const grandparent = Config({ node: ref.node.parent.parent, env: ref.env });
+            if (!isAssignmentExpressionConfig(grandparent)) {
+                return empty() as ConfigSet<AssignmentExpression<AssignmentOperatorToken>>;
+            }
+            if (grandparent.node.left !== ref.node.parent) {
+                return empty() as ConfigSet<AssignmentExpression<AssignmentOperatorToken>>;
+            }
+            return singleConfig(grandparent) as ConfigSet<AssignmentExpression<AssignmentOperatorToken>>;
+        });
+        const refAssignmentsWithMatching = setFilter(refGrandparents, assignment => 
             nameMatches(
                 Config({ node: assignment.node.left, env: assignment.env}), property, fixed_eval
             )
