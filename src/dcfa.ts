@@ -580,6 +580,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             }
 
             const scope = getDeclaringScope(declaration, typeChecker);
+            const envAtDeclaringScope = shortenEnvironmentToScope(idConfig, scope);
 
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
@@ -617,7 +618,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     return [];
                 }
 
-                const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => env.push(newQuestion(binder)), idEnv);
+                const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => env.push(newQuestion(binder)), envAtDeclaringScope);
                 return [Config({
                     node: refNode,
                     env: refEnv,
@@ -851,13 +852,24 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 let bindings = Set<Config>()
                 if (setSome(opConses, opCons => opCons.node === declaringFunction)) {
                     if (declaration.dotDotDotToken === undefined) {
-                        bindings = bindings.add(Config({
-                            node: (callSite.node as CallExpression).arguments[parameterIndex] as Node ?? declaration.initializer,
-                            env: callSite.env,
-                        }));
+                        if (callSite.node.arguments[parameterIndex]) {
+                            bindings = bindings.union(fixed_eval(Config({
+                                node: callSite.node.arguments[parameterIndex],
+                                env: callSite.env
+                            })))
+                        } else {
+                            if (declaration.initializer === undefined) {
+                                return unimplementedBottom(`Expected a default initializer ${printNodeAndPos(callSite.node)}`)
+                            }
+
+                            bindings = bindings.add(Config({
+                                node: declaration.initializer,
+                                env: envAtDeclaredScope,
+                            }));
+                        }
                     } else {
                         bindings = bindings.add(Config({
-                            node: createArgumentList(callSite.node as CallExpression, parameterIndex),
+                            node: createArgumentList(callSite.node, parameterIndex),
                             env: callSite.env
                         }));
                     }
