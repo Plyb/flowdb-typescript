@@ -52,11 +52,11 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 }
 
 // analyzeInboxZero()
-analyzeNextCrm()
+// analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
-// analyzeDocumenso()
+analyzeDocumenso()
 // analyzeDittofeed()
 // analyzeRevert()
 // analyzeAbby()
@@ -84,20 +84,22 @@ function analyzeInboxZero() {
   printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 2))
 }
 function analyzeNextCrm() {
-  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 0))
+  // state in use-toast will have warnings because of some recursion
+  printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
 function analyzePapermark() {
   // includes warning about folder because of a recursive call
-  printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 5))
+  printResults(runAnalysis('../../examples/papermark', './pages/api/teams/[teamId]/datarooms/[id]/generate-index.ts', 11, 21, 3))
 }
 function analyzeHoppscotch() {
   printResults(runAnalysis('../../examples/hoppscotch/packages/hoppscotch-backend', './src/infra-config/helper.ts', 279, 13, 3))
 }
 function analyzeFormbricks() {
-  // 'resource' won't have a binding initially since it is a recursive parameter
+  // 'resource'/'userData' won't have a binding initially since it is a recursive parameter
   printResults(runAnalysis('../../examples/formbricks/apps/web', './modules/ee/contacts/api/v1/client/[environmentId]/identify/contacts/[userId]/lib/segments.ts', 29, 35, 3));
 }
 function analyzeDocumenso() {
+  // warnings from render.tsx are irrelevant
   printResults(runAnalysis('../../examples/documenso/packages/lib', './server-only/recipient/set-document-recipients.ts', 42, 42, 3))
 }
 function analyzeDittofeed() {
@@ -165,7 +167,7 @@ function analyzeCalCom() {
 async function printResults(resultsPromise: Promise<[Immutable.Set<{ table: string, method: string, argument: ConfigSet | undefined }>, any]>) {
   console.log('RESULTS:')
   const [results] = await resultsPromise;
-  for (const result of await results) {
+  for (const result of results) {
     console.log(
 `table: ${result.table}
 method: ${result.method}
