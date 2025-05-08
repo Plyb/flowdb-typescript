@@ -66,6 +66,24 @@ const arrayFindCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace, 
 }
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
+const arrayConcatEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
+    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval });
+    const thisArrayElemConfigs = configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
+    const thisArrayElemConses = configSetJoinMap(thisArrayElemConfigs, fixed_eval);
+
+    if (!isCallExpression(consConfig.node)) {
+        return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
+    }
+
+    if (consConfig.node.arguments.length !== 1) {
+        return unimplementedBottom(`Expected a single argument ${printNodeAndPos(consConfig.node)}`)
+    }
+
+    const argConfig = Config({ node: consConfig.node.arguments[0], env: consConfig.env });
+    const argElements = getElementNodesOfArrayValuedNode(argConfig, { fixed_eval, fixed_trace, m });
+    const argElemConses = configSetJoinMap(argElements, argElem => resolvePromisesOfNode(argElem, fixed_eval));
+    return join(thisArrayElemConses, argElemConses);
+}
 const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
     const { node: cons, env } = consConfig;
     if (!isCallExpression(cons)) {
@@ -82,7 +100,9 @@ const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
 }
 const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
     const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval });
-    return configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
+    const thisArrayElemConfigs = configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
+    const thisArrayElemConses = configSetJoinMap(thisArrayElemConfigs, fixed_eval);
+    return thisArrayElemConses;
 }
 const mapKeysEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace }) => {
     const thisMapConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Map#keys', { fixed_eval });
@@ -205,7 +225,8 @@ const bottomBehavior: BuiltInValueBehavior = {
     higherOrderArgs: none,
 };
 
-const builtInValues = ['Array', 'Array#concat', 'Array#filter', 'Array#filter()', 'Array#find',
+const builtInValues = ['Array', 'Array#concat', 'Array#concat()',
+    'Array#filter', 'Array#filter()', 'Array#find',
     'Array#forEach', 'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
     'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#reduce',
     'Array#slice', 'Array#slice()', 'Array#some', 'Array#some()',
@@ -245,6 +266,7 @@ type BuiltInValue = typeof builtInValues[number];
 export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior} = {
     'Array': builtInObject(['Array.from', 'Array.isArray']),
     'Array#concat': builtInFunction(),
+    'Array#concat()': arrayValued(arrayConcatEAG),
     'Array#filter': standardArrayMethod(),
     'Array#filter()': arrayValued(arrayFilterEAG),
     'Array#find': { ...standardArrayMethod(), resultOfCalling: arrayFindCallGetter },
