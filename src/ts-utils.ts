@@ -441,14 +441,16 @@ export function getDeclaringScope(declaration: Declaration, typeChecker: ts.Type
 export function shortenEnvironmentToScope(config: Config<ts.Identifier>, scope: Scope): Environment {
     const parents = getParentChain(config.node);
     let env = config.env;
+    let lastChild: AnalysisNode = config.node;
     for (const parent of parents) {
         if (parent === scope) {
             return env;
         }
 
-        if (isFunctionLikeDeclaration(parent)) {
+        if (isFunctionLikeDeclaration(parent) && parent.body === lastChild) {
             env = env.pop();
         }
+        lastChild = parent;
     }
     if (!ts.isSourceFile(scope)) {
         throw new Error(`Parent chain of id didn't include the declaring scope ${printNodeAndPos(config.node)}`);
