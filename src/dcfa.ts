@@ -15,7 +15,7 @@ export type FixedEval = (config: Config) => ConfigSet;
 export type FixedTrace = (config: Config) => ConfigSet;
 export type DcfaCachePusher = CachePusher<Config, ConfigSet>;
 
-export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): { fixed_eval: FixedEval, push_cache: DcfaCachePusher } {
+export function makeDcfaComputer(service: ts.LanguageService, targetFunction: SimpleFunctionLikeDeclaration, m: number): { fixed_eval: FixedEval, fixed_trace: FixedTrace, push_cache: DcfaCachePusher } {
     const program = service.getProgram()!;
     const typeChecker = program.getTypeChecker();
 
@@ -26,6 +26,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     
     return {
         fixed_eval: dcfa,
+        fixed_trace: valueOfTrace,
         push_cache,
     }
 
@@ -42,6 +43,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         return valueOf(Computation({
             func: abstractEval,
             args: config,
+        }));
+    }
+
+    function valueOfTrace(config: Config) {
+        return valueOf(Computation({
+            func: getWhereValueReturned,
+            args: config
         }));
     }
 
@@ -719,7 +727,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     );
                 } else if (ts.isCatchClause(declaration.parent)) {
                     const tryBlock = declaration.parent.parent.tryBlock;
-                    const reachableBlocks = getReachableBlocks(Config({ node: tryBlock, env: envAtDeclaringScope }), m, fixed_eval, push_cache);
+                    const reachableBlocks = getReachableBlocks(Config({ node: tryBlock, env: envAtDeclaringScope }), m, fixed_eval, fixed_trace, push_cache);
                     const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
                         const throwStatements = getThrowStatements(blockConfig.node);
                         return [...throwStatements].map(throwStatement => ({

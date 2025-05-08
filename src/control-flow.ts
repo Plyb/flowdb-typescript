@@ -1,5 +1,5 @@
 import ts, { ConciseBody } from 'typescript';
-import { DcfaCachePusher, FixedEval } from './dcfa';
+import { DcfaCachePusher, FixedEval, FixedTrace } from './dcfa';
 import { Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUtil';
 import { findAllCalls, isFunctionLikeDeclaration, isPrismaQuery, printNodeAndPos } from './ts-utils';
@@ -8,8 +8,9 @@ import { newQuestion } from './context';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig } from './value-constructors';
 import { Set } from 'immutable'
 import { isExtern } from './abstract-values';
+import { getElementNodesOfArrayValuedNode } from './abstract-value-utils';
 
-export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
+export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, fixed_eval: FixedEval, fixed_trace: FixedTrace, push_cache: DcfaCachePusher): ConfigSet<ts.CallExpression> {
     const { valueOf } = makeFixpointComputer(
         empty<Config<ts.CallExpression>>(),
         join,
@@ -62,7 +63,17 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                         })
                     } else if (isExtern(op)) {
                         const argSet = Set.of(...site.arguments);
-                        const argConses = setFlatMap(argSet, arg => fixed_eval(Config({ node: arg, env })));
+                        const argConses = setFlatMap(argSet, arg => {
+                            if (!ts.isSpreadElement(arg)) {
+                                return fixed_eval(Config({ node: arg, env }))
+                            } else {
+                                const elements = getElementNodesOfArrayValuedNode(
+                                    Config({ node: arg.expression, env }),
+                                    { fixed_eval, fixed_trace, m }
+                                );
+                                return configSetJoinMap(elements, fixed_eval);
+                            }
+                        });
                         const functionLikeArgConses = setFilter(argConses, isFunctionLikeDeclarationConfig);
 
                         return setFlatMap(functionLikeArgConses, ({ node: argNode, env: argEnv }) => {
@@ -86,8 +97,8 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
     }
 }
 
-export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fixed_eval: FixedEval, push_cache: DcfaCachePusher): ConfigSet<ts.Block> {
-    const reachableCalls = getReachableCallConfigs(blockConfig, m, fixed_eval, push_cache);
+export function getReachableBlocks(blockConfig: Config<ts.Block>, m: number, fixed_eval: FixedEval, fixed_trace: FixedTrace, push_cache: DcfaCachePusher): ConfigSet<ts.Block> {
+    const reachableCalls = getReachableCallConfigs(blockConfig, m, fixed_eval, fixed_trace, push_cache);
     const otherReachableBodies = configSetJoinMap(reachableCalls, callConfig => {
         if (isPrismaQuery(callConfig.node)) {
             return empty();
