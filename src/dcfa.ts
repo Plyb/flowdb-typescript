@@ -1,4 +1,4 @@
-import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, SymbolFlags } from 'typescript';
+import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, SymbolFlags, ScriptElementKind } from 'typescript';
 import { empty, setFilter, setFlatMap, setOf, setSome, union } from './setUtil';
 import { CachePusher, Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll, isEnumDeclaration } from './ts-utils';
@@ -584,6 +584,19 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
+                ?.filter(ref => {
+                    if (ref.definition.kind === ScriptElementKind.memberVariableElement) {
+                        const definitionNode = getNodeAtPosition(
+                            program.getSourceFile(ref.definition.fileName)!,
+                            ref.definition.textSpan!.start,
+                            ref.definition.textSpan!.length,
+                        )!;
+                        if (ts.isPropertySignature(definitionNode.parent)) {
+                            return false
+                        }
+                    }
+                    return true;
+                })
                 ?.flatMap(ref => ref.references)
                 ?.filter(ref => !ref.isDefinition);
             if (refs === undefined) {
@@ -614,11 +627,18 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 // Sometimes the TypeScript compiler gives us spurious references for reasons I
                 // don't fully understand. My hypothesis that all of these false positives will
                 // be in the same file, but in a different branch of the AST.
+                // Might be able to get rid of this now since we're filtering on property
                 if (!foundScope && refNode.getSourceFile() === id.getSourceFile()) {
                     return [];
                 }
 
                 const refEnv = bindersForEnvOfRef.reverse().reduce((env, binder) => env.push(newQuestion(binder)), envAtDeclaringScope);
+
+                // sanity check
+                if (refEnv.count() != withUnknownContext(refNode).env.count()) {
+                    return unimplemented(`Incorrect environment produced for ref ${printNodeAndPos(refNode)}`, [])
+                }
+
                 return [Config({
                     node: refNode,
                     env: refEnv,
