@@ -112,6 +112,19 @@ const objectValuesEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_tr
     })
 
 }
+const promiseAllEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
+    if (!isCallExpression(consConfig.node)) {
+        return unimplementedBottom(`Expected ${printNodeAndPos(consConfig.node)} to be a call expression`)
+    }
+
+    if (consConfig.node.arguments.length !== 1) {
+        return unimplementedBottom(`Expected a single argument ${printNodeAndPos(consConfig.node)}`)
+    }
+
+    const argConfig = Config({ node: consConfig.node.arguments[0], env: consConfig.env });
+    const argElements = getElementNodesOfArrayValuedNode(argConfig, { fixed_eval, fixed_trace, m });
+    return configSetJoinMap(argElements, argElem => resolvePromisesOfNode(argElem, fixed_eval));
+}
 function getCallExpressionExpressionOfValue(consConfig: Config<BuiltInConstructor>, val: BuiltInValue, { fixed_eval }: { fixed_eval: FixedEval }): ConfigSet {
     const { node: cons, env } = consConfig;
     if (!isCallExpression(cons)) {
@@ -300,7 +313,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
     'Promise#then': builtInFunction({ primopBinderGetter: promiseThenABG, higherOrderArgs: zeroth }),
     'Promise.all': builtInFunction(),
-    'Promise.all()': arrayValued(() => unimplementedBottom(`No implementation yet for Promise.all's EAG`)),
+    'Promise.all()': arrayValued(promiseAllEAG),
     'Promise.allSettled': builtInFunction(),
     'Promise.allSettled()': bottomBehavior,
     'Promise.resolve': builtInFunction(),
