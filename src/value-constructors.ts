@@ -203,7 +203,8 @@ const builtInValues = ['Array', 'Array#concat', 'Array#filter', 'Array#filter()'
     'Date#toLocaleDateString', 'Date#toLocaleDateString()', 'Date#toLocaleString',
     'Date.now', 'Date.now()', 'Date.UTC',
     'Error', 'JSON', 'JSON.parse', 'JSON.stringify', 'JSON.stringify()',
-    'Map', 'Map#get', 'Map#keys', 'Map#keys()', 'Map#set', 'Math', 'Math.floor', 'Math.floor()',
+    'Map', 'Map#delete', 'Map#get', 'Map#has', 'Map#keys', 'Map#keys()', 'Map#set',
+    'Math', 'Math.floor', 'Math.floor()',
     'Number', 'Number()', 'Number#toFixed', 'Number#toString',
     'Number.isNaN', 'Number.parseInt', 'Number.parseInt()',
     'Object', 'Object.assign', 'Object.fromEntries', 'Object.fromEntries()',
@@ -223,6 +224,7 @@ const builtInValues = ['Array', 'Array#concat', 'Array#filter', 'Array#filter()'
     'console.table', 'console.warn', 'console.warn()',
     'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
     'process', 'process.cwd', 'process.cwd()', 'process.env', 'process.env[]',
+    'setTimeout',
     'undefined',
 ] as const;
 type BuiltInValue = typeof builtInValues[number];
@@ -268,7 +270,9 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'JSON.stringify': builtInFunction(),
     'JSON.stringify()': proto('String'),
     'Map': builtInObject(),
+    'Map#delete': builtInFunction(),
     'Map#get': { ...bottomBehavior, resultOfCalling: mapGetCallGetter },
+    'Map#has': builtInFunction(),
     'Map#keys': builtInFunction(),
     'Map#keys()': arrayValued(mapKeysEAG),
     'Map#set': builtInFunction(),
@@ -345,6 +349,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'process.cwd()': proto('String'),
     'process.env': arrayValued(createElementPickConfigSet),
     'process.env[]': proto('String'),
+    'setTimeout': builtInFunction({ higherOrderArgs: zeroth }),
     'undefined': { ...bottomBehavior, resultOfCalling: () => empty() },
 }
 
