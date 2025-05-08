@@ -1,7 +1,7 @@
 import ts, { CallExpression, Expression, Node, SyntaxKind, ParameterDeclaration, ObjectLiteralExpression, PropertyAssignment, SymbolFlags, ScriptElementKind } from 'typescript';
 import { empty, setFilter, setFlatMap, setOf, setSome, union } from './setUtil';
 import { CachePusher, Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
-import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll, isEnumDeclaration } from './ts-utils';
+import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll, isEnumDeclaration, getPrimarySymbol } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, isArgumentList, isElementPick, isExtern, sourceFileOf } from './abstract-values';
 import { unimplemented } from './util';
 import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
@@ -166,7 +166,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const lhsRes = fixed_eval(Config({ node: node.left, env }));
                     const rhsRes = fixed_eval(Config({ node: node.right, env }));
                     return join(lhsRes, rhsRes);
-                } else if (primopId === SyntaxKind.AsteriskToken
+                } else if (primopId === SyntaxKind.PlusToken
+                    || primopId === SyntaxKind.AsteriskToken
                     || primopId === SyntaxKind.SlashToken
                     || primopId === SyntaxKind.PercentToken
                     || primopId === SyntaxKind.EqualsEqualsEqualsToken
@@ -572,7 +573,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     // "find"
     function getReferences(idConfig: Config<ts.Identifier>): ConfigSet<ts.Node> {
         const { node: id, env: idEnv } = idConfig;
-        const symbol = typeChecker.getSymbolAtLocation(id)!;
+        const symbol = getPrimarySymbol(id, typeChecker);
 
         return computeReferences()
 
@@ -592,29 +593,26 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
 
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
-                ?.filter(ref => {
-                    if (ref.definition.kind === ScriptElementKind.memberVariableElement) {
-                        const definitionNode = getNodeAtPosition(
-                            program.getSourceFile(ref.definition.fileName)!,
-                            ref.definition.textSpan!.start,
-                            ref.definition.textSpan!.length,
-                        )!;
-                        if (ts.isPropertySignature(definitionNode.parent)) {
-                            return false
-                        }
-                    }
-                    return true;
-                })
                 ?.flatMap(ref => ref.references)
                 ?.filter(ref => !ref.isDefinition);
             if (refs === undefined) {
                 return unimplemented('undefined references', empty());
             }
-            const refNodes = refs.map(ref => getNodeAtPosition(
-                program.getSourceFile(ref.fileName)!,
-                ref.textSpan!.start,
-                ref.textSpan!.length,
-            )!);
+            const refNodes = refs
+                .map(ref => getNodeAtPosition(
+                    program.getSourceFile(ref.fileName)!,
+                    ref.textSpan!.start,
+                    ref.textSpan!.length,
+                )!)
+                .filter(refNode => {
+                    if (!ts.isIdentifier(refNode)) {
+                        // some definitions seems to be slipping though. Filter them out here.
+                        return false;
+                    }
+
+                    const refSymbol = getPrimarySymbol(refNode, typeChecker);
+                    return refSymbol === symbol;
+                });
             const refNodeConfigs: Config<ts.Node>[] = refNodes.flatMap(refNode => {
                 if (refNode.getSourceFile().isDeclarationFile) {
                     return [];

@@ -1,4 +1,4 @@
-import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BinaryExpression, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, PrivateKeyword, PropertyDeclaration, StaticKeyword, SyntaxKind, TrueLiteral } from 'typescript';
+import ts, { ArrowFunction, AssignmentExpression, AssignmentOperatorToken, AsyncKeyword, BinaryExpression, BooleanLiteral, ConciseBody, Declaration, FalseLiteral, FunctionDeclaration, FunctionExpression, LiteralExpression, MethodDeclaration, NullLiteral, PrivateKeyword, PropertyDeclaration, StaticKeyword, SymbolFlags, SyntaxKind, TrueLiteral } from 'typescript';
 import { SimpleSet } from 'typescript-super-set';
 import { structuralComparator } from './comparators';
 import path from 'path';
@@ -466,4 +466,16 @@ export function getModuleSpecifier(importNode: ts.ImportSpecifier | ts.ImportCla
     } else {
         return importNode.parent.parent.moduleSpecifier;
     }
+}
+
+export function getPrimarySymbol(id: ts.Identifier, typeChecker: ts.TypeChecker) {
+    if (ts.isShorthandPropertyAssignment(id.parent)) {
+        return typeChecker.getShorthandAssignmentValueSymbol(id.parent);
+    }
+
+    const symbol = typeChecker.getSymbolAtLocation(id)!;
+    if (symbol.flags & SymbolFlags.Alias) {
+        return typeChecker.getAliasedSymbol(symbol);
+    }
+    return symbol;
 }
