@@ -56,8 +56,8 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
-analyzeDocumenso()
-// analyzeDittofeed()
+// analyzeDocumenso()
+analyzeDittofeed()
 // analyzeRevert()
 // analyzeAbby()
 // analyzeDyrectorio()
@@ -105,6 +105,8 @@ function analyzeDocumenso() {
 function analyzeDittofeed() {
   // there will be hundreds of messages around `value.join` are because of imprecision
   // this breakpoint condition can be used to skip them: !message.includes('Unable to get type') && !message.includes('No constructors found for property access') && !message.includes('Could not find proto') && !message.includes('Unable to get  &&property value.join') && !messazge.includes('Unable to find object property join')
+  // unable to access element of null is due to imprecision
+  // marks, content, c, and variableName are all intentionally nullable
   printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
 }
 function analyzeRevert() {
