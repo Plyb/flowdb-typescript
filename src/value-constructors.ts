@@ -67,7 +67,7 @@ const arrayFindCallGetter: CallGetter = (callConfig, { fixed_eval, fixed_trace, 
 
 type ElementAccessGetter = (consConfig: Config<BuiltInConstructor>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet
 const arrayConcatEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
-    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval });
+    const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#concat', { fixed_eval });
     const thisArrayElemConfigs = configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
     const thisArrayElemConses = configSetJoinMap(thisArrayElemConfigs, fixed_eval);
 
@@ -98,7 +98,7 @@ const arrayMapEAG: ElementAccessGetter = (consConfig, { fixed_eval, m }) => {
         return fixed_eval(Config({ node: func.body, env: funcEnv.push(pushContext(cons, env, m))}));
     })
 }
-const arrayFilterEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
+const originalArrayEAG: ElementAccessGetter = (consConfig, { fixed_eval, fixed_trace, m }) => {
     const thisArrayConsConfigs = getCallExpressionExpressionOfValue(consConfig, 'Array#filter', { fixed_eval });
     const thisArrayElemConfigs = configSetJoinMap(thisArrayConsConfigs, consConfig => getElementNodesOfArrayValuedNode(consConfig, { fixed_eval, fixed_trace, m }));
     const thisArrayElemConses = configSetJoinMap(thisArrayElemConfigs, fixed_eval);
@@ -268,7 +268,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#concat': builtInFunction(),
     'Array#concat()': arrayValued(arrayConcatEAG),
     'Array#filter': standardArrayMethod(),
-    'Array#filter()': arrayValued(arrayFilterEAG),
+    'Array#filter()': arrayValued(originalArrayEAG),
     'Array#find': { ...standardArrayMethod(), resultOfCalling: arrayFindCallGetter },
     'Array#forEach': standardArrayMethod(),
     'Array#includes': builtInFunction(),
@@ -282,7 +282,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#push': builtInFunction(),
     'Array#reduce': {... bottomBehavior, resultOfCalling: arrayReduceCallGetter, higherOrderArgs: zeroth, primopBinderGetter: arrayReduceABG },
     'Array#slice': builtInFunction(),
-    'Array#slice()': arrayValued(inaccessibleElement), // TODO
+    'Array#slice()': arrayValued(originalArrayEAG),
     'Array#some': standardArrayMethod(),
     'Array#some()': bottomBehavior,
     'Array.from': { ...bottomBehavior, resultOfCalling: arrayFromCallGetter },
