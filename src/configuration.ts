@@ -43,7 +43,8 @@ export function joinAll(...values: ConfigSet[]): ConfigSet {
     return values.reduce(join, empty());
 }
 function setJoinMap<T>(set: Set<T>, f: (item: T) => ConfigSet) {
-    return set.map(f).reduce<ConfigSet>(join, empty());
+    // not using immutable.js's set map because it adds a lot of stack frames, and we call this function so often it was making debugging difficult. Also removes laziness at a critical point.
+    return Set(set.toArray().map(f).reduce<ConfigSet>(join, empty()));
 }
 export function configSetJoinMap<T extends Cursor>(set: ConfigSet<T | Extern>, convert: (config: Config<T>) => ConfigSet): ConfigSet {
     return setJoinMap(set, config => isConfigNoExtern(config) ? convert(config as Config<T>) : justExtern);
