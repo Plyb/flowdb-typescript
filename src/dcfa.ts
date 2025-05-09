@@ -110,7 +110,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
                 });
             } else if (isIdentifierConfig(config)) {
-                if (config.node.text === 'globalThis') {
+                if (config.node.text === 'globalThis' || config.node.text === 'global') {
                     return justExtern;
                 }
 
