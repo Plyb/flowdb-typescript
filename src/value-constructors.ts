@@ -477,7 +477,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
     if (isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
 
-        const expressionConses = fixed_eval(Config({ node: builtInConstructor.expression, env }));
+        const expressionConses = setFilter(fixed_eval(Config({ node: builtInConstructor.expression, env })), isConfigNoExtern);
         const consesAreBuiltIn = setMap(expressionConses, isBuiltInConstructorShapedConfig);
         if (consesAreBuiltIn.size !== 1) {
             throw new Error('Expected all constructors to either be built in or not')
@@ -633,6 +633,8 @@ export function getProtoOf(cons: AnalysisNode): BuiltInProto | null {
                 return 'URL';
             } else if (cons.expression.text === 'URLSearchParams') {
                 return 'URLSearchParams';
+            } else if (cons.expression.text === 'Date') {
+                return 'Date';
             }
         }
         return 'Object';
