@@ -197,6 +197,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return empty();
             } else if (ts.isEnumDeclaration(node)) {
                 return singleConfig(config);
+            } else if (ts.isNonNullExpression(node)) {
+                return fixed_eval(Config({ node: node.expression, env }))
             }
             return unimplementedBottom(`abstractEval not yet implemented for: ${AnalysisSyntaxKind[node.kind]}:${getPosText(node)}`);
         }
