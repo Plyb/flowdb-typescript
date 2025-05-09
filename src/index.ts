@@ -51,7 +51,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   })
 }
 
-// analyzeInboxZero()
+analyzeInboxZero()
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
@@ -66,7 +66,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
-analyzeRallly()
+// analyzeRallly()
 // analyzeTeable()
 // analyzeCalCom()
 
@@ -81,7 +81,8 @@ function analyzePlayground() {
 
 function analyzeInboxZero() {
   // includes a warning about gmail.users because the imprecision of the analysis means gmail may be undefined
-  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 2))
+  // warning about finding the llm models is because it looks first inside an object spread. It's spurious
+  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
 }
 function analyzeNextCrm() {
   // state in use-toast will have warnings because of some recursion
