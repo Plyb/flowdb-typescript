@@ -59,14 +59,14 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeDocumenso()
 // analyzeDittofeed()
 // analyzeRevert()
-analyzeAbby()
+// analyzeAbby()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
 // analyzeUmami()
 // analyzeGhostfolio()
 // analyzeTypebotIo()
-// analyzeRallly()
+analyzeRallly()
 // analyzeTeable()
 // analyzeCalCom()
 
@@ -150,6 +150,7 @@ function analyzeTypebotIo() {
   printResults(runAnalysis('../../examples/typebot.io/apps/builder', './src/features/telemetry/api/trackClientEvents.ts', 21, 18, 3))
 }
 function analyzeRallly() {
+  // there are a few of things (a Jsx eval, an element access of an object, and a trace through a jsx element) that are irrelevant to the analysis
   printResults(runAnalysis('../../examples/rallly/apps/web', './src/trpc/routers/polls/participants.ts', 139, 20, 3))
 }
 function analyzeTeable() {
