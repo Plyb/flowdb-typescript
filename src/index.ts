@@ -57,9 +57,9 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
-analyzeDittofeed()
+// analyzeDittofeed()
 // analyzeRevert()
-// analyzeAbby()
+analyzeAbby()
 // analyzeDyrectorio()
 // analyzeLinenDev()
 // analyzeDub()
@@ -129,6 +129,7 @@ function analyzeDyrectorio() {
   printResults(runAnalysis('../../examples/dyrectorio/web/crux', './src/app/notification/notification.service.ts', 54, 26, 3))
 }
 function analyzeLinenDev() {
+  // `members` is intentionally nullable
   printResults(runAnalysis('../../examples/linen.dev/apps/web', './services/slack/syncWrapper.ts', 10, 13, 3))
 }
 function analyzeDub() {
@@ -167,8 +168,8 @@ function analyzeCalCom() {
 
 
 async function printResults(resultsPromise: Promise<[Immutable.Set<{ table: string, method: string, argument: ConfigSet | undefined }>, any]>) {
-  console.log('RESULTS:')
   const [results] = await resultsPromise;
+  console.log('RESULTS:')
   for (const result of results) {
     console.log(
 `table: ${result.table}
