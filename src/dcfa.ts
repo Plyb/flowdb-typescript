@@ -596,7 +596,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             const refs = service
                 .findReferences(id.getSourceFile().fileName, id.getStart())
                 ?.flatMap(ref => ref.references)
-                ?.filter(ref => !ref.isDefinition);
+                ?.filter(ref => !ref.isDefinition)
+                ?.filter(ref => !ref.fileName.includes('.test.ts'));
             if (refs === undefined) {
                 return unimplemented('undefined references', empty());
             }
