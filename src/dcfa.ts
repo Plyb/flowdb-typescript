@@ -575,7 +575,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     // "find"
     function getReferences(idConfig: Config<ts.Identifier>): ConfigSet<ts.Node> {
         const { node: id, env: idEnv } = idConfig;
-        const symbol = getPrimarySymbol(id, typeChecker);
+        const symbol = typeChecker.getSymbolAtLocation(id)
+        const primarySymbol = getPrimarySymbol(id, typeChecker);
 
         return computeReferences()
 
@@ -614,7 +615,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     }
 
                     const refSymbol = getPrimarySymbol(refNode, typeChecker);
-                    return refSymbol === symbol;
+                    return refSymbol === primarySymbol;
                 });
             const refNodeConfigs: Config<ts.Node>[] = refNodes.flatMap(refNode => {
                 if (refNode.getSourceFile().isDeclarationFile) {
