@@ -223,6 +223,7 @@ const bottomBehavior: BuiltInValueBehavior = {
     resultOfElementAccess: inaccessibleElement,
     primopBinderGetter: notSupported,
     higherOrderArgs: none,
+    proto: null,
 };
 
 const builtInValues = ['Array', 'Array#concat', 'Array#concat()',
@@ -248,13 +249,15 @@ const builtInValues = ['Array', 'Array#concat', 'Array#concat()',
     'Promise.allSettled()', 'Promise.resolve', 'Promise.resolve()',
     'RegExp#test', 'RegExp#test()',
     'String', 'String#endsWith', 'String#includes', 'String#includes()',
-    'String#match', 'String#match()', 'String#replace', 'String#replace()', 'String#slice',
+    'String#match', 'String#match()', 'String#replace', 'String#replace()',
+    'String#slice', 'String#slice()',
     'String#split', 'String#split()', 'String#split()[]',
     'String#substring', 'String#substring()', 'String#toLowerCase', 'String#toLowerCase()',
     'String#trim', 'String#trim()',
     'URL', 'URL#href', 'URL#searchParams', 'URL#toString',
     'URLSearchParams', 'URLSearchParams#set', 'URLSearchParams#toString',
-    'console', 'console.log', 'console.log()', 'console.error', 'console.error()',
+    'console', 'console.info', 'console.log', 'console.log()',
+    'console.error', 'console.error()',
     'console.table', 'console.warn', 'console.warn()',
     'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
     'process', 'process.cwd', 'process.cwd()', 'process.env', 'process.env[]',
@@ -351,6 +354,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'String#replace': builtInFunction(),
     'String#replace()': proto('String'),
     'String#slice': builtInFunction(),
+    'String#slice()': proto('String'),
     'String#split': builtInFunction(),
     'String#split()': arrayValued(createElementPickConfigSet),
     'String#split()[]': proto('String'),
@@ -367,7 +371,8 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'URLSearchParams': builtInObject(),
     'URLSearchParams#set': builtInFunction(),
     'URLSearchParams#toString': builtInFunction(),
-    'console': builtInObject(['console.log', 'console.error', 'console.table', 'console.warn']),
+    'console': builtInObject(['console.info', 'console.log', 'console.error', 'console.table', 'console.warn']),
+    'console.info': builtInFunction(),
     'console.log': builtInFunction(),
     'console.log()': bottomBehavior,
     'console.error': builtInFunction(),
@@ -395,6 +400,7 @@ type BuiltInValueBehavior = {
     resultOfElementAccess: ElementAccessGetter,
     primopBinderGetter: PrimopFunctionArgParamBinderGetter,
     higherOrderArgs: number[],
+    proto: BuiltInProto | null
 }
 
 
@@ -423,8 +429,7 @@ function builtInFunction(args?: Partial<BuiltInValueBehavior>): BuiltInValueBeha
 
 function arrayValued(resultOfElementAccess: ElementAccessGetter): BuiltInValueBehavior {
     return {
-        ...bottomBehavior,
-        resultOfPropertyAccess: builtInProtoMethod('Array'),
+        ...proto('Array'),
         resultOfElementAccess,
     }
 }
@@ -440,7 +445,8 @@ function standardArrayMethod(): BuiltInValueBehavior {
 function proto(proto: BuiltInProto) {
     return {
         ...bottomBehavior,
-        resultOfPropertyAccess: builtInProtoMethod(proto)
+        resultOfPropertyAccess: builtInProtoMethod(proto),
+        proto,
     }
 }
 
@@ -464,18 +470,55 @@ export function isBuiltInProto(str: string): str is BuiltInProto {
 
 /**
  * Given a node that we already know represents some built-in value, which built in value does it represent?
- * Note that this assumes there are no methods that share a name.
  */
 export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
     const { node: builtInConstructor, env } = builtInConstructorConfig;
 
     if (isPropertyAccessExpression(builtInConstructor)) {
         const methodName = builtInConstructor.name.text;
-        const builtInValue = builtInValues.find(val =>
-            typeof val === 'string' && (val.split('#')[1] === methodName || val.split('.')[1] === methodName)
-        );
-        assertNotUndefined(builtInValue);
-        return builtInValue;
+
+        const expressionConses = fixed_eval(Config({ node: builtInConstructor.expression, env }));
+        const consesAreBuiltIn = setMap(expressionConses, isBuiltInConstructorShapedConfig);
+        if (consesAreBuiltIn.size !== 1) {
+            throw new Error('Expected all constructors to either be built in or not')
+        }
+        if (consesAreBuiltIn.first()) {
+            const expressionBuiltInValues = setMap(expressionConses, cons => getBuiltInValueOfBuiltInConstructor(cons as Config<BuiltInConstructor>, fixed_eval));
+            const builtInValue = setMap(expressionBuiltInValues, expressionBuiltInValue => {
+                const builtInValue = builtInValues.find(val =>
+                    val.split('.')[0] === expressionBuiltInValue
+                    && val.split('.')[1] === methodName
+                );
+                if (builtInValue) {
+                    return builtInValue;
+                }
+
+                const expressionProto = builtInValueBehaviors[expressionBuiltInValue].proto
+                const builtInValueFromProto = builtInValues.find(val =>
+                    val.split('#')[0] === expressionProto
+                    && val.split('#')[1] === methodName
+                );
+                assertNotUndefined(builtInValueFromProto);
+                return builtInValueFromProto;
+            })
+            if (builtInValue.size !== 1) {
+                throw new Error('Expected exactly 1 built in value')
+            }
+            return builtInValue.first()!;
+        } else {
+            const expressionNodes = setMap(setFilter(expressionConses, isConfigNoExtern), config => config.node);
+            const expressionProtos = setMap(expressionNodes, getProtoOf);
+            if (expressionProtos.size !== 1) {
+                throw new Error('Expected exactly one proto')
+            }
+            const expressionProto = expressionProtos.first()!;
+            const builtInValue = builtInValues.find(val =>
+                val.split('#')[0] === expressionProto
+                && val.split('#')[1] === methodName
+            );
+            assertNotUndefined(builtInValue);
+            return builtInValue;
+        }
     } else if (isIdentifier(builtInConstructor)) {
         const builtInValue = builtInValues.find(val => val === builtInConstructor.text);
         assertNotUndefined(builtInValue);
@@ -505,7 +548,7 @@ export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Co
         return builtInValue;
     }
 
-    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression>): BuiltInValue {
+    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression | ts.PropertyAccessExpression>): BuiltInValue {
         const expressionConses = fixed_eval(Config({
             node: callConfig.node.expression,
             env: callConfig.env,
