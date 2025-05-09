@@ -613,7 +613,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return false;
                     }
 
-                    const refSymbol = typeChecker.getSymbolAtLocation(refNode);
+                    const refSymbol = getPrimarySymbol(refNode, typeChecker)
                     const refDeclaration = refSymbol?.valueDeclaration
                         ?? refSymbol?.declarations?.[0];
 
