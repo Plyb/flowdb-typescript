@@ -619,6 +619,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         // some definitions seems to be slipping though. Filter them out here.
                         return false;
                     }
+                    if (ts.isPropertyAccessExpression(refNode.parent) && refNode.parent.name === refNode) {
+                        // we only want identifiers that act as expressions
+                        return false;
+                    }
 
                     const refSymbol = getPrimarySymbol(refNode, typeChecker)
                     const refDeclaration = refSymbol?.valueDeclaration
