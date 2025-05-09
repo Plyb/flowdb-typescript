@@ -158,20 +158,20 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
             } else if (isNullLiteral(node)) {
                 return singleConfig(config);
             } else if (isBinaryExpression(node)) {
-                const primopId = node.operatorToken.kind;
-                if (primopId === SyntaxKind.BarBarToken
-                    || primopId === SyntaxKind.QuestionQuestionToken
-                    || primopId === SyntaxKind.AmpersandAmpersandToken
+                const operatorKind = node.operatorToken.kind;
+                if (operatorKind === SyntaxKind.BarBarToken
+                    || operatorKind === SyntaxKind.QuestionQuestionToken
+                    || operatorKind === SyntaxKind.AmpersandAmpersandToken
                 ) {
                     const lhsRes = fixed_eval(Config({ node: node.left, env }));
                     const rhsRes = fixed_eval(Config({ node: node.right, env }));
                     return join(lhsRes, rhsRes);
-                } else if (primopId === SyntaxKind.PlusToken
-                    || primopId === SyntaxKind.AsteriskToken
-                    || primopId === SyntaxKind.SlashToken
-                    || primopId === SyntaxKind.PercentToken
-                    || primopId === SyntaxKind.EqualsEqualsEqualsToken
-                    || primopId === SyntaxKind.ExclamationEqualsEqualsToken
+                } else if (operatorKind === SyntaxKind.PlusToken
+                    || operatorKind === SyntaxKind.AsteriskToken
+                    || operatorKind === SyntaxKind.SlashToken
+                    || operatorKind === SyntaxKind.PercentToken
+                    || operatorKind === SyntaxKind.EqualsEqualsEqualsToken
+                    || operatorKind === SyntaxKind.ExclamationEqualsEqualsToken
                 ) {
                     return singleConfig(config);
                 } else {
@@ -199,6 +199,13 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return singleConfig(config);
             } else if (ts.isNonNullExpression(node)) {
                 return fixed_eval(Config({ node: node.expression, env }))
+            } else if (ts.isPrefixUnaryExpression(node)) {
+                const operatorKind = node.operator;
+                if (operatorKind === SyntaxKind.MinusToken) {
+                    return singleConfig(config);
+                } else {
+                    return unimplementedBottom(`Unknown prefix operator ${printNodeAndPos(node)}`)
+                }
             }
             return unimplementedBottom(`abstractEval not yet implemented for: ${AnalysisSyntaxKind[node.kind]}:${getPosText(node)}`);
         }
