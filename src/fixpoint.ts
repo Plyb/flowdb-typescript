@@ -20,17 +20,17 @@ export function Computation<Args, Ret>(comp: { func: LabeledFixable<Args, Ret>, 
 
 type ValueMap<Args, Ret> = Map<Computation<Args, Ret>, Ret>
 type DependentMap<Args, Ret> = Lookup<Computation<Args, Ret>, Computation<Args, Ret>>
-type ValueOfOptions<Args extends object, Ret extends object> = {
+type ValueOfOptions<Args, Ret> = {
     printArgs: (arg: Args) => string,
     printRet: (ret: Ret) => string,
     initialValues?: ValueMap<Args, Ret>,
     initialDependents?: DependentMap<Args, Ret>
 }
 const defaultOptions: ValueOfOptions<any, any> = {
-    printArgs: (arg) => arg.toString(),
-    printRet: (ret) => ret.toString(),
+    printArgs: (arg) => '' + arg,
+    printRet: (ret) => '' + ret,
 };
-export function makeFixpointComputer<Args extends object, Ret extends object>(
+export function makeFixpointComputer<Args, Ret>(
     bottomRet: Ret,
     join: (a: Ret, b: Ret) => Ret,
     { printArgs, printRet }: ValueOfOptions<Args, Ret> = defaultOptions,

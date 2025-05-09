@@ -1,11 +1,13 @@
 import ts, { CallExpression, PropertyAccessExpression, SyntaxKind } from 'typescript';
 import { isArrayLiteralExpression, isAsyncKeyword, isBinaryExpression, isCallExpression, isFunctionLikeDeclaration, isIdentifier, isNewExpression, isNumericLiteral, isPropertyAccessExpression, isRegularExpressionLiteral, isStringLiteral, isTemplateLiteral, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
-import { empty, setFilter, setFlatMap, setMap, setSome, singleton } from './setUtil';
+import { empty, setFilter, setFlatMap, setMap, setSift, setSome, singleton } from './setUtil';
 import { AnalysisNode, Cursor, ElementPick, isArgumentList, isElementPick, isExtern } from './abstract-values';
 import { unimplemented } from './util';
 import { FixedEval, FixedTrace } from './dcfa';
 import { getAllValuesOf, getElementNodesOfArrayValuedNode, getMapSetCalls, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, justExtern, isConfigNoExtern, isPropertyAccessConfig, pushContext, singleConfig, configSetJoinMap, unimplementedBottom, isObjectLiteralExpressionConfig, isConfigExtern, join, ConfigNoExtern, createElementPickConfigSet } from './configuration';
+import { Computation, FixRunFunc, makeFixpointComputer } from './fixpoint';
+import { Set } from 'immutable'
 
 type BuiltInConstructor = PropertyAccessExpression | ts.Identifier | ts.CallExpression | ElementPick;
 
@@ -472,103 +474,116 @@ export function isBuiltInProto(str: string): str is BuiltInProto {
  * Given a node that we already know represents some built-in value, which built in value does it represent?
  */
 export function getBuiltInValueOfBuiltInConstructor(builtInConstructorConfig: Config<BuiltInConstructor>, fixed_eval: FixedEval): BuiltInValue {
-    const { node: builtInConstructor, env } = builtInConstructorConfig;
-
-    if (isPropertyAccessExpression(builtInConstructor)) {
-        const methodName = builtInConstructor.name.text;
-
-        const expressionConses = setFilter(fixed_eval(Config({ node: builtInConstructor.expression, env })), isConfigNoExtern);
-        const consesAreBuiltIn = setMap(expressionConses, isBuiltInConstructorShapedConfig);
-        if (consesAreBuiltIn.size !== 1) {
-            throw new Error('Expected all constructors to either be built in or not')
+    const { valueOf } = makeFixpointComputer<Config<BuiltInConstructor>, BuiltInValue | null>(null as BuiltInValue | null, (a: BuiltInValue | null, b: BuiltInValue | null) => {
+        if (a !== null && b !== null && a !== b) {
+            throw new Error('Cannot join two non-nulls')
         }
-        if (consesAreBuiltIn.first()) {
-            const expressionBuiltInValues = setMap(expressionConses, cons => getBuiltInValueOfBuiltInConstructor(cons as Config<BuiltInConstructor>, fixed_eval));
-            const builtInValue = setMap(expressionBuiltInValues, expressionBuiltInValue => {
-                const builtInValue = builtInValues.find(val =>
-                    val.split('.')[0] === expressionBuiltInValue
-                    && val.split('.')[1] === methodName
-                );
-                if (builtInValue) {
+        return a ?? b;
+    });
+
+    const result = valueOf(Computation({
+        func: computeBuiltInValue,
+        args: builtInConstructorConfig,
+    }));
+
+    if (result === null) {
+        throw new Error('Expected a non-null result')
+    }
+    return result;
+
+    function computeBuiltInValue(builtInConstructorConfig: Config<BuiltInConstructor>, fix_run: FixRunFunc<Config<BuiltInConstructor>, BuiltInValue | null>): BuiltInValue | null {
+        const { node: builtInConstructor, env } = builtInConstructorConfig;
+    
+        if (isPropertyAccessExpression(builtInConstructor)) {
+            const methodName = builtInConstructor.name.text;
+    
+            const expressionConses = setFilter(fixed_eval(Config({ node: builtInConstructor.expression, env })), isConfigNoExtern);
+            const builtInValueWithPossibleNull = setMap(expressionConses, expressionCons => {
+                if (isBuiltInConstructorShapedConfig(expressionCons)) {
+                    const expressionBuiltInValue = fix_run(computeBuiltInValue, expressionCons);
+                    if (expressionBuiltInValue === null) {
+                        return null;
+                    }
+
+                    const builtInValue = builtInValues.find(val =>
+                        val.split('.')[0] === expressionBuiltInValue
+                        && val.split('.')[1] === methodName
+                    );
+                    if (builtInValue) {
+                        return builtInValue;
+                    }
+    
+                    const expressionProto = builtInValueBehaviors[expressionBuiltInValue].proto
+                    const builtInValueFromProto = builtInValues.find(val =>
+                        val.split('#')[0] === expressionProto
+                        && val.split('#')[1] === methodName
+                    );
+                    assertNotUndefined(builtInValueFromProto);
+                    return builtInValueFromProto;
+                } else {
+                    const expressionProto = getProtoOf(expressionCons.node);
+                    const builtInValue = builtInValues.find(val =>
+                        val.split('#')[0] === expressionProto
+                        && val.split('#')[1] === methodName
+                    );
+                    assertNotUndefined(builtInValue);
                     return builtInValue;
                 }
-
-                const expressionProto = builtInValueBehaviors[expressionBuiltInValue].proto
-                const builtInValueFromProto = builtInValues.find(val =>
-                    val.split('#')[0] === expressionProto
-                    && val.split('#')[1] === methodName
-                );
-                assertNotUndefined(builtInValueFromProto);
-                return builtInValueFromProto;
-            })
+            });
+            const builtInValue = setSift(builtInValueWithPossibleNull);
+    
             if (builtInValue.size !== 1) {
                 throw new Error('Expected exactly 1 built in value')
             }
             return builtInValue.first()!;
-        } else {
-            const expressionNodes = setMap(setFilter(expressionConses, isConfigNoExtern), config => config.node);
-            const expressionProtos = setMap(expressionNodes, getProtoOf);
-            if (expressionProtos.size !== 1) {
-                throw new Error('Expected exactly one proto')
-            }
-            const expressionProto = expressionProtos.first()!;
-            const builtInValue = builtInValues.find(val =>
-                val.split('#')[0] === expressionProto
-                && val.split('#')[1] === methodName
-            );
+        } else if (isIdentifier(builtInConstructor)) {
+            const builtInValue = builtInValues.find(val => val === builtInConstructor.text);
             assertNotUndefined(builtInValue);
             return builtInValue;
+        } else if (isElementPick(builtInConstructor)) {
+            const expressionConses = fixed_eval(Config({ node: builtInConstructor.expression, env }));
+            const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
+                if (isConfigExtern(expressionCons)) {
+                    return empty<BuiltInValue>();
+                }
+    
+                if (!isBuiltInConstructorShapedConfig(expressionCons)) {
+                    return empty<BuiltInValue>();
+                }
+    
+                return singleton(fix_run(computeBuiltInValue, expressionCons));
+            });
+            const builtInValue = expressionBuiltIns.find(expressionBuiltIn => builtInValues.some(biv => biv === expressionBuiltIn + '[]'));
+            assertNotUndefined(builtInValue);
+            return builtInValue + '[]' as BuiltInValue;
+        } else { // call expression
+            const expressionBuiltInValues = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
+            const builtInValue = builtInValues.find(val =>
+                val.includes('()')
+                && expressionBuiltInValues.some(expressionBuiltInValue => val.split('()')[0] === expressionBuiltInValue)
+            );
+            return builtInValue ?? null;
         }
-    } else if (isIdentifier(builtInConstructor)) {
-        const builtInValue = builtInValues.find(val => val === builtInConstructor.text);
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    } else if (isElementPick(builtInConstructor)) {
-        const expressionConses = fixed_eval(Config({ node: builtInConstructor.expression, env }));
-        const expressionBuiltIns = setFlatMap(expressionConses, expressionCons => {
-            if (isConfigExtern(expressionCons)) {
-                return empty<BuiltInValue>();
-            }
-
-            if (!isBuiltInConstructorShapedConfig(expressionCons)) {
-                return empty<BuiltInValue>();
-            }
-
-            return singleton(getBuiltInValueOfBuiltInConstructor(expressionCons, fixed_eval));
-        });
-        const builtInValue = expressionBuiltIns.find(expressionBuiltIn => builtInValues.some(biv => biv === expressionBuiltIn + '[]'));
-        assertNotUndefined(builtInValue);
-        return builtInValue + '[]' as BuiltInValue;
-    } else { // call expression
-        const expressionBuiltInValue = getBuiltInValueOfExpression(builtInConstructorConfig as Config<ts.CallExpression>);
-        const builtInValue = builtInValues.find(val =>
-            typeof val === 'string' && val.includes('()') && val.split('()')[0] === expressionBuiltInValue
-        );
-        assertNotUndefined(builtInValue);
-        return builtInValue;
-    }
-
-    function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression | ts.PropertyAccessExpression>): BuiltInValue {
-        const expressionConses = fixed_eval(Config({
-            node: callConfig.node.expression,
-            env: callConfig.env,
-        }));
-        const builtInConstructorsForExpression = setFilter(
-            expressionConses,
-            isBuiltInConstructorShapedConfig
-        );
-        const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
-            getBuiltInValueOfBuiltInConstructor(expressionConstructor, fixed_eval)
-        );
-        if (builtInValues.size !== 1) {
-            throw new Error(`Expected exactly one built in constructor for expression of ${printNodeAndPos(builtInConstructor)}`);
+        
+        function getBuiltInValueOfExpression(callConfig: Config<ts.CallExpression | ts.PropertyAccessExpression>): Set<BuiltInValue | null> {
+            const expressionConses = fixed_eval(Config({
+                node: callConfig.node.expression,
+                env: callConfig.env,
+            }));
+            const builtInConstructorsForExpression = setFilter(
+                expressionConses,
+                isBuiltInConstructorShapedConfig
+            );
+            const builtInValues = setMap(builtInConstructorsForExpression, expressionConstructor =>
+                fix_run(computeBuiltInValue, expressionConstructor)
+            );
+            return builtInValues
         }
-        return builtInValues.last()!;
-    }
-
-    function assertNotUndefined<T>(val: T | undefined): asserts val is T {
-        if (val === undefined) {
-            throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
+    
+        function assertNotUndefined<T>(val: T | undefined): asserts val is T {
+            if (val === undefined) {
+                throw new Error(`No matching built in value for built-in value constructor ${printNodeAndPos(builtInConstructor)}`)
+            }
         }
     }
 }
