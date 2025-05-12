@@ -479,7 +479,7 @@ export function isBuiltInProto(str: string): str is BuiltInProto {
 }
 
 export function isBuiltInConfig(config: Config): config is BuiltInConfig {
-    return 'builtInValue' in config;
+    return config.builtInValue !== undefined;
 }
 
 export function idIsBuiltIn(id: ts.Identifier): boolean {
