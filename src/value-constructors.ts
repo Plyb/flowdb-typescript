@@ -238,40 +238,44 @@ const bottomBehavior: BuiltInValueBehavior = {
 
 const builtInValues = ['Array', 'Array#concat', 'Array#concat()',
     'Array#filter', 'Array#filter()', 'Array#find',
-    'Array#forEach', 'Array#includes', 'Array#includes()', 'Array#indexOf', 'Array#indexOf()',
-    'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#reduce',
+    'Array#forEach', 'Array#forEach()', 'Array#includes', 'Array#includes()',
+    'Array#indexOf', 'Array#indexOf()',
+    'Array#join', 'Array#join()', 'Array#map', 'Array#map()', 'Array#push', 'Array#push()', 'Array#reduce',
     'Array#slice', 'Array#slice()', 'Array#some', 'Array#some()',
-    'Array.from', 'Array.isArray',
-    'Boolean',
-    'Buffer', 'Buffer.from',
-    'Date', 'Date#getTime', 'Date#toISOString',
-    'Date#toLocaleDateString', 'Date#toLocaleDateString()', 'Date#toLocaleString',
+    'Array.from', 'Array.isArray', 'Array.isArray()',
+    'Boolean', 'Boolean()',
+    'Buffer', 'Buffer.from', 'Buffer.from()',
+    'Date', 'Date#getTime', 'Date#getTime()', 'Date#toISOString', 'Date#toISOString()',
+    'Date#toLocaleDateString', 'Date#toLocaleDateString()', 'Date#toLocaleString', 'Date#toLocaleString()',
     'Date.now', 'Date.now()', 'Date.UTC',
-    'Error', 'JSON', 'JSON.parse', 'JSON.stringify', 'JSON.stringify()',
-    'Map', 'Map#delete', 'Map#get', 'Map#has', 'Map#keys', 'Map#keys()', 'Map#set',
+    'Error',
+    'JSON', 'JSON.parse', 'JSON.stringify', 'JSON.stringify()',
+    'Map', 'Map#delete', 'Map#delete()', 'Map#get', 'Map#has', 'Map#has()', 'Map#keys', 'Map#keys()',
+    'Map#set', 'Map#set()',
     'Math', 'Math.floor', 'Math.floor()',
-    'Number', 'Number()', 'Number#toFixed', 'Number#toString',
-    'Number.isNaN', 'Number.parseInt', 'Number.parseInt()',
+    'Number', 'Number()', 'Number#toFixed', 'Number#toFixed()', 'Number#toString', 'Number#toString()',
+    'Number.isNaN', 'Number.isNaN()', 'Number.parseInt', 'Number.parseInt()',
     'Object', 'Object.assign', 'Object.fromEntries', 'Object.fromEntries()',
     'Object.entries', 'Object.entries()', 'Object.entries()[]',
-    'Object.freeze', 'Object.keys', 'Object.values', 'Object.values()',
-    'Promise', 'Promise#then', 'Promise.all', 'Promise.all()', 'Promise.allSettled',
+    'Object.freeze', 'Object.keys', 'Object.keys()', 'Object.values', 'Object.values()',
+    'Promise', 'Promise#then', 'Promise#then()', 'Promise.all', 'Promise.all()', 'Promise.allSettled',
     'Promise.allSettled()', 'Promise.resolve', 'Promise.resolve()',
     'RegExp#test', 'RegExp#test()',
-    'String', 'String#endsWith', 'String#includes', 'String#includes()',
+    'String', 'String#endsWith', 'String#endsWith()', 'String#includes', 'String#includes()',
     'String#match', 'String#match()', 'String#replace', 'String#replace()',
     'String#slice', 'String#slice()',
     'String#split', 'String#split()', 'String#split()[]',
     'String#substring', 'String#substring()', 'String#toLowerCase', 'String#toLowerCase()',
     'String#trim', 'String#trim()',
-    'URL', 'URL#href', 'URL#searchParams', 'URL#toString',
-    'URLSearchParams', 'URLSearchParams#set', 'URLSearchParams#toString',
-    'console', 'console.info', 'console.log', 'console.log()',
+    'URL', 'URL#href', 'URL#searchParams', 'URL#toString', 'URL#toString()',
+    'URLSearchParams', 'URLSearchParams#set', 'URLSearchParams#set()',
+    'URLSearchParams#toString', 'URLSearchParams#toString()',
+    'console', 'console.info', 'console.info()', 'console.log', 'console.log()',
     'console.error', 'console.error()',
-    'console.table', 'console.warn', 'console.warn()',
-    'fetch', 'isNaN', 'parseInt', 'parseFloat', 'parseFloat()',
+    'console.table', 'console.table()', 'console.warn', 'console.warn()',
+    'fetch', 'isNaN', 'isNaN()', 'parseInt', 'parseInt()', 'parseFloat', 'parseFloat()',
     'process', 'process.cwd', 'process.cwd()', 'process.env', 'process.env[]',
-    'setTimeout',
+    'setTimeout', 'setTimeout()',
     'undefined',
 ] as const;
 export type BuiltInValue = typeof builtInValues[number];
@@ -284,6 +288,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#filter()': arrayValued(originalArrayEAG('Array#filter')),
     'Array#find': { ...standardArrayMethod(), resultOfCalling: arrayFindCallGetter },
     'Array#forEach': standardArrayMethod(),
+    'Array#forEach()': bottomBehavior,
     'Array#includes': builtInFunction(),
     'Array#includes()': bottomBehavior,
     'Array#indexOf': builtInFunction(),
@@ -293,6 +298,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#map': standardArrayMethod(),
     'Array#map()': arrayValued(arrayMapEAG),
     'Array#push': builtInFunction(),
+    'Array#push()': bottomBehavior, // TODO
     'Array#reduce': {... bottomBehavior, resultOfCalling: arrayReduceCallGetter, higherOrderArgs: zeroth, primopBinderGetter: arrayReduceABG },
     'Array#slice': builtInFunction(),
     'Array#slice()': arrayValued(originalArrayEAG('Array#slice')),
@@ -300,15 +306,21 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Array#some()': bottomBehavior,
     'Array.from': { ...bottomBehavior, resultOfCalling: arrayFromCallGetter },
     'Array.isArray': builtInFunction(),
+    'Array.isArray()': bottomBehavior, // TODO
     'Boolean': callableObject(),
+    'Boolean()': bottomBehavior, // TODO
     'Buffer': builtInObject(['Buffer.from']),
     'Buffer.from': builtInFunction(),
+    'Buffer.from()': bottomBehavior, // TODO
     'Date': builtInObject(['Date.now', 'Date.UTC']),
     'Date#getTime': builtInFunction(),
+    'Date#getTime()': bottomBehavior, // TODO
     'Date#toISOString': builtInFunction(),
+    'Date#toISOString()': bottomBehavior, // TODO
     'Date#toLocaleDateString': builtInFunction(),
     'Date#toLocaleDateString()': proto('String'),
     'Date#toLocaleString': builtInFunction(),
+    'Date#toLocaleString()': bottomBehavior, // TODO
     'Date.now': builtInFunction(),
     'Date.now()': proto('Date'),
     'Date.UTC': builtInFunction(),
@@ -319,19 +331,25 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'JSON.stringify()': proto('String'),
     'Map': builtInObject(),
     'Map#delete': builtInFunction(),
+    'Map#delete()': bottomBehavior, // TODO
     'Map#get': { ...bottomBehavior, resultOfCalling: mapGetCallGetter },
     'Map#has': builtInFunction(),
+    'Map#has()': bottomBehavior, // TODO
     'Map#keys': builtInFunction(),
     'Map#keys()': arrayValued(mapKeysEAG),
     'Map#set': builtInFunction(),
+    'Map#set()': bottomBehavior, // TODO
     'Math': builtInObject(['Math.floor']),
     'Math.floor': builtInFunction(),
     'Math.floor()': proto('Number'),
     'Number': callableObject(['Number.isNaN', 'Number.parseInt']),
     'Number()': proto('Number'),
     'Number#toFixed': builtInFunction(),
+    'Number#toFixed()': bottomBehavior, // TODO
     'Number#toString': builtInFunction(),
+    'Number#toString()': bottomBehavior, // TODO
     'Number.isNaN': builtInFunction(),
+    'Number.isNaN()': bottomBehavior, // TODO
     'Number.parseInt': builtInFunction(),
     'Number.parseInt()': proto('Number'),
     'Object': builtInObject(['Object.assign', 'Object.fromEntries', 'Object.entries', 'Object.freeze', 'Object.keys', 'Object.values']),
@@ -343,10 +361,12 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Object.entries()[]': bottomBehavior,
     'Object.freeze': builtInFunction(),
     'Object.keys': builtInFunction(),
+    'Object.keys()': bottomBehavior, // TODO
     'Object.values': builtInFunction(),
     'Object.values()': arrayValued(objectValuesEAG),
     'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
     'Promise#then': builtInFunction({ primopBinderGetter: promiseThenABG, higherOrderArgs: zeroth }),
+    'Promise#then()': bottomBehavior, // TODO
     'Promise.all': builtInFunction(),
     'Promise.all()': arrayValued(promiseAllEAG),
     'Promise.allSettled': builtInFunction(),
@@ -357,6 +377,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'RegExp#test()': bottomBehavior,
     'String': callableObject(),
     'String#endsWith': builtInFunction(),
+    'String#endsWith()': bottomBehavior, // TODO
     'String#includes': builtInFunction(),
     'String#includes()': bottomBehavior,
     'String#match': builtInFunction(),
@@ -378,21 +399,28 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'URL#href': proto('String'),
     'URL#searchParams': proto('URLSearchParams'),
     'URL#toString': builtInFunction(),
+    'URL#toString()': bottomBehavior, // TODO
     'URLSearchParams': builtInObject(),
     'URLSearchParams#set': builtInFunction(),
+    'URLSearchParams#set()': bottomBehavior, // TODO
     'URLSearchParams#toString': builtInFunction(),
+    'URLSearchParams#toString()': bottomBehavior, // TODO
     'console': builtInObject(['console.info', 'console.log', 'console.error', 'console.table', 'console.warn']),
     'console.info': builtInFunction(),
+    'console.info()': bottomBehavior, // TODO
     'console.log': builtInFunction(),
     'console.log()': bottomBehavior,
     'console.error': builtInFunction(),
     'console.error()': bottomBehavior,
     'console.table': builtInFunction(),
+    'console.table()': bottomBehavior, // TODO
     'console.warn': builtInFunction(),
     'console.warn()': bottomBehavior,
     'fetch': { ...bottomBehavior, resultOfCalling: () => justExtern },
     'isNaN': builtInFunction(),
+    'isNaN()': bottomBehavior, // TODO
     'parseInt': builtInFunction(),
+    'parseInt()': bottomBehavior, // TODO
     'parseFloat': builtInFunction(),
     'parseFloat()': proto('Number'),
     'process': builtInObject(['process.cwd', 'process.env']),
@@ -401,6 +429,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'process.env': arrayValued(builtInElementPick),
     'process.env[]': proto('String'),
     'setTimeout': builtInFunction({ higherOrderArgs: zeroth }),
+    'setTimeout()': bottomBehavior, // TODO
     'undefined': { ...bottomBehavior, resultOfCalling: () => empty() },
 }
 
