@@ -582,7 +582,9 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     // "find"
     function getReferences(idConfig: Config<ts.Identifier>): ConfigSet<ts.Node> {
         const { node: id, env: idEnv } = idConfig;
-        const symbol = typeChecker.getSymbolAtLocation(id)
+        const symbol = ts.isShorthandPropertyAssignment(id.parent)
+            ? typeChecker.getShorthandAssignmentValueSymbol(id.parent)
+            : typeChecker.getSymbolAtLocation(id);
 
         return computeReferences()
 
@@ -712,7 +714,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
         return join(getBindingsFromDelcaration(declaration), getBindingsFromMutatingAssignments());
 
         function getBindingsFromMutatingAssignments(): ConfigSet {
-            const refs = getReferences(idConfig).filter(ref => typeChecker.getSymbolAtLocation(ref.node) === symbol);
+            const refs = getReferences(idConfig);
             const refParents = configSetMap(refs, ref => Config({ node: ref.node.parent, env: ref.env }));
             const refAssignments = refParents.filter(isAssignmentExpressionConfig);
             return setFlatMap(refAssignments, assignmentExpression => {
