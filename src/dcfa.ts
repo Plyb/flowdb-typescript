@@ -4,7 +4,7 @@ import { CachePusher, Computation, FixRunFunc, makeFixpointComputer } from './fi
 import { getNodeAtPosition, getReturnStatements, isFunctionLikeDeclaration, isLiteral as isAtomicLiteral, SimpleFunctionLikeDeclaration, isAsync, isNullLiteral, isAsyncKeyword, Ambient, printNodeAndPos, getPosText, getThrowStatements, getDeclaringScope, getParentChain, shortenEnvironmentToScope, isPrismaQuery, getModuleSpecifier, isOnLhsOfAssignmentExpression, getFunctionBlockOf, isAssignmentExpression, isParenthesizedExpression, isBlock, isObjectLiteralExpression, isAwaitExpression, isArrayLiteralExpression, isElementAccessExpression, isNewExpression, isBinaryExpression, isTemplateExpression, isConditionalExpression, isAsExpression, isClassDeclaration, isFunctionDeclaration, isMethodDeclaration, isDecorator, isConciseBody, isCallExpression, isImportSpecifier, isParameter, isPrivate, isIdentifier, findAll, isEnumDeclaration, getPrimarySymbol } from './ts-utils';
 import { AnalysisNode, AnalysisSyntaxKind, createArgumentList, isArgumentList, isElementPick, isExtern, sourceFileOf } from './abstract-values';
 import { unimplemented } from './util';
-import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, idIsBuiltIn, isBuiltInConstructorShapedConfig } from './value-constructors';
+import { BuiltInValue, builtInValueBehaviors, idIsBuiltIn, isBuiltInConfig } from './value-constructors';
 import { getElementNodesOfArrayValuedNode, getElementOfArrayOfTuples, getElementOfTuple, getObjectProperty, resolvePromisesOfNode, subsumes } from './abstract-value-utils';
 import { Config, ConfigSet, configSetFilter, configSetMap, Environment, justExtern, isCallConfig, isConfigNoExtern, isFunctionLikeDeclarationConfig, isIdentifierConfig, isPropertyAccessConfig, printConfig, pushContext, singleConfig, join, joinAll, configSetJoinMap, pretty, unimplementedBottom, envKey, envValue, getRefinementsOf, ConfigNoExtern, ConfigSetNoExtern, isElementAccessConfig, isAssignmentExpressionConfig, isSpreadAssignmentConfig, isVariableDeclarationConfig, ConfigObject, withUnknownContext, isConfigExtern } from './configuration';
 import { getReachableBlocks } from './control-flow';
@@ -99,12 +99,12 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                                 env: opConfig.env.push(pushContext(call, env, m))
                             }));
                         }
-                    } else if (isBuiltInConstructorShapedConfig(opConfig)) {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(
-                            opConfig,
-                            fixed_eval
+                    } else if (isBuiltInConfig(opConfig)) {
+                        const builtInValue = opConfig.builtInValue;
+                        return builtInValueBehaviors[builtInValue].resultOfCalling(
+                            config,
+                            { expressionBuiltInValue: builtInValue, fixed_eval, fixed_trace, m },
                         );
-                        return builtInValueBehaviors[builtInValue].resultOfCalling(config, { fixed_eval, fixed_trace, m });
                     } else {
                         return unimplementedBottom(`Unknown kind of operator: ${printNodeAndPos(node)}`);
                     }
@@ -118,7 +118,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (boundExprs.size > 0) {
                     return configSetJoinMap(boundExprs, fixed_eval);
                 } else if (idIsBuiltIn(config.node)) {
-                    return singleConfig(config);
+                    return singleConfig(config.set('builtInValue', config.node.text as BuiltInValue));
                 } else {
                     return unimplementedBottom(`Could not find binding for ${printNodeAndPos(node)}`)
                 }
@@ -229,7 +229,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         return true;
                     }
                     const operatorConses = fix_run(abstractEval, Config({ node: funcConfig.node.parent.expression, env: funcConfig.env }));
-                    return setSome(operatorConses, (cons) => isConfigExtern(cons) || isBuiltInConstructorShapedConfig(cons));
+                    return setSome(operatorConses, (cons) => isConfigExtern(cons) || isBuiltInConfig(cons));
                 }
             );
             return configSetMap(operatorSites, config => Config({ node: config.node.parent, env: config.env }));
@@ -817,8 +817,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         if (ts.isAwaitExpression(initializer)) {
                             const consesOfExpressionOfAwait = fixed_eval(Config({ node: initializer.expression, env: envAtDeclaringScope }));
                             return configSetJoinMap(consesOfExpressionOfAwait, awaitExpressionCons => {
-                                if (!isBuiltInConstructorShapedConfig(awaitExpressionCons)
-                                    || getBuiltInValueOfBuiltInConstructor(awaitExpressionCons, fixed_eval) !== 'Promise.all()'
+                                if (!isBuiltInConfig(awaitExpressionCons)
+                                    || awaitExpressionCons.builtInValue !== 'Promise.all()'
                                 ) {
                                     return unimplementedBottom(`Tuple destructuring not yet implemented for anything but Promise.all ${printNodeAndPos(awaitExpressionCons.node)}`)
                                 }
@@ -920,10 +920,14 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 if (setSome(opConses, isConfigExtern)) {
                     bindings = bindings.union(justExtern);
                 }
-                if (setSome(opConses, isBuiltInConstructorShapedConfig)) {
-                    const builtInConses = setFilter(opConses, isBuiltInConstructorShapedConfig);
+                if (setSome(opConses, isBuiltInConfig)) {
+                    const builtInConses = setFilter(opConses, isBuiltInConfig);
                     bindings = bindings.union(configSetJoinMap(builtInConses, config => {
-                        const builtInValue = getBuiltInValueOfBuiltInConstructor(config, fixed_eval);
+                        if (!isBuiltInConfig(config)) {
+                            return unimplementedBottom(`Expected a builtInConfig ${printConfig(config)}`);
+                        }
+
+                        const builtInValue = config.builtInValue;
                         const binderGetter = builtInValueBehaviors[builtInValue].primopBinderGetter;
                         const argParameterIndex = declaration.parent.parameters.indexOf(declaration);
                         const primopArgIndex = callSite.node.arguments.findIndex(arg =>

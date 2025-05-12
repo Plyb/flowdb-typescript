@@ -5,7 +5,7 @@ import { empty, setFilter, setFlatMap, setMap, singleton, union } from './setUti
 import { findAllCalls, isFunctionLikeDeclaration, isPrismaQuery, printNodeAndPos } from './ts-utils';
 import { Config, singleConfig, isBlockConfig, isFunctionLikeDeclarationConfig, printConfig, pushContext, configSetJoinMap, join, ConfigSet, envKey, envValue, unimplementedBottom, ConfigSetNoExtern } from './configuration';
 import { newQuestion } from './context';
-import { builtInValueBehaviors, getBuiltInValueOfBuiltInConstructor, isBuiltInConstructorShapedConfig } from './value-constructors';
+import { builtInValueBehaviors, isBuiltInConfig } from './value-constructors';
 import { Set } from 'immutable'
 import { isExtern } from './abstract-values';
 import { getElementNodesOfArrayValuedNode } from './abstract-value-utils';
@@ -42,8 +42,8 @@ export function getReachableCallConfigs(config: Config<ConciseBody>, m: number, 
                             env: funcEnv.push(pushContext(site, env, m))
                         }))
 
-                    } else if (isBuiltInConstructorShapedConfig(opConfig)) {
-                        const builtInType = getBuiltInValueOfBuiltInConstructor(opConfig, fixed_eval);
+                    } else if (isBuiltInConfig(opConfig)) {
+                        const builtInType = opConfig.builtInValue;
                         const higherOrderArgIndices = builtInValueBehaviors[builtInType].higherOrderArgs;
                         const higherOrderArgs = site.arguments.filter((_, i) => higherOrderArgIndices.includes(i));
                         const argSet = Set.of(...higherOrderArgs);

@@ -7,15 +7,19 @@ import { StructuralSet } from './structural-set';
 import { findAllParameterBinders, getPosText, isAssignmentExpression, isBlock, isCallExpression, isElementAccessExpression, isFunctionLikeDeclaration, isIdentifier, isObjectLiteralExpression, isPropertyAccessExpression, isSpreadAssignment, isVariableDeclaration, printNodeAndPos, SimpleFunctionLikeDeclaration } from './ts-utils';
 import { unimplemented } from './util';
 import ts, { AssignmentExpression, AssignmentOperatorToken, SyntaxKind } from 'typescript';
+import { BuiltInValue } from './value-constructors';
 
 export type ConfigSet<N extends Cursor = Cursor> = Set<Config<N>>;
 
 export type ConfigObject<N extends Cursor = Cursor> = {
     node: N,
     env: Environment,
+    builtInValue?: BuiltInValue;
 }
 export type Config<N extends Cursor = Cursor> = RecordOf<ConfigObject<N>>
 export type Environment = List<Context>;
+
+export type BuiltInConfig = ConfigNoExtern & { builtInValue: BuiltInValue}
 
 type ConfigExtern = Config<Extern>
 export type ConfigNoExtern = Config<Exclude<Cursor, Extern>>
@@ -24,9 +28,10 @@ export type ConfigSetNoExtern = Set<ConfigNoExtern>
 const configDummy = ts.factory.createToken(SyntaxKind.AsteriskToken)
 const ConfigRecord = Record({
     node: configDummy as Cursor,
-    env: List<Context>()
+    env: List<Context>(),
+    builtInValue: undefined as BuiltInValue | undefined,
 })
-export function Config<N extends Cursor>(obj: { node: N, env: Environment }): Config<N> {
+export function Config<N extends Cursor>(obj: { node: N, env: Environment, builtInValue?: BuiltInValue }): Config<N> {
     return ConfigRecord(obj) as Config<N>;
 }
 
@@ -227,7 +232,7 @@ export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, Con
     return directRefinedEnvs.union(transitiveRefinedEnvs);
 }
 
-function createElementPickConfig(config: ConfigNoExtern): Config<ElementPick> {
+export function createElementPickConfig(config: ConfigNoExtern): Config<ElementPick> {
     return Config({
         node: createElementPick(config.node),
         env: config.env,
