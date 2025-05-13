@@ -747,10 +747,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                     const reachableBlocks = getReachableBlocks(Config({ node: tryBlock, env: envAtDeclaringScope }), m, fixed_eval, fixed_trace, push_cache);
                     const thrownNodeConfigs = setFlatMap(reachableBlocks, setOf(blockConfig => {
                         const throwStatements = getThrowStatements(blockConfig.node);
-                        return [...throwStatements].map(throwStatement => ({
+                        return [...throwStatements].map(throwStatement => Config({
                             node: throwStatement.expression,
                             env: blockConfig.env,
-                        } as Config<ts.Expression>));
+                        }));
                     }));
                     // the `justExtern` here is a bit of an overapproximation, but it's pretty
                     // likely that *something* in the catch block could throw an exception that

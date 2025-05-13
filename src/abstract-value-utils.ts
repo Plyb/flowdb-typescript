@@ -274,10 +274,10 @@ export function getElementNodesOfArrayValuedNode(config: Config, { fixed_eval, f
                 return singleConfig(elementConfig);
             })
         } else if (isArgumentList(cons)) {
-            const elements = Set.of(...cons.arguments.map(elem => ({
+            const elements = Set.of(...cons.arguments.map(elem => Config({
                 node: elem,
                 env: consEnv,
-            } as Config)));
+            })));
             return configSetJoinMap(elements, elementConfig => {
                 if (isSpreadElement(elementConfig.node)) {
                     const subElements = fix_run(computeElements,
