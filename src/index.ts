@@ -51,14 +51,14 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   })
 }
 
-analyzeInboxZero()
+// analyzeInboxZero()
 // analyzeNextCrm()
 // analyzePapermark()
 // analyzeHoppscotch()
 // analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
-// analyzeRevert()
+analyzeRevert()
 // analyzeAbby()
 // analyzeDyrectorio()
 // analyzeLinenDev()
@@ -85,7 +85,6 @@ function analyzeInboxZero() {
   printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
 }
 function analyzeNextCrm() {
-  // state in use-toast will have warnings because of some recursion
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
 }
 function analyzePapermark() {
@@ -107,7 +106,8 @@ function analyzeDittofeed() {
   // there will be hundreds of messages around `value.join` are because of imprecision
   // this breakpoint condition can be used to skip them: !message.includes('Unable to get type') && !message.includes('No constructors found for property access') && !message.includes('Could not find proto') && !message.includes('Unable to get  &&property value.join') && !messazge.includes('Unable to find object property join')
   // unable to access element of null is due to imprecision
-  // marks, content, c, and variableName are all intentionally nullable
+  // marks, content, c, attrs and variableName are all intentionally nullable
+  // note about getting an element of keys is irrelevant
   printResults(runAnalysis('../../examples/dittofeed/packages/api', './src/controllers/contentController.ts', 71, 10, 3))
 }
 function analyzeRevert() {
