@@ -361,7 +361,7 @@ export const builtInValueBehaviors: { [k in BuiltInValue] : BuiltInValueBehavior
     'Object.entries()[]': bottomBehavior,
     'Object.freeze': builtInFunction(),
     'Object.keys': builtInFunction(),
-    'Object.keys()': bottomBehavior, // TODO
+    'Object.keys()': arrayValued(() => unimplementedBottom('Object.keys() EAG not yet implemented')), // TODO
     'Object.values': builtInFunction(),
     'Object.values()': arrayValued(objectValuesEAG),
     'Promise': builtInObject(['Promise.all', 'Promise.allSettled', 'Promise.resolve']),
