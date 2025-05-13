@@ -165,10 +165,10 @@ function getCallExpressionExpressionOfValue(consConfig: BuiltInConfig, val: Buil
 }
 
 const builtInElementPick: ElementAccessGetter = (config, { expressionBuiltInValue }) => {
-    return singleConfig(Config({
-        ...createElementPickConfig(config),
-        builtInValue: getElementAccessBuiltInValue(expressionBuiltInValue)
-    }));
+    return singleConfig(
+        createElementPickConfig(config)
+        .set('builtInValue', getElementAccessBuiltInValue(expressionBuiltInValue))
+    );
 }
 
 type PrimopFunctionArgParamBinderGetter = (this: Config<ts.Expression> | undefined, primopArgIndex: number, argParameterIndex: number, callSite: Config<ts.CallExpression>, args: { fixed_eval: FixedEval, fixed_trace: FixedTrace, m: number }) => ConfigSet;
