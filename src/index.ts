@@ -8,12 +8,9 @@ import { preprocess } from './preprocess';
 import { getRootFolder } from './util';
 import { prepareFormbricks, prepareNextCrm } from './prepareExamples';
 import Immutable, { Record } from 'immutable';
+import { Worker } from 'worker_threads';
 
 function runAnalysis(pathString: string, fileString: string, line: number, column: number, m: number) {
-  const rootFolder = getRootFolder(pathString);
-  const file = path.resolve(rootFolder, fileString);
-  const service = getService(rootFolder);
-
   function justCompute(item: string) {
     if (!item.startsWith('compute')) {
       return;
@@ -24,31 +21,47 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
   console.info = () => undefined
   // console.info = justCompute
 
-  return new Promise((res: (val: [Immutable.Set<{
-      table: string;
-      method: string;
-      argument: ConfigSet | undefined;
-    }>, number]) => void, rej
-  ) => {
-    const pre = Date.now();
-    const timeout = setTimeout(() => { rej(new Error('Timeout')) }, 15 * 60 * 1000) // 15 minutes
-  
-    try {
-      const results = analyze(service, file, line, column, m);
-      const post = Date.now();
-    
-      const time = post - pre;
-      clearTimeout(timeout);
-    
-      res([results, time] as [Immutable.Set<{
+  return Promise.race([
+    new Promise<[Immutable.Set<{
+          table: string;
+          method: string;
+          argument: ConfigSet | undefined;
+        }>, Set<any>, number]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 15 * 60 * 1000)), // 15 minute timeout
+    analyzeAsync(),
+  ])
+
+  async function analyzeAsync() {
+    return new Promise((res: (val: [Immutable.Set<{
         table: string;
         method: string;
         argument: ConfigSet | undefined;
-      }>, number]);
-    } catch (error) {
-      rej(error);
-    }
-  })
+      }>, Set<any>, number]) => void, rej
+    ) => {
+      const worker = new Worker('./build/analyzeWorker.js', { workerData: {
+        pathString, fileString, line, column, m
+      }});
+
+      worker.on('message', res)
+      worker.on('error', rej);
+
+      // const pre = Date.now();
+    
+      // try {
+      //   const results = analyze(service, file, line, column, m);
+      //   const post = Date.now();
+      
+      //   const time = post - pre;
+      
+      //   res([results, time] as [Immutable.Set<{
+      //     table: string;
+      //     method: string;
+      //     argument: ConfigSet | undefined;
+      //   }>, number]);
+      // } catch (error) {
+      //   rej(error);
+      // }
+    })
+  }
 }
 
 // analyzeInboxZero()
@@ -58,7 +71,7 @@ function runAnalysis(pathString: string, fileString: string, line: number, colum
 // analyzeFormbricks()
 // analyzeDocumenso()
 // analyzeDittofeed()
-analyzeRevert()
+// analyzeRevert()
 // analyzeAbby()
 // analyzeDyrectorio()
 // analyzeLinenDev()
@@ -82,7 +95,7 @@ function analyzePlayground() {
 function analyzeInboxZero() {
   // includes a warning about gmail.users because the imprecision of the analysis means gmail may be undefined
   // warning about finding the llm models is because it looks first inside an object spread. It's spurious
-  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 5))
+  printResults(runAnalysis('../../examples/inbox-zero/apps/web', './app/api/user/categorize/senders/batch/handle-batch.ts', 35, 6, 0))
 }
 function analyzeNextCrm() {
   printResults(runAnalysis('../../examples/nextcrm-app/dist', './app/[locale]/(routes)/projects/boards/[boardId]/page.js', 16, 18, 3))
@@ -169,7 +182,7 @@ function analyzeCalCom() {
 // runTests();
 
 
-async function printResults(resultsPromise: Promise<[Immutable.Set<{ table: string, method: string, argument: ConfigSet | undefined }>, any]>) {
+async function printResults(resultsPromise: Promise<[Immutable.Set<{ table: string, method: string, argument: ConfigSet | undefined }>, any, any]>) {
   const [results] = await resultsPromise;
   console.log('RESULTS:')
   for (const result of results) {
@@ -325,13 +338,14 @@ async function summarizeTargets() {
   for (const target of targets) {
 
     for (const m of precisions) {
-      const warnings = new Set();
-      console.warn = (message) => warnings.add(message);
-
       try {
-        const [results, time] = await runAnalysis(target.projectPath, target.filePath, target.line, target.col, m);
+        const [results, warnings, time] = await runAnalysis(target.projectPath, target.filePath, target.line, target.col, m);
         const numResults = results.size;
         console.log(`${target.name} ${m}: ${time}ms with ${numResults} results`);
+
+        if (warnings.size) {
+          originalWarn(warnings)
+        }
       } catch (error) {
         const message = error instanceof Error
           ? error.message
@@ -339,11 +353,8 @@ async function summarizeTargets() {
 
         originalWarn(`${target.name} ${m}: error ${message.substring(0, 50)}`)
       }
-      if (warnings.size) {
-        originalWarn(warnings)
-      }
     }
   }
 }
 
-// summarizeTargets()
+summarizeTargets()
