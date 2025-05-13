@@ -220,13 +220,13 @@ export function envValue(env: Environment): ConfigSet {
 
 export function getRefinementsOf(config: Config, fix_run: FixRunFunc<Config, ConfigSet>): ConfigSet {
     const refinedEnvironments = fix_run(envKeyFunc, Config({ node: envDummy, env: config.env }));
-    const directRefinedEnvs = refinedEnvironments.map(({ env }) => Config({ node: config.node, env }));
+    const directRefinedEnvs = refinedEnvironments.map(({ env }) => config.set('env', env));
 
     const refinedTails: ConfigSet = config.env.size > 1
         ? getRefinementsOf(Config({ node: envDummy, env: config.env.pop()}), fix_run)
         : empty();
     const transitiveRefinedEnvs = configSetJoinMap(refinedTails, tail =>
-        getRefinementsOf(Config({ node: config.node, env: tail.env.push(config.env.last()!) }), fix_run)
+        getRefinementsOf(config.set('env', tail.env.push(config.env.last()!)), fix_run)
     );
 
     return directRefinedEnvs.union(transitiveRefinedEnvs);
