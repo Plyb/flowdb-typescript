@@ -314,7 +314,7 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                 return unimplementedBottom('method declaration should have name')
             }
 
-            const refs = getReferences(Config({ node: node.name, env }));
+            const refs = getReferences(Config({ node: node.name, env }), true);
             const propertyAccessesAtRefs = configSetJoinMap<AnalysisNode>(refs, ref => {
                 if (ts.isMethodSignature(ref.node.parent)) {
                     return empty();
@@ -580,7 +580,8 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
     }
     
     // "find"
-    function getReferences(idConfig: Config<ts.Identifier>): ConfigSet<ts.Node> {
+    // I don't like the flag here, but it's a simple solution and we're close to being done
+    function getReferences(idConfig: Config<ts.Identifier>, includeAccesses: boolean = false): ConfigSet<ts.Node> {
         const { node: id, env: idEnv } = idConfig;
         const symbol = ts.isShorthandPropertyAssignment(id.parent)
             ? typeChecker.getShorthandAssignmentValueSymbol(id.parent)
@@ -621,7 +622,10 @@ export function makeDcfaComputer(service: ts.LanguageService, targetFunction: Si
                         // some definitions seems to be slipping though. Filter them out here.
                         return false;
                     }
-                    if (ts.isPropertyAccessExpression(refNode.parent) && refNode.parent.name === refNode) {
+                    if (!includeAccesses
+                        && ts.isPropertyAccessExpression(refNode.parent)
+                        && refNode.parent.name === refNode
+                    ) {
                         // we only want identifiers that act as expressions
                         return false;
                     }
