@@ -323,27 +323,24 @@ export function getElementOfTuple(tupleConfig: Config, i: number, fixed_eval: Fi
             }
 
             const objectEntriesConses = fixed_eval(Config({ node: tupleConfig.node.expression, env: tupleConfig.env }));
-            if (objectEntriesConses.size !== 1) {
-                return unimplementedBottom(`Unimplemented for multiple constructors of Object.entries`)
-            }
-
-            const objectEntries = objectEntriesConses.first()!;
-            if (!isBuiltInConfig(objectEntries)
-                || objectEntries.builtInValue !== 'Object.entries()'
-                || !isCallExpression(objectEntries.node)
-            ) {
-                return unimplementedBottom(`Expected an Object.entries call`);
-            }
-
-            const objectReference = Config({ node: objectEntries.node.arguments[0], env: tupleConfig.env });
-            const objectConses = fixed_eval(objectReference);
-            const objectLiteralConses = configSetFilter(objectConses, isObjectLiteralExpressionConfig)
-            return configSetJoinMap<ts.ObjectLiteralExpression>(objectLiteralConses, objectLiteralCons => {
-                if (isConfigExtern(objectLiteralCons)) {
-                    return singleConfig(objectLiteralCons);
+            return configSetJoinMap(objectEntriesConses, objectEntries => {
+                if (!isBuiltInConfig(objectEntries)
+                    || objectEntries.builtInValue !== 'Object.entries()'
+                    || !isCallExpression(objectEntries.node)
+                ) {
+                    return unimplementedBottom(`Expected an Object.entries call`);
                 }
-
-                return getAllValuesOf(objectLiteralCons, fixed_eval, fixed_trace);
+    
+                const objectReference = Config({ node: objectEntries.node.arguments[0], env: tupleConfig.env });
+                const objectConses = fixed_eval(objectReference);
+                const objectLiteralConses = configSetFilter(objectConses, isObjectLiteralExpressionConfig)
+                return configSetJoinMap<ts.ObjectLiteralExpression>(objectLiteralConses, objectLiteralCons => {
+                    if (isConfigExtern(objectLiteralCons)) {
+                        return singleConfig(objectLiteralCons);
+                    }
+    
+                    return getAllValuesOf(objectLiteralCons, fixed_eval, fixed_trace);
+                })
             })
         }
         
