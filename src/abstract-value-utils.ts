@@ -304,7 +304,8 @@ export function getElementOfArrayOfTuples(config: Config, i: number, fixed_eval:
     return configSetJoinMap(arrayConses, arrayConsConfig => {
 
         const arrayElementNodes = getElementNodesOfArrayValuedNode(arrayConsConfig, { fixed_eval, fixed_trace, m });
-        return configSetJoinMap(arrayElementNodes, tupleConfig => getElementOfTuple(tupleConfig, i, fixed_eval, fixed_trace));
+        const arrayElementConses = configSetJoinMap(arrayElementNodes, fixed_eval)
+        return configSetJoinMap(arrayElementConses, tupleConfig => getElementOfTuple(tupleConfig, i, fixed_eval, fixed_trace));
     })
 }
 
@@ -321,7 +322,12 @@ export function getElementOfTuple(tupleConfig: Config, i: number, fixed_eval: Fi
                 return unimplementedBottom(`Expected an element pick ${printNodeAndPos(tupleConfig.node)}`);
             }
 
-            const objectEntries = Config({ node: tupleConfig.node.expression, env: tupleConfig.env });
+            const objectEntriesConses = fixed_eval(Config({ node: tupleConfig.node.expression, env: tupleConfig.env }));
+            if (objectEntriesConses.size !== 1) {
+                return unimplementedBottom(`Unimplemented for multiple constructors of Object.entries`)
+            }
+
+            const objectEntries = objectEntriesConses.first()!;
             if (!isBuiltInConfig(objectEntries)
                 || objectEntries.builtInValue !== 'Object.entries()'
                 || !isCallExpression(objectEntries.node)
