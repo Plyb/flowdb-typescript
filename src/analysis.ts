@@ -3,7 +3,13 @@ import { getNodeAtPosition, getPrismaQuery, isFunctionLikeDeclaration, printNode
 import { makeDcfaComputer } from './dcfa';
 import { setFilter, setMap, setSift } from './setUtil';
 import { getReachableCallConfigs } from './control-flow';
-import { Config, isConfigNoExtern, withUnknownContext } from './configuration';
+import { Config, ConfigSet, isConfigNoExtern, withUnknownContext } from './configuration';
+
+export type AnalysisResults = Immutable.Set<{
+    table: string;
+    method: string;
+    argument: ConfigSet | undefined;
+}>
 
 export function analyze(service: ts.LanguageService, filePath: string, line: number, col: number, m: number) {
     const program = service.getProgram()!;
